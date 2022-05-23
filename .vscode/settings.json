@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "*.tcc": "cpp",
+        "chrono": "cpp",
+        "new": "cpp",
+        "thread": "cpp"
+    },
+    "C_Cpp.dimInactiveRegions": false,
+    "editor.bracketPairColorization.enabled": false
+}
