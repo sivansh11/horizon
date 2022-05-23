@@ -12,7 +12,6 @@ struct PipelineConfigInfo
 {
     VkViewport viewport;
     VkRect2D scissor;
-    VkPipelineViewportStateCreateInfo viewportInfo;
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
     VkPipelineRasterizationStateCreateInfo rasterizationInfo;
     VkPipelineMultisampleStateCreateInfo multisampleInfo;
@@ -34,6 +33,7 @@ public:
     HorizonPipeline& operator=(const HorizonPipeline&) = delete;
 
     static PipelineConfigInfo defaultPipelineConfigInfo(uint width, uint height);
+    void bind(VkCommandBuffer commandBuffer);
 
 private:
     void createGraphicsPipeline(HorizonDevice &device, const std::string &vertFilePath, const std::string &fragFilePath, const PipelineConfigInfo &configInfo);

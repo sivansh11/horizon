@@ -6,23 +6,37 @@
 #include "horizon_window.h"
 #include "horizon_pipeline.h"
 #include "horizon_device.h"
+#include "horizon_swapchain.h"
 
 namespace horizon
 {
 class FirstApp
 {
+public:
     static constexpr uint WIDTH = 800;
     static constexpr uint HEIGHT = 600;
-public:
     FirstApp();
     ~FirstApp();
 
+    FirstApp(const FirstApp&) = delete;
+    FirstApp* operator=(const FirstApp&) = delete;
+
     void run();
-    
+
 private:
-    HorizonWindow horizonWindow{WIDTH, HEIGHT, "first app"};
+    void createPipelineLayout();
+    void createPipeline();
+    void createCommandBuffers();
+    void drawFrame();
+
+private:
+    HorizonWindow horizonWindow{WIDTH, HEIGHT, "First app!"};
     HorizonDevice horizonDevice{horizonWindow};
-    HorizonPipeline horizonPipeline{horizonDevice, "../shaders/simple_shader.vert.spv", "../shaders/simple_shader.frag.spv", HorizonPipeline::defaultPipelineConfigInfo(WIDTH, HEIGHT)};
+    HorizonSwapChain horizonSwapChain{horizonDevice, horizonWindow.getExtent()};
+    std::unique_ptr<HorizonPipeline> horizonPipeline;
+    VkPipelineLayout pipelineLayout;
+    std::vector<VkCommandBuffer> commandBuffers;
+    // HorizonPipeline horizonPipeline{horizonDevice, "../shaders/simple_shader.vert.spv", "../shaders/simple_shader.frag.spv", HorizonPipeline::defaultPipelineConfigInfo(WIDTH, HEIGHT)};
 };
 } // namespace horizon
 

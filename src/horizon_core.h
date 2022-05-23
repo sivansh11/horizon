@@ -12,5 +12,8 @@
 #include <cstring>
 #include <set>
 #include <unordered_set>
+#include <array>
+#include <limits>
+#include <memory>
 
 #endif

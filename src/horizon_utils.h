@@ -13,6 +13,7 @@ enum FileType
 std::string read_file(const char *path, const FileType type=FileType::TEXT);
 void split_string(const std::string& str, const char delimiter, std::vector<std::string> &out);
 void save_string(std::string &str, const char *path);
+std::vector<char> string_to_vector_of_char(std::string &&str);
 } // namespace horizon
 
 #endif

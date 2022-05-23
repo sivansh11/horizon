@@ -38,5 +38,11 @@ void save_string(std::string &str, const char *path)
     out.close();
 }
 
+std::vector<char> string_to_vector_of_char(std::string &&str)
+{
+    std::vector<char> out_vec(str.size());
+    for (int i = 0; i < str.size(); i++) out_vec[i] = str[i];
+    return out_vec;
+}
 
 } // namespace horizon
