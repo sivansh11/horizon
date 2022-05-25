@@ -6,6 +6,7 @@
 #include "horizon_window.h"
 #include "horizon_pipeline.h"
 #include "horizon_device.h"
+#include "horizon_model.h"
 #include "horizon_swapchain.h"
 
 namespace horizon
@@ -28,15 +29,18 @@ private:
     void createPipeline();
     void createCommandBuffers();
     void drawFrame();
+    void loadModels();
+    void recreateSwapChain();
+    void recordCommandBuffer(int imageIndex);
 
 private:
     HorizonWindow horizonWindow{WIDTH, HEIGHT, "First app!"};
     HorizonDevice horizonDevice{horizonWindow};
-    HorizonSwapChain horizonSwapChain{horizonDevice, horizonWindow.getExtent()};
+    std::unique_ptr<HorizonSwapChain> horizonSwapChain;
     std::unique_ptr<HorizonPipeline> horizonPipeline;
     VkPipelineLayout pipelineLayout;
     std::vector<VkCommandBuffer> commandBuffers;
-    // HorizonPipeline horizonPipeline{horizonDevice, "../shaders/simple_shader.vert.spv", "../shaders/simple_shader.frag.spv", HorizonPipeline::defaultPipelineConfigInfo(WIDTH, HEIGHT)};
+    std::unique_ptr<HorizonModel> horizonModel;
 };
 } // namespace horizon
 

@@ -23,13 +23,18 @@ public:
 
     void createWindowSurface(VkInstance instance, VkSurfaceKHR *surface);
 
+    bool wasWindowResized() { return frameBufferResized; }
+    void resetWindowResizedFlag() { frameBufferResized = false; }
+
 private:
     void initWindow();
+    static void frameBufferResizeCallback(GLFWwindow *window, int width, int height);
 
 private:
     std::string windowName;
     GLFWwindow *window;
-    uint width, height;
+    int width, height;
+    bool frameBufferResized = false;
 
 };
    

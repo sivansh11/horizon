@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "${workspaceFolder}/deps/glfw/include"
+                "${workspaceFolder}/deps/glfw/include",
+                "${workspaceFolder}/deps/glm"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

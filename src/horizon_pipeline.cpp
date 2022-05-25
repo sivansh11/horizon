@@ -1,5 +1,6 @@
 #include "horizon_pipeline.h"
 
+#include "horizon_model.h"
 #include "horizon_utils.h"
 
 namespace horizon
@@ -20,8 +21,8 @@ HorizonPipeline::~HorizonPipeline()
 
 void HorizonPipeline::createGraphicsPipeline(HorizonDevice &device, const std::string &vertFilePath, const std::string &fragFilePath, const PipelineConfigInfo &configInfo)
 {
-    assert(configInfo.pipelineLayout != VK_NULL_HANDLE, "cannot create graphics pipeline: no pipelinelayout provided in the configinfo");
-    assert(configInfo.renderPass != VK_NULL_HANDLE, "cannot create graphics pipeline: no renderpass provided in the configinfo");
+    ASSERT(configInfo.pipelineLayout != VK_NULL_HANDLE, "cannot create graphics pipeline: no pipelinelayout provided in the configinfo");
+    ASSERT(configInfo.renderPass != VK_NULL_HANDLE, "cannot create graphics pipeline: no renderpass provided in the configinfo");
     std::vector<char> vertCode = string_to_vector_of_char(read_file(vertFilePath.c_str()));
     std::vector<char> fragCode = string_to_vector_of_char(read_file(fragFilePath.c_str()));
 
@@ -44,12 +45,14 @@ void HorizonPipeline::createGraphicsPipeline(HorizonDevice &device, const std::s
     shaderStages[1].pNext = nullptr;
     shaderStages[1].pSpecializationInfo = nullptr;
 
+    auto bindingDescriptions = HorizonModel::Vertex::getBindingDescriptions();
+    auto attributeDescriptions = HorizonModel::Vertex::getAttributeDescriptions();
     VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    vertexInputInfo.vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size());
+    vertexInputInfo.vertexBindingDescriptionCount = static_cast<uint32_t>(bindingDescriptions.size());
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.data();
+    vertexInputInfo.pVertexBindingDescriptions = bindingDescriptions.data();
 
     VkPipelineViewportStateCreateInfo viewportInfo{};
     viewportInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
@@ -80,7 +83,7 @@ void HorizonPipeline::createGraphicsPipeline(HorizonDevice &device, const std::s
 
     if (vkCreateGraphicsPipelines(horizonDevice.device(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
     {
-        runtime_assert(false, "failed to create graphics pipeline");
+        RUNTIME_ASSERT(false, "failed to create graphics pipeline");
     }
 }
 
@@ -98,7 +101,7 @@ void HorizonPipeline::createShaderModule(const std::vector<char> &code, VkShader
     createInfo.pCode = reinterpret_cast<const uint32_t*>(code.data());
     if (vkCreateShaderModule(horizonDevice.device(), &createInfo, nullptr, shaderModule) != VK_SUCCESS)
     {
-        runtime_assert(false, "failed to create shader module");
+        RUNTIME_ASSERT(false, "failed to create shader module");
     }
 }
 PipelineConfigInfo HorizonPipeline::defaultPipelineConfigInfo(uint width, uint height)

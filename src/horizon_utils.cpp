@@ -14,7 +14,7 @@ std::string read_file(const char *path, const FileType type)
             ifs = std::ifstream(path, std::ios::binary);
             break;
     }
-    runtime_assert(ifs.is_open(), "failed to open file");
+    RUNTIME_ASSERT(ifs.is_open(), "failed to open file");
     return std::string((std::istreambuf_iterator<char>(ifs)), (std::istreambuf_iterator<char>()));
 }
 

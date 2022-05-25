@@ -34,7 +34,7 @@ class HorizonDevice {
 
   // Not copyable or movable
   HorizonDevice(const HorizonDevice &) = delete;
-  void operator=(const HorizonDevice &) = delete;
+  HorizonDevice &operator=(const HorizonDevice &) = delete;
   HorizonDevice(HorizonDevice &&) = delete;
   HorizonDevice &operator=(HorizonDevice &&) = delete;
 

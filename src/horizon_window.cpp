@@ -18,19 +18,30 @@ HorizonWindow::~HorizonWindow()
 
 void HorizonWindow::initWindow()
 {
-    runtime_assert(glfwInit() == GLFW_TRUE, "GLFW failed to initialize!");
+    RUNTIME_ASSERT(glfwInit() == GLFW_TRUE, "GLFW failed to initialize!");
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+    glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     window = glfwCreateWindow(width, height, windowName.c_str(), NULL, NULL);
+    RUNTIME_ASSERT(window != nullptr, "window creation failed!");
+    glfwSetWindowUserPointer(window, this);
+    glfwSetFramebufferSizeCallback(window, frameBufferResizeCallback);
 }
 
 void HorizonWindow::createWindowSurface(VkInstance instance, VkSurfaceKHR *surface)
 {
     if (glfwCreateWindowSurface(instance, window, nullptr, surface) != VK_SUCCESS)
     {
-        runtime_assert(false, "failed to create window surface!");
+        RUNTIME_ASSERT(false, "failed to create window surface!");
     }
 }
+void HorizonWindow::frameBufferResizeCallback(GLFWwindow *window, int width, int height)
+{
+    horizon::HorizonWindow *horizonWindow = reinterpret_cast<HorizonWindow *>(glfwGetWindowUserPointer(window));
+    horizonWindow->frameBufferResized = true;
+    horizonWindow->width = width;
+    horizonWindow->height = height;
+}
+
 
 } // namespace horizon
