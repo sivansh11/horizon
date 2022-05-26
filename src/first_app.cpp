@@ -33,7 +33,11 @@ void FirstApp::createPipelineLayout()
 
 void FirstApp::createPipeline()
 {
-    auto pipelineConfig = HorizonPipeline::defaultPipelineConfigInfo(horizonSwapChain->width(), horizonSwapChain->height());
+    ASSERT(horizonSwapChain != nullptr, "cannot create pipeline before swapchain");
+    ASSERT(pipelineLayout != nullptr, "cannot create pipeline before pipeline layout");
+    PipelineConfigInfo pipelineConfig{};
+    HorizonPipeline::defaultPipelineConfigInfo(pipelineConfig);
+
     pipelineConfig.renderPass = horizonSwapChain->getRenderPass();
     pipelineConfig.pipelineLayout = pipelineLayout;
     horizonPipeline = std::make_unique<HorizonPipeline>(horizonDevice, "../shaders/simple_shader.vert.spv", "../shaders/simple_shader.frag.spv", pipelineConfig);
@@ -48,7 +52,19 @@ void FirstApp::recreateSwapChain()
         glfwWaitEvents();
     }
     vkDeviceWaitIdle(horizonDevice.device());
-    horizonSwapChain = std::make_unique<HorizonSwapChain>(horizonDevice, extent);
+    if (horizonSwapChain == nullptr)
+    {
+        horizonSwapChain = std::make_unique<HorizonSwapChain>(horizonDevice, extent);
+    }
+    else
+    {
+        horizonSwapChain = std::make_unique<HorizonSwapChain>(horizonDevice, extent, std::move(horizonSwapChain));
+        if (horizonSwapChain->imageCount() != commandBuffers.size())
+        {
+            freeCommandBuffers();
+            createCommandBuffers();
+        }
+    }
     createPipeline();    
 }
 
@@ -88,6 +104,12 @@ void FirstApp::createCommandBuffers()
         RUNTIME_ASSERT(false, "failed to allocate commandbuffers");
     }
 }
+void FirstApp::freeCommandBuffers()
+{
+    vkFreeCommandBuffers(horizonDevice.device(), horizonDevice.getCommandPool(), static_cast<uint32_t>(commandBuffers.size()), commandBuffers.data());
+    commandBuffers.clear();
+}
+
 
 void FirstApp::recordCommandBuffer(int imageIndex)
 {
@@ -114,6 +136,17 @@ void FirstApp::recordCommandBuffer(int imageIndex)
     renderPassInfo.pClearValues = clearValues.data();
 
     vkCmdBeginRenderPass(commandBuffers[imageIndex], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = static_cast<float>(horizonSwapChain->getSwapChainExtent().width);
+    viewport.height = static_cast<float>(horizonSwapChain->getSwapChainExtent().height);
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    VkRect2D scissor{{0, 0}, horizonSwapChain->getSwapChainExtent()};
+    vkCmdSetViewport(commandBuffers[imageIndex], 0, 1, &viewport);
+    vkCmdSetScissor(commandBuffers[imageIndex], 0, 1, &scissor);
 
     horizonPipeline->bind(commandBuffers[imageIndex]);
     horizonModel->bind(commandBuffers[imageIndex]);

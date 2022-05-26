@@ -21,6 +21,7 @@
                 << " line " << __LINE__ << ": " << message << std::endl; \
     }
 
+// in release mode, it only displays the message, in debug, it shows the line and filename 
 #define RUNTIME_ASSERT(condition, message) \
     do { \
         if (! (condition)) { \

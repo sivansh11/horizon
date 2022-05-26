@@ -4,6 +4,18 @@ namespace horizon {
 
 HorizonSwapChain::HorizonSwapChain(HorizonDevice &deviceRef, VkExtent2D extent)
     : device{deviceRef}, windowExtent{extent} {
+  init();
+}
+
+HorizonSwapChain::HorizonSwapChain(HorizonDevice &deviceRef, VkExtent2D extent, std::shared_ptr<HorizonSwapChain> previous)
+    : device{deviceRef}, windowExtent{extent}, oldSwapchain{previous} {
+  init();
+
+  oldSwapchain = nullptr;
+}
+
+
+void HorizonSwapChain::init() {
   createSwapChain();
   createImageViews();
   createRenderPass();
@@ -153,7 +165,7 @@ void HorizonSwapChain::createSwapChain() {
   createInfo.presentMode = presentMode;
   createInfo.clipped = VK_TRUE;
 
-  createInfo.oldSwapchain = VK_NULL_HANDLE;
+  createInfo.oldSwapchain = oldSwapchain == nullptr ? VK_NULL_HANDLE : oldSwapchain->swapChain;
 
   if (vkCreateSwapchainKHR(device.device(), &createInfo, nullptr, &swapChain) != VK_SUCCESS) {
     throw std::runtime_error("failed to create swap chain!");

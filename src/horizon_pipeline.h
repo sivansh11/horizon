@@ -10,14 +10,18 @@ namespace horizon
 
 struct PipelineConfigInfo
 {
-    VkViewport viewport;
-    VkRect2D scissor;
+    PipelineConfigInfo(const PipelineConfigInfo&) = delete;
+    PipelineConfigInfo& operator=(const PipelineConfigInfo&) = delete;
+
+    VkPipelineViewportStateCreateInfo viewportInfo;
     VkPipelineInputAssemblyStateCreateInfo inputAssemblyInfo;
     VkPipelineRasterizationStateCreateInfo rasterizationInfo;
     VkPipelineMultisampleStateCreateInfo multisampleInfo;
     VkPipelineColorBlendAttachmentState colorBlendAttachment;
     VkPipelineColorBlendStateCreateInfo colorBlendInfo;
     VkPipelineDepthStencilStateCreateInfo depthStencilInfo;
+    std::vector<VkDynamicState> dynamicStateEnables;
+    VkPipelineDynamicStateCreateInfo dynamicStateInfo;
     VkPipelineLayout pipelineLayout = nullptr;
     VkRenderPass renderPass = nullptr;
     uint32_t subpass = 0;
@@ -32,7 +36,7 @@ public:
     HorizonPipeline(const HorizonPipeline&) = delete;
     HorizonPipeline& operator=(const HorizonPipeline&) = delete;
 
-    static PipelineConfigInfo defaultPipelineConfigInfo(uint width, uint height);
+    static void defaultPipelineConfigInfo(PipelineConfigInfo &configInfo);
     void bind(VkCommandBuffer commandBuffer);
 
 private:
