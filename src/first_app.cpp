@@ -4,6 +4,13 @@
 namespace horizon
 {
 
+
+struct SimplePushConstantData
+{
+    glm::vec2 offset;
+    alignas(16) glm::vec3 color;
+};
+
 FirstApp::FirstApp()
 {
     loadModels();
@@ -18,12 +25,17 @@ FirstApp::~FirstApp()
 
 void FirstApp::createPipelineLayout()
 {
+    VkPushConstantRange pushConstantRange{};
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+    pushConstantRange.offset = 0;
+    pushConstantRange.size = sizeof(SimplePushConstantData);
+
     VkPipelineLayoutCreateInfo pipelineLayoutInfo{};
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 0;
     pipelineLayoutInfo.pSetLayouts = nullptr;
-    pipelineLayoutInfo.pushConstantRangeCount = 0;
-    pipelineLayoutInfo.pPushConstantRanges = nullptr;
+    pipelineLayoutInfo.pushConstantRangeCount = 1;
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstantRange;
 
     if (vkCreatePipelineLayout(horizonDevice.device(), &pipelineLayoutInfo, nullptr, &pipelineLayout) != VK_SUCCESS)
     {
@@ -151,7 +163,16 @@ void FirstApp::recordCommandBuffer(int imageIndex)
     horizonPipeline->bind(commandBuffers[imageIndex]);
     horizonModel->bind(commandBuffers[imageIndex]);
 
-    horizonModel->draw(commandBuffers[imageIndex]);
+    for (int j = 0; j < 4; j++)
+    {
+        SimplePushConstantData push{};
+        push.offset = {0.0f, -0.4f + j * 0.25f};
+        push.color = {0.0f, 0.0f, 0.2f + 0.2f * j};
+
+        vkCmdPushConstants(commandBuffers[imageIndex], pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
+        horizonModel->draw(commandBuffers[imageIndex]);
+    
+    }
 
     vkCmdEndRenderPass(commandBuffers[imageIndex]);
 
