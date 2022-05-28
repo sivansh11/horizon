@@ -8,6 +8,7 @@
 #include "horizon_device.h"
 #include "horizon_model.h"
 #include "horizon_swapchain.h"
+#include "horizon_game_object.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -29,12 +30,13 @@ public:
     void run();
 
 private:
+    void loadGameObjects();
+    void renderGameObjects(VkCommandBuffer commandBuffer);
     void createPipelineLayout();
     void createPipeline();
     void createCommandBuffers();
     void freeCommandBuffers();
     void drawFrame();
-    void loadModels();
     void recreateSwapChain();
     void recordCommandBuffer(int imageIndex);
 
@@ -45,7 +47,8 @@ private:
     std::unique_ptr<HorizonPipeline> horizonPipeline;
     VkPipelineLayout pipelineLayout;
     std::vector<VkCommandBuffer> commandBuffers;
-    std::unique_ptr<HorizonModel> horizonModel;
+    // std::unique_ptr<HorizonModel> horizonModel;
+    std::vector<HorizonGameObject> gameObjects;
 };
 } // namespace horizon
 
