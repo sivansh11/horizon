@@ -15,5 +15,7 @@
 #include <array>
 #include <limits>
 #include <memory>
+#include <bitset>
+#include <queue>
 
 #endif
