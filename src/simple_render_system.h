@@ -1,5 +1,5 @@
-#ifndef FIRST_APP_H
-#define FIRST_APP_H
+#ifndef SIMPLE_RENDER_SYSTEM_H
+#define SIMPLE_RENDER_SYSTEM_H
 
 #include "horizon_core.h"
 

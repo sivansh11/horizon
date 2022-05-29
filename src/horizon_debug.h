@@ -27,6 +27,7 @@
         if (! (condition)) { \
             std::cerr << "Runtime assertion `" #condition "` failed in " << __FILE__ \
                       << " line " << __LINE__ << ": " << message << std::endl; \
+            std::terminate(); \
         } \
     } while (false)
 
