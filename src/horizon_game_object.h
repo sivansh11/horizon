@@ -28,6 +28,8 @@ struct Transform2DComponent
     }
 };
 
+
+
 class HorizonGameObject
 {
 public:
