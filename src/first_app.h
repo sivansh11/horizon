@@ -4,7 +4,6 @@
 #include "horizon_core.h"
 
 #include "horizon_window.h"
-#include "horizon_pipeline.h"
 #include "horizon_device.h"
 #include "horizon_model.h"
 #include "horizon_game_object.h"
@@ -31,15 +30,11 @@ public:
 
 private:
     void loadGameObjects();
-    void renderGameObjects(VkCommandBuffer commandBuffer);
-    void createPipelineLayout();
-    void createPipeline();
 
 private:
     HorizonWindow horizonWindow{WIDTH, HEIGHT, "First app!"};
     HorizonDevice horizonDevice{horizonWindow};
     HorizonRenderer horizonRenderer{horizonWindow, horizonDevice};
-    std::unique_ptr<HorizonPipeline> horizonPipeline;
     VkPipelineLayout pipelineLayout;
     std::vector<HorizonGameObject> gameObjects;
 };

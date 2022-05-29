@@ -29,7 +29,13 @@ public:
     VkCommandBuffer getCurrentCommandBuffer() const 
     {
         ASSERT(isFrameInProgress() == true, "cannot get command buffer while frame not in progress");
-        return commandBuffers[currentImageIndex];
+        return commandBuffers[currentFrameIndex];
+    }
+
+    int getFrameIndex() const 
+    {
+        ASSERT(isFrameInProgress() == true, "cannot get frame index while frame not in progress");
+        return currentFrameIndex;
     }
 
     VkCommandBuffer beginFrame();
@@ -48,7 +54,8 @@ private:
     HorizonDevice& horizonDevice;
     std::unique_ptr<HorizonSwapChain> horizonSwapChain;
     std::vector<VkCommandBuffer> commandBuffers;
-    uint32_t currentImageIndex = 0;
+    uint32_t currentImageIndex;
+    int currentFrameIndex = 0;
     bool isFrameStarted = false;
 };
 } // namespace horizon

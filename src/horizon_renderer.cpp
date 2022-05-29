@@ -31,17 +31,17 @@ void HorizonRenderer::recreateSwapChain()
     {
         std::shared_ptr<HorizonSwapChain> oldSwapChain = std::move(horizonSwapChain);
         horizonSwapChain = std::make_unique<HorizonSwapChain>(horizonDevice, extent, oldSwapChain);
-        if (horizonSwapChain->imageCount() != commandBuffers.size())
+
+        if (!oldSwapChain->compareSwapFormats(*horizonSwapChain.get()))
         {
-            freeCommandBuffers();
-            createCommandBuffers();
+            RUNTIME_WEAK_ASSERT(false, "swap chain image format has changed!");
         }
     }
 }
 
 void HorizonRenderer::createCommandBuffers() 
 {
-    commandBuffers.resize(horizonSwapChain->imageCount());
+    commandBuffers.resize(HorizonSwapChain::MAX_FRAMES_IN_FLIGHT);
 
     VkCommandBufferAllocateInfo allocInfo{};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -105,12 +105,12 @@ void HorizonRenderer::endFrame()
         horizonWindow.resetWindowResizedFlag();
         recreateSwapChain();
     }
-
-    if (result != VK_SUCCESS)
+    else if (result != VK_SUCCESS)
     {
         RUNTIME_ASSERT(false, "failed to present swap chain image");
     }
     isFrameStarted = false;
+    currentFrameIndex = (currentFrameIndex + 1) % HorizonSwapChain::MAX_FRAMES_IN_FLIGHT;
 }
 
 void HorizonRenderer::beginSwapchainRenderPass(VkCommandBuffer commandBuffer)

@@ -3,12 +3,10 @@
 
 #include "horizon_core.h"
 
-#include "horizon_window.h"
 #include "horizon_pipeline.h"
 #include "horizon_device.h"
 #include "horizon_model.h"
 #include "horizon_game_object.h"
-#include "horizon_renderer.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -16,32 +14,25 @@
 
 namespace horizon
 {
-class FirstApp
+class SimpleRenderSystem
 {
 public:
-    static constexpr uint WIDTH = 800;
-    static constexpr uint HEIGHT = 600;
-    FirstApp();
-    ~FirstApp();
+    SimpleRenderSystem(HorizonDevice &device, VkRenderPass renderPass);
+    ~SimpleRenderSystem();
 
-    FirstApp(const FirstApp&) = delete;
-    FirstApp* operator=(const FirstApp&) = delete;
+    SimpleRenderSystem(const SimpleRenderSystem&) = delete;
+    SimpleRenderSystem* operator=(const SimpleRenderSystem&) = delete;
 
-    void run();
+    void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<HorizonGameObject> &gameObjects);
 
 private:
-    void loadGameObjects();
-    void renderGameObjects(VkCommandBuffer commandBuffer);
     void createPipelineLayout();
-    void createPipeline();
+    void createPipeline(VkRenderPass renderPass);
 
 private:
-    HorizonWindow horizonWindow{WIDTH, HEIGHT, "First app!"};
-    HorizonDevice horizonDevice{horizonWindow};
-    HorizonRenderer horizonRenderer{horizonWindow, horizonDevice};
+    HorizonDevice &horizonDevice;
     std::unique_ptr<HorizonPipeline> horizonPipeline;
     VkPipelineLayout pipelineLayout;
-    std::vector<HorizonGameObject> gameObjects;
 };
 } // namespace horizon
 
