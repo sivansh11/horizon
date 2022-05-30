@@ -14,7 +14,7 @@ struct TransformComponent
 {
     glm::vec3 translation{};
     glm::vec3 scale{1.f, 1.f, 1.f};
-    glm::vec3 rotation;
+    glm::vec3 rotation{0.f, 0.f, 0.f};
 
       // Matrix corrsponds to Translate * Ry * Rx * Rz * Scale
   // Rotations correspond to Tait-bryan angles of Y(1), X(2), Z(3)
@@ -26,6 +26,7 @@ struct TransformComponent
     const float s2 = glm::sin(rotation.x);
     const float c1 = glm::cos(rotation.y);
     const float s1 = glm::sin(rotation.y);
+    
     return glm::mat4{
         {
             scale.x * (c1 * c3 + s1 * s2 * s3),
