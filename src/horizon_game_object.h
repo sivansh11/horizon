@@ -10,21 +10,23 @@
 namespace horizon
 {
 
-struct Transform2DComponent
+struct TransformComponent
 {
-    glm::vec2 translation{};
-    glm::vec2 scale{1.f, 1.f};
-    float rotation;
+    glm::vec3 translation{};
+    glm::vec3 scale{1.f, 1.f, 1.f};
+    glm::vec3 rotation;
 
-    glm::mat2 mat2() 
-    { 
-        const float s = glm::sin(rotation);
-        const float c = glm::cos(rotation);
+    glm::mat4 mat4()
+    {
+        auto transform = glm::translate(glm::mat4{1.f}, translation);
+    
+        transform = glm::rotate(transform, rotation.y, {0.f, 1.f, 0.f});
+        transform = glm::rotate(transform, rotation.x, {1.f, 0.f, 0.f});
+        transform = glm::rotate(transform, rotation.z, {0.f, 0.f, 1.f});
 
-        glm::mat2 rotMat{{c, s}, {-s, c}};
+        transform = glm::scale(transform, scale);
 
-        glm::mat2 scaleMat{{scale.x, 0.f}, {0.f, scale.y}};
-        return rotMat * scaleMat;
+        return transform;
     }
 };
 
@@ -50,7 +52,7 @@ public:
 
     std::shared_ptr<HorizonModel> model{};
     glm::vec3 color;   
-    Transform2DComponent transform2d; 
+    TransformComponent transform; 
 
 private:
     HorizonGameObject(id_t objID) : id(objID) {}
