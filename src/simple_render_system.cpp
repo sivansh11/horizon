@@ -55,8 +55,10 @@ void SimpleRenderSystem::createPipeline(VkRenderPass renderPass)
 }
 
 
-void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<HorizonGameObject> &gameObjects)
+void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::vector<HorizonGameObject> &gameObjects, const HorizonCamera &camera)
 {
+    auto projectionView = camera.getProjection() * camera.getView();
+
     horizonPipeline->bind(commandBuffer);
     for (auto& obj: gameObjects)
     {
@@ -65,7 +67,7 @@ void SimpleRenderSystem::renderGameObjects(VkCommandBuffer commandBuffer, std::v
 
         SimplePushConstantData push{};
         push.color = obj.color;
-        push.transform = obj.transform.mat4();
+        push.transform = projectionView * obj.transform.mat4();
 
         vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SimplePushConstantData), &push);
         obj.model->bind(commandBuffer);

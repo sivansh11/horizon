@@ -25,6 +25,8 @@ public:
 
     VkRenderPass getSwapChainRenderPass() const { return horizonSwapChain->getRenderPass(); }
 
+    float getAspectRatio() const { return horizonSwapChain->extentAspectRatio(); }
+
     bool isFrameInProgress() const { return isFrameStarted; }
     VkCommandBuffer getCurrentCommandBuffer() const 
     {

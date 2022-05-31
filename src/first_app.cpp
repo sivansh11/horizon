@@ -2,6 +2,8 @@
 
 #include "simple_render_system.h"
 
+#include "horizon_camera.h"
+
 #include "glm/gtc/constants.hpp"
 
 namespace horizon
@@ -81,7 +83,7 @@ void FirstApp::loadGameObjects()
 
     auto cube = HorizonGameObject::createGameObject();
     cube.model = horizonModel;
-    cube.transform.translation = {0.f, 0.f, .5f};
+    cube.transform.translation = {0.f, 0.f, 2.5f};
     cube.transform.scale = {.5, .5, .5};
     gameObjects.push_back(std::move(cube));
     
@@ -90,15 +92,20 @@ void FirstApp::loadGameObjects()
 void FirstApp::run()
 {
     SimpleRenderSystem simpleRenderSystem{horizonDevice, horizonRenderer.getSwapChainRenderPass()};
+    HorizonCamera camera{};
+    // camera.setViewDirection(glm::vec3{0.f}, glm::vec3{.5, 0, 1});
+    camera.setViewTarget(glm::vec3{-1, -2, 2}, glm::vec3{0, 0, 2.5});
 
     while (!horizonWindow.shouldClose())
     {
         glfwPollEvents();
-
+        float aspect = horizonRenderer.getAspectRatio();
+        // camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
+        camera.setPerspectiveProjection(glm::radians(60.0f), aspect, .1, 100);
         if (auto commandBuffer = horizonRenderer.beginFrame())
         {
             horizonRenderer.beginSwapchainRenderPass(commandBuffer);
-            simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects);
+            simpleRenderSystem.renderGameObjects(commandBuffer, gameObjects, camera);
             horizonRenderer.endSwapchainRenderPass(commandBuffer);
             horizonRenderer.endFrame();
         }

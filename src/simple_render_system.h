@@ -7,6 +7,7 @@
 #include "horizon_device.h"
 #include "horizon_model.h"
 #include "horizon_game_object.h"
+#include "horizon_camera.h"
 
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -23,7 +24,7 @@ public:
     SimpleRenderSystem(const SimpleRenderSystem&) = delete;
     SimpleRenderSystem* operator=(const SimpleRenderSystem&) = delete;
 
-    void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<HorizonGameObject> &gameObjects);
+    void renderGameObjects(VkCommandBuffer commandBuffer, std::vector<HorizonGameObject> &gameObjects, const HorizonCamera &camera);
 
 private:
     void createPipelineLayout();
