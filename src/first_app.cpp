@@ -95,10 +95,13 @@ void FirstApp::run()
     HorizonCamera camera{};
     // camera.setViewDirection(glm::vec3{0.f}, glm::vec3{.5, 0, 1});
     camera.setViewTarget(glm::vec3{-1, -2, 2}, glm::vec3{0, 0, 2.5});
+    HorizonClock clock;
 
     while (!horizonWindow.shouldClose())
     {
         glfwPollEvents();
+        std::cout << 1.0f / clock.frameTime<float>() << '\n';
+
         float aspect = horizonRenderer.getAspectRatio();
         // camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
         camera.setPerspectiveProjection(glm::radians(60.0f), aspect, .1, 100);

@@ -2,6 +2,7 @@
 #define HORIZON_CORE
 
 #include "horizon_debug.h"
+#include "horizon_clock.h"
 
 #include <iostream>
 #include <string>
@@ -17,5 +18,8 @@
 #include <memory>
 #include <bitset>
 #include <queue>
+#include <thread>
+#include <chrono>
+
 
 #endif
