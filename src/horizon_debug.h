@@ -54,7 +54,7 @@
 #define RUNTIME_WEAK_ASSERT(condition, message) \
     do { \
         if (! (condition)) { \
-            std::cerr << "Runtime weak assertion '" #condition "' failed in " << __FILE__\
+            std::cerr << "Runtime weak assertion '" #condition "' failed in " << __FILE__; \
         } \
     } while (false)
 
