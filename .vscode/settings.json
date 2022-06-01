@@ -53,8 +53,7 @@
         "typeinfo": "cpp",
         "set": "cpp",
         "unordered_set": "cpp",
-        "bitset": "cpp",
-        "map": "cpp"
+        "bitset": "cpp"
     },
     "C_Cpp.dimInactiveRegions": false,
     "editor.bracketPairColorization.enabled": false
