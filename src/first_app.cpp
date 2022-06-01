@@ -1,6 +1,7 @@
 #include "first_app.h"
 
-#include "simple_render_system.h"
+#include "systems/simple_render_system.h"
+#include "systems/keyboard_movement_controller.h"
 
 #include "horizon_camera.h"
 
@@ -93,17 +94,21 @@ void FirstApp::run()
 {
     SimpleRenderSystem simpleRenderSystem{horizonDevice, horizonRenderer.getSwapChainRenderPass()};
     HorizonCamera camera{};
-    // camera.setViewDirection(glm::vec3{0.f}, glm::vec3{.5, 0, 1});
     camera.setViewTarget(glm::vec3{-1, -2, 2}, glm::vec3{0, 0, 2.5});
     HorizonClock clock;
+
+    auto viewerObject = HorizonGameObject::createGameObject();
+    KeyboardMovementController cameraController{};
 
     while (!horizonWindow.shouldClose())
     {
         glfwPollEvents();
-        std::cout << 1.0f / clock.frameTime<float>() << '\n';
+        float frameTime = clock.frameTime<float>();
+
+        cameraController.moveInPlaneXZ(horizonWindow.getGLFWwindow(), frameTime, viewerObject);
+        camera.setViewYXZ(viewerObject.transform.translation, viewerObject.transform.rotation);
 
         float aspect = horizonRenderer.getAspectRatio();
-        // camera.setOrthographicProjection(-aspect, aspect, -1, 1, -1, 1);
         camera.setPerspectiveProjection(glm::radians(60.0f), aspect, .1, 100);
         if (auto commandBuffer = horizonRenderer.beginFrame())
         {

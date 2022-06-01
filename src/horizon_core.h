@@ -1,9 +1,6 @@
 #ifndef HORIZON_CORE
 #define HORIZON_CORE
 
-#include "horizon_debug.h"
-#include "horizon_clock.h"
-
 #include <iostream>
 #include <string>
 #include <vector>
@@ -21,5 +18,7 @@
 #include <thread>
 #include <chrono>
 
+#include "horizon_debug.h"
+#include "horizon_clock.h"
 
 #endif
