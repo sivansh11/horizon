@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.10)
 project(horizon)
 
 add_subdirectory(deps/glfw)
+add_subdirectory(deps/tinyobjloader)
 add_subdirectory(deps/glm)
 
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
@@ -16,6 +17,7 @@ target_include_directories(horizon
 target_link_libraries(horizon
     glfw
     glm
+    tinyobjloader
     vulkan
     dl
     pthread
