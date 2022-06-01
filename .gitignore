@@ -19,7 +19,7 @@ _deps
 *.slo
 *.lo
 *.o
-*.obj
+# *.obj
 
 # Precompiled Headers
 *.gch
@@ -45,4 +45,4 @@ _deps
 *.out
 *.app
 
-shaders/*.spv
+assets/shaders/*.spv

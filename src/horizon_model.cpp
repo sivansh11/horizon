@@ -1,6 +1,6 @@
 #include "horizon_model.h"
 
-#include "tinyobjloader.h"
+#include <tinyobjloader.h>
 
 namespace horizon
 {

@@ -51,7 +51,7 @@ void SimpleRenderSystem::createPipeline(VkRenderPass renderPass)
 
     pipelineConfig.renderPass = renderPass;
     pipelineConfig.pipelineLayout = pipelineLayout;
-    horizonPipeline = std::make_unique<HorizonPipeline>(horizonDevice, "../shaders/simple_shader.vert.spv", "../shaders/simple_shader.frag.spv", pipelineConfig);
+    horizonPipeline = std::make_unique<HorizonPipeline>(horizonDevice, "../assets/shaders/simple_shader.vert.spv", "../assets/shaders/simple_shader.frag.spv", pipelineConfig);
 }
 
 
