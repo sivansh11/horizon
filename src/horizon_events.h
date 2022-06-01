@@ -5,6 +5,9 @@
 
 namespace horizon
 {
+namespace event
+{
+
 using EventType = std::string;
 
 class Event  // base event class that all events will inherit from
@@ -54,7 +57,6 @@ public:
     template<typename T, typename... Args>
     void post(Args&&... args)
     {
-        // eventQueue.push_back(new T(std::forward<Args>(args)...));
         T e(std::forward<Args>(args)...);
         EventType &type = e.type;
         auto subscriberList = eventSubscribers.find(type);
@@ -73,6 +75,8 @@ private:
     std::queue<SubscriberID> availableIDs;
     SubscriberID idhandedOut = 0;
 };
+
+} // namespace event
 
 } // namespace horizon
 
