@@ -17,6 +17,8 @@
 #include <queue>
 #include <thread>
 #include <chrono>
+#include <functional>
+#include <unordered_map>
 
 #include "horizon_debug.h"
 #include "horizon_clock.h"
