@@ -5,7 +5,7 @@
 
 #include "horizon_model.h"
 
-#include "ecs.h"
+#include "horizon_ecs.h"
 
 namespace horizon
 {
