@@ -6,6 +6,8 @@ add_subdirectory(deps/glfw)
 add_subdirectory(deps/tinyobjloader)
 add_subdirectory(deps/glm)
 
+set(CMAKE_CXX_STANDARD 17)
+
 file(GLOB_RECURSE SRC_FILES src/*.cpp)
 
 add_executable(horizon ${SRC_FILES})

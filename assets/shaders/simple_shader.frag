@@ -7,8 +7,9 @@ layout (location = 0) out vec4 outColor;
 layout (push_constant) uniform Push
 {
     mat4 transform;
-    mat4 normalMatrix;
+    mat4 modelMatrix;
 } push;
+
 
 void main()
 {
