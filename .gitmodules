@@ -1,0 +1,30 @@
+[submodule "deps/glm"]
+	path = deps/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "deps/glfw"]
+	path = deps/glfw
+	url = https://github.com/glfw/glfw.git
+[submodule "deps/volk"]
+	path = deps/volk
+	url = https://github.com/zeux/volk.git
+[submodule "deps/spdlog"]
+	path = deps/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "deps/vk-bootstrap"]
+	path = deps/vk-bootstrap
+	url = https://github.com/charles-lunarg/vk-bootstrap.git
+[submodule "deps/VulkanMemoryAllocator"]
+	path = deps/VulkanMemoryAllocator
+	url = https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+[submodule "deps/shaderc"]
+	path = deps/shaderc
+	url = https://github.com/google/shaderc.git
+[submodule "deps/SPIRV-Tools"]
+	path = deps/SPIRV-Tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git
+[submodule "deps/SPIRV-Headers"]
+	path = deps/SPIRV-Headers
+	url = https://github.com/KhronosGroup/SPIRV-Headers.git
+[submodule "deps/glslang"]
+	path = deps/glslang
+	url = https://github.com/KhronosGroup/glslang.git
