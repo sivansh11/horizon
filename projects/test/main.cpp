@@ -27,6 +27,41 @@ void main() {
 }
 )";
 
+static const char *test_vertex = R"(
+#version 450
+
+layout(location = 0) out vec3 fragColor;
+
+vec2 positions[3] = vec2[](
+    vec2(0.0, -0.5),
+    vec2(0.5, 0.5),
+    vec2(-0.5, 0.5)
+);
+
+vec3 colors[3] = vec3[](
+    vec3(1.0, 0.0, 0.0),
+    vec3(0.0, 1.0, 0.0),
+    vec3(0.0, 0.0, 1.0)
+);
+
+void main() {
+    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+    fragColor = colors[gl_VertexIndex];
+}
+)";
+
+static const char *test_fragment = R"(
+#version 450
+
+layout(location = 0) in vec3 fragColor;
+
+layout(location = 0) out vec4 outColor;
+
+void main() {
+    outColor = vec4(1, 1, 1, 1.0);
+}
+)";
+
 int main() {
     gfx::context_t context{ true };
 
@@ -60,6 +95,28 @@ int main() {
     *i = 0;
     context.exec_command_list_immediate(command_list);
     horizon_info("{}", *i);
+
+    for (auto& [name, time] : core::get_frame_function_times()) {
+        horizon_info("{}: {}", name, time);
+    }
+
+    gfx::image_config_t image_config{};
+    image_config.width = 64;
+    image_config.height = 64;
+    image_config.depth = 1;
+    image_config.type = VK_IMAGE_TYPE_2D;
+    image_config.format = VK_FORMAT_R8G8B8A8_UNORM;
+    image_config.usage = VK_IMAGE_USAGE_SAMPLED_BIT;
+    image_config.vma_allocation_create_flags = {};
+    auto image = context.create_image(image_config);
+
+    context.destroy_image(image);
+
+    gfx::pipeline_config_t gpc{};
+    gpc.add_shader(context.create_shader_module(test_vertex, gfx::shader_type_t::e_vertex, "test"));
+    gpc.add_shader(context.create_shader_module(test_fragment, gfx::shader_type_t::e_fragment, "test"));
+    gpc.add_color_attachment(VK_FORMAT_R8G8B8A8_UNORM, gfx::default_color_blend_attachment());
+    auto gp = context.create_graphics_pipeline(gpc);
 
     return 0;
 }

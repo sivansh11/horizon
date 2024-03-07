@@ -12,6 +12,7 @@
 
 #include <cstdint>
 #include <map>
+#include <limits>
 
 #define vk_check(result, msg) \
 do {                              \
@@ -95,14 +96,46 @@ struct swapchain_t {
 
 // TODO: add builder style add{thing}
 struct pipeline_config_t {
+    pipeline_config_t();
+
     pipeline_config_t& add_shader(shader_module_handle_t handle);
     pipeline_config_t& add_descriptor_set_layout(descriptor_set_layout_handle_t handle);
     pipeline_config_t& add_push_constant(uint32_t size, uint32_t offset, VkShaderStageFlags shader_stage);
 
+    pipeline_config_t& add_color_attachment(VkFormat format, const VkPipelineColorBlendAttachmentState& pipeline_color_blend_state);
+    pipeline_config_t& set_depth(VkFormat format, const VkPipelineDepthStencilStateCreateInfo& pipeline_depth_state);
+
+    pipeline_config_t& add_dynamic_state(const VkDynamicState& dynamic_state);
+
+    pipeline_config_t& add_vertex_input_binding_description(uint32_t binding, uint32_t stride, VkVertexInputRate input_rate);
+    pipeline_config_t& add_vertex_input_attribute_description(uint32_t binding, uint32_t location, VkFormat format, uint32_t offset);   
+
+    pipeline_config_t& set_pipeline_input_assembly_state(const VkPipelineInputAssemblyStateCreateInfo& pipeline_input_assembly_state);
+    pipeline_config_t& set_pipeline_rasterization_state(const VkPipelineRasterizationStateCreateInfo& pipeline_rasterization_state);
+    pipeline_config_t& set_pipeline_multisample_state(const VkPipelineMultisampleStateCreateInfo& pipeline_multisample_state);
+
     std::vector<shader_module_handle_t> shaders;
     std::vector<descriptor_set_layout_handle_t> descriptor_set_layouts;
     std::vector<VkPushConstantRange> push_constant_ranges;
+
+    std::vector<VkFormat> color_formats;
+    VkFormat depth_format;
+    std::vector<VkPipelineColorBlendAttachmentState> pipeline_color_blend_attachment_states;
+    VkPipelineDepthStencilStateCreateInfo pipeline_depth_stencil_state_create_info;
+    
+    std::vector<VkDynamicState> dynamic_states = { VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT };
+
+    std::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions;
+    std::vector<VkVertexInputBindingDescription> vertex_input_binding_descriptions;
+
+    VkPipelineInputAssemblyStateCreateInfo pipeline_input_assembly_state{ .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, .primitiveRestartEnable = VK_FALSE };
+
+    VkPipelineRasterizationStateCreateInfo pipeline_rasterization_state;
+
+    VkPipelineMultisampleStateCreateInfo pipeline_multisample_state;
 };
+
+VkPipelineColorBlendAttachmentState default_color_blend_attachment();
 
 struct pipeline_t {
     VkPipeline pipeline;
@@ -131,11 +164,20 @@ struct buffer_t {
     }
 };
 
+static const uint32_t auto_calculate_mip_levels = std::numeric_limits<uint32_t>::max();
+
 struct image_config_t {
-    // size_t size;
-    // VkBufferUsageFlags usage_flags;
-    // VmaAllocationCreateFlags vma_allocation_create_flags;
-    // VmaMemoryUsage vma_memory_usage = VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO;
+    uint32_t width, height, depth;
+    VkImageType type;
+    VkFormat format;
+    VkImageUsageFlags usage;
+    VmaAllocationCreateFlags vma_allocation_create_flags;
+    VmaMemoryUsage vma_memory_usage = VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO;
+    uint32_t mips = auto_calculate_mip_levels;
+    VkSampleCountFlagBits sample_count = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT;
+    uint32_t array_layers = 1;
+    VkImageTiling tiling = VK_IMAGE_TILING_OPTIMAL;
+    VkImageLayout inital_layout = VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED;
 };
 
 struct image_t {
@@ -187,7 +229,7 @@ struct command_dispatch_t {
 
 struct command_bind_descriptor_sets_t {
     // maybe remove pipeline handle and automatically get it from the current bound pipeline ? 
-    pipeline_handle_t pipeline_handle;
+    // pipeline_handle_t pipeline_handle;
     descriptor_set_handle_t p_descriptors[8];  // 8 is widely minimum available for desktops
     uint32_t first_set;
     size_t count;
@@ -195,7 +237,7 @@ struct command_bind_descriptor_sets_t {
 
 struct command_push_constant_t {
     // maybe remove pipeline handle and automatically get it from the current bound pipeline ? 
-    pipeline_handle_t pipeline_handle;
+    // pipeline_handle_t pipeline_handle;
     uint32_t offset;
     uint32_t size;
     VkShaderStageFlags shader_stage;
@@ -223,12 +265,14 @@ struct command_t {
 class command_list_t {
 public:
     void bind_pipeline(pipeline_handle_t pipeline_handle) {
+        horizon_profile();
         command_t command{ .type = command_type_t::e_bind_pipeline };
         command.as.bind_pipeline.handle = pipeline_handle;
 
         _commands.push_back(command);
     }   
     void dispatch(uint32_t x, uint32_t y, uint32_t z) {
+        horizon_profile();
         command_t command{ .type = command_type_t::e_dispatch };
         command.as.dispatch = { x, y, z };
 
@@ -236,8 +280,9 @@ public:
     }
     template <size_t count>
     void bind_descriptor_sets(pipeline_handle_t pipeline_handle, uint32_t first_set, std::array<descriptor_set_handle_t, count> descriptor_sets) {
+        horizon_profile();
         command_t command{ .type = command_type_t::e_bind_descriptor_sets };
-        command.as.bind_descriptor_sets.pipeline_handle = pipeline_handle;
+        // command.as.bind_descriptor_sets.pipeline_handle = pipeline_handle;
         command.as.bind_descriptor_sets.first_set = first_set;
         for (size_t i = 0; i < count; i++) {
             command.as.bind_descriptor_sets.p_descriptors[i] = descriptor_sets[i];
@@ -249,10 +294,11 @@ public:
 
     template <typename type_t> 
     void push_constant(pipeline_handle_t pipeline_handle, uint32_t offset, uint32_t size, VkShaderStageFlags shader_stage, type_t val) {
+        horizon_profile();
         // do u need to apply the offset here ?
         static_assert(sizeof(type_t) <= 128);
         command_t command{ .type = command_type_t::e_push_constant };
-        command.as.push_constant.pipeline_handle = pipeline_handle;
+        // command.as.push_constant.pipeline_handle = pipeline_handle;
         command.as.push_constant.offset = offset;
         command.as.push_constant.size = size;
         command.as.push_constant.shader_stage = shader_stage;
@@ -278,6 +324,7 @@ public:
     void destroy_shader_module(shader_module_handle_t handle);
 
     pipeline_handle_t create_compute_pipeline(const pipeline_config_t& config);
+    pipeline_handle_t create_graphics_pipeline(const pipeline_config_t& config);
     void destroy_pipeline(pipeline_handle_t handle);
 
     buffer_handle_t create_buffer(const buffer_config_t& config);
@@ -286,7 +333,11 @@ public:
     void unmap_buffer(buffer_handle_t handle);
     // TODO: add flush and invalidate
 
-    // image_handle_t create_image(const image_config_t& config);
+    image_handle_t create_image(const image_config_t& config);
+    void destroy_image(image_handle_t handle);
+    void *map_image(image_handle_t handle);
+    void unmap_image(image_handle_t handle);
+    // TODO: add flush and invalidate
 
     descriptor_set_layout_handle_t create_descriptor_set_layout(const descriptor_set_layout_config_t& config);
     void destroy_descriptor_set_layout(descriptor_set_layout_handle_t handle);
@@ -297,6 +348,7 @@ public:
     struct update_descriptor_t {
         template <typename info_t>
         update_descriptor_t& push_write(uint32_t binding, info_t info, uint32_t count = 1) {
+            horizon_profile();
             assert(context._descriptor_sets.contains(handle));
             descriptor_set_t& descriptor_set = context._descriptor_sets[handle];
             assert(context._descriptor_set_layouts.contains(descriptor_set.descriptor_set_layout_handle));
@@ -333,6 +385,7 @@ public:
         }
 
         void commit() {
+            horizon_profile();
             vkUpdateDescriptorSets(context._device, writes.size(), writes.data(), 0, nullptr);
             for (auto& write : writes) {
                 if (write.pBufferInfo) delete write.pBufferInfo;
@@ -412,6 +465,7 @@ private:
 
     std::map<swapchain_handle_t, swapchain_t> _swapchains;
     std::map<buffer_handle_t, buffer_t> _buffers;
+    std::map<image_handle_t, image_t> _images;
     std::map<shader_module_handle_t, shader_module_t> _shader_modules;
     std::map<pipeline_handle_t, pipeline_t> _pipelines;
     std::map<descriptor_set_layout_handle_t, descriptor_set_layout_t> _descriptor_set_layouts;
