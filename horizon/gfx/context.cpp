@@ -13,8 +13,23 @@
 #include <vk_mem_alloc.h>
 
 #include <iostream>
+#include <set>
 
 namespace gfx {
+
+static VkImageAspectFlags get_image_aspect(VkFormat format) {
+    static std::set<VkFormat> depth_formats = {
+        VK_FORMAT_D16_UNORM,
+        VK_FORMAT_D16_UNORM_S8_UINT,
+        VK_FORMAT_D24_UNORM_S8_UINT,
+        VK_FORMAT_D32_SFLOAT,
+        VK_FORMAT_D32_SFLOAT_S8_UINT,
+    };
+
+    if (depth_formats.contains(format)) 
+        return VK_IMAGE_ASPECT_DEPTH_BIT;
+    return VK_IMAGE_ASPECT_COLOR_BIT;
+}
 
 descriptor_set_layout_config_t& descriptor_set_layout_config_t::add_layout_binding(const VkDescriptorSetLayoutBinding& descriptor_set_layout_binding) {
     horizon_profile();
@@ -183,7 +198,17 @@ context_t::context_t(bool validation) : _validation(validation) {
 context_t::~context_t() {
     horizon_profile();
 
-    for (auto& [image_handle, image] : _images) {
+    
+    for (auto& [fence_handle, fence] : _fences) {
+        vkDestroyFence(_device, fence, nullptr);
+    }
+    for (auto& [semaphore_handle, semaphore] : _semaphores) {
+        vkDestroySemaphore(_device, semaphore, nullptr);
+    }
+    for (auto& [image_view_handle, image_view] : _image_views) {
+        vkDestroyImageView(_device, image_view, nullptr);
+    }
+    for (auto& [image_handle, image] : _images) if (!image.from_swapchain) { 
         if (image.map) unmap_image(image_handle);
         vmaDestroyImage(_vma_allocator, image, image.allocation);
     }
@@ -276,6 +301,7 @@ void context_t::create_device() {
     };
     physical_device_selector.add_required_extension_features<VkPhysicalDeviceBufferDeviceAddressFeatures>(physical_device_buffer_device_address_features);
     VkPhysicalDeviceDynamicRenderingFeaturesKHR physical_device_dynamic_rendering_features{ .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
+    physical_device_dynamic_rendering_features.dynamicRendering = VK_TRUE;
     physical_device_selector.add_required_extension_features<VkPhysicalDeviceDynamicRenderingFeaturesKHR>(physical_device_dynamic_rendering_features);
 
     physical_device_selector.prefer_gpu_device_type(vkb::PreferredDeviceType::integrated);
@@ -350,38 +376,6 @@ void context_t::create_device() {
     volkLoadDevice(_device);
 
     horizon_trace("created device");
-}
-
-swapchain_handle_t context_t::create_swapchain(const core::window_t& window) {
-    horizon_profile();
-    swapchain_t swapchain;
-    {
-        auto result = glfwCreateWindowSurface(_instance, window.window(), nullptr, &swapchain.surface);
-        if (result != VK_SUCCESS) {
-            horizon_error("Failed to create surface");
-            exit(EXIT_FAILURE);
-        }
-    }
-    {
-        vkb::SwapchainBuilder swapchain_builder{_device, swapchain.surface};
-        auto result = swapchain_builder.build();
-        if (!result) {
-            horizon_error("Failed to create swapchain");
-            exit(EXIT_FAILURE);
-        }
-        swapchain.swapchain = result.value();    
-    }
-
-    swapchain_handle_t handle = _swapchains.size();
-    while (_swapchains.contains(handle)) {
-        handle++;
-    }
-
-    _swapchains.insert({handle, swapchain});
-    
-    horizon_trace("created swapchain with handle: {}", handle);
-
-    return handle;
 }
 
 void context_t::create_vma() {
@@ -504,13 +498,135 @@ void context_t::create_descriptor_pool() {
     horizon_trace("created descriptor pool");
 }
 
-shader_module_handle_t context_t::create_shader_module(const std::string& code, shader_type_t shader_type, const std::string& name) {
+swapchain_handle_t context_t::create_swapchain(const core::window_t& window) {
+    horizon_profile();
+    swapchain_t swapchain{};
+    {
+        auto result = glfwCreateWindowSurface(_instance, window.window(), nullptr, &swapchain.surface);
+        if (result != VK_SUCCESS) {
+            horizon_error("Failed to create surface");
+            exit(EXIT_FAILURE);
+        }
+    }
+    {
+        vkb::SwapchainBuilder swapchain_builder{_device, swapchain.surface};
+        auto result = swapchain_builder.build();
+        if (!result) {
+            horizon_error("Failed to create swapchain");
+            exit(EXIT_FAILURE);
+        }
+        swapchain.swapchain = result.value();    
+    }
+
+    swapchain_handle_t handle = _swapchains.size();
+    while (_swapchains.contains(handle)) {
+        handle++;
+    }
+
+    _swapchains.insert({handle, swapchain});
+    
+    horizon_trace("created swapchain with handle: {}", handle);
+    
+    std::vector<VkImage> images;
+    {
+        auto result = swapchain.swapchain.get_images();
+        if (!result) {
+            horizon_error("Failed to get swapchain images");
+            exit(EXIT_FAILURE);
+        }
+        images = result.value();
+    }
+
+    for (auto image : images) {
+        image_config_t config{};
+        config.array_layers = 1;
+        config.depth = 1;
+        config.format = swapchain.swapchain.image_format;
+        config.width = swapchain.swapchain.extent.width;
+        config.height = swapchain.swapchain.extent.height;
+        config.inital_layout = VK_IMAGE_LAYOUT_UNDEFINED;
+        config.mips = 1;
+        config.sample_count = VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT;
+        config.tiling;
+        config.type = VK_IMAGE_TYPE_2D;
+        image_t _image{ .config = config };
+        _image.image = image;
+        _image.from_swapchain = true;
+
+        image_handle_t image_handle = _images.size();
+        while (_images.contains(image_handle)) {
+            image_handle++;
+        }
+
+        _images.insert({image_handle, _image});
+
+        auto handle = create_image_view(image_handle, {});
+
+        swapchain.image_views.push_back(handle);
+        swapchain.images.push_back(image_handle);
+    }
+
+
+    return handle;
+}
+
+void context_t::destroy_swapchain(swapchain_handle_t handle) {
+    horizon_profile();
+    assert(_swapchains.contains(handle));
+    swapchain_t& swapchain = _swapchains[handle];
+    vkDestroySwapchainKHR(_device, swapchain.swapchain, nullptr);
+    vkDestroySurfaceKHR(_instance, swapchain.surface, nullptr);
+    _swapchains.erase(handle);  
+}
+
+std::vector<image_handle_t> context_t::swapchain_images(swapchain_handle_t handle) {
+    assert(_swapchains.contains(handle));
+    swapchain_t& swapchain = _swapchains[handle];
+    return swapchain.images;
+}
+
+std::vector<image_view_handle_t> context_t::swapchain_image_views(swapchain_handle_t handle) {
+    assert(_swapchains.contains(handle));
+    swapchain_t& swapchain = _swapchains[handle];
+    return swapchain.image_views;
+}
+
+std::optional<uint32_t> context_t::acquire_swapchain_next_image_index(swapchain_handle_t handle, semaphore_handle_t semaphore_handle, fence_handle_t fence_handle) {
+    assert(_swapchains.contains(handle));
+    swapchain_t& swapchain = _swapchains[handle];
+    VkSemaphore semaphore = VK_NULL_HANDLE;
+    VkFence fence = VK_NULL_HANDLE;
+    if (semaphore_handle != null_handle) {
+        assert(_semaphores.contains(semaphore_handle));
+        semaphore_t& _semaphore = _semaphores[semaphore_handle];
+        semaphore = _semaphore;
+    }
+    if (fence_handle != null_handle) {
+        assert(_fences.contains(fence_handle));
+        fence_t& _fence = _fences[fence_handle];
+        fence = _fence;
+
+    }
+    uint32_t next_image;
+    {
+        auto result = vkAcquireNextImageKHR(_device, swapchain.swapchain, UINT64_MAX, semaphore, fence, &next_image);
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+            return std::nullopt;
+        } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+            horizon_error("Failed to acquire swap chain image");
+            exit(EXIT_FAILURE);
+        }
+        return next_image;
+    }
+}
+
+shader_module_handle_t context_t::create_shader_module(const shader_module_config_t& config) {
     horizon_profile();
     shaderc_shader_kind shaderc_kind;
 
-    if (shader_type == shader_type_t::e_vertex) shaderc_kind = shaderc_vertex_shader;
-    if (shader_type == shader_type_t::e_fragment) shaderc_kind = shaderc_fragment_shader;
-    if (shader_type == shader_type_t::e_compute) shaderc_kind = shaderc_compute_shader;
+    if (config.type == shader_type_t::e_vertex) shaderc_kind = shaderc_vertex_shader;
+    if (config.type == shader_type_t::e_fragment) shaderc_kind = shaderc_fragment_shader;
+    if (config.type == shader_type_t::e_compute) shaderc_kind = shaderc_compute_shader;
     
     static shaderc::Compiler shaderc_compiler{};
     static shaderc::CompileOptions shaderc_compile_options{};
@@ -526,10 +642,10 @@ shader_module_handle_t context_t::create_shader_module(const std::string& code, 
         return true;
     }();
 
-    auto preprocess = shaderc_compiler.PreprocessGlsl(code, shaderc_kind, name.c_str(), shaderc_compile_options);
+    auto preprocess = shaderc_compiler.PreprocessGlsl(config.code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
     std::string preprocessed_code = { preprocess.begin(), preprocess.end() };
 
-    auto shader_module = shaderc_compiler.CompileGlslToSpv(preprocessed_code, shaderc_kind, name.c_str(), shaderc_compile_options);
+    auto shader_module = shaderc_compiler.CompileGlslToSpv(preprocessed_code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
     if (shader_module.GetCompilationStatus() != shaderc_compilation_status_success) {
         horizon_error("{}", shader_module.GetErrorMessage());
         exit(EXIT_FAILURE);
@@ -541,7 +657,7 @@ shader_module_handle_t context_t::create_shader_module(const std::string& code, 
     shader_module_create_info.codeSize = shader_module_code.size() * 4;
     shader_module_create_info.pCode = shader_module_code.data();
 
-    shader_module_t _shader_module{};
+    shader_module_t _shader_module{ .config = config };
 
     auto result = vkCreateShaderModule(_device, &shader_module_create_info, nullptr, &_shader_module.module);
     if (result != VK_SUCCESS) {
@@ -556,7 +672,7 @@ shader_module_handle_t context_t::create_shader_module(const std::string& code, 
 
     _shader_modules.insert({handle, _shader_module});
 
-    horizon_trace("shader module created with name: {}", name);
+    horizon_trace("shader module created with name: {}", config.name);
     return handle;
 }
 
@@ -622,7 +738,7 @@ pipeline_handle_t context_t::create_compute_pipeline(const pipeline_config_t& co
 
 pipeline_handle_t context_t::create_graphics_pipeline(const pipeline_config_t& config) {
     horizon_profile();
-    pipeline_t pipeline{ .config = config, .bind_point = VK_PIPELINE_BIND_POINT_COMPUTE };
+    pipeline_t pipeline{ .config = config, .bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS };
 
     VkPipelineDynamicStateCreateInfo dynamic_state{ .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };
     dynamic_state.dynamicStateCount = config.dynamic_states.size();
@@ -662,7 +778,7 @@ pipeline_handle_t context_t::create_graphics_pipeline(const pipeline_config_t& c
 
         VkPipelineShaderStageCreateInfo pipeline_shader_stage_create_info{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
         pipeline_shader_stage_create_info.pName = "main";
-        switch (shader_module.type) {
+        switch (shader_module.config.type) {
             case shader_type_t::e_fragment:
                 pipeline_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
                 break;
@@ -673,6 +789,7 @@ pipeline_handle_t context_t::create_graphics_pipeline(const pipeline_config_t& c
                 horizon_error("shouldnt reach here");
                 exit(EXIT_FAILURE);
         }
+        assert(_shader_modules.contains(shader_module_handle));
         pipeline_shader_stage_create_info.module = _shader_modules[shader_module_handle];
         pipeline_shader_stage_create_infos.push_back(pipeline_shader_stage_create_info);
     }
@@ -888,6 +1005,55 @@ void context_t::unmap_image(image_handle_t handle) {
     vmaUnmapMemory(_vma_allocator, image.allocation);
 }
 
+image_view_handle_t context_t::create_image_view(image_handle_t image_handle, const image_view_config_t& config) {
+    assert(_images.contains(image_handle));
+    auto& image = _images[image_handle];
+    
+    image_view_t image_view{ .config = config, .image_handle = image_handle };
+
+    VkImageViewType image_view_type;
+    if (config.image_view_type == auto_image_view_type) {
+        if (image.config.type == VkImageType::VK_IMAGE_TYPE_1D) image_view_type = VkImageViewType::VK_IMAGE_VIEW_TYPE_1D;
+        if (image.config.type == VkImageType::VK_IMAGE_TYPE_2D) image_view_type = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
+        if (image.config.type == VkImageType::VK_IMAGE_TYPE_3D) image_view_type = VkImageViewType::VK_IMAGE_VIEW_TYPE_3D;
+    } else {
+        image_view_type = config.image_view_type;
+    }
+
+    VkImageViewCreateInfo image_view_create_info{ .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
+    image_view_create_info.image = image;
+    image_view_create_info.viewType = image_view_type;
+    image_view_create_info.format = config.format == auto_image_format ? image.config.format : config.format;
+    image_view_create_info.subresourceRange.aspectMask = get_image_aspect(image.config.format);
+    image_view_create_info.subresourceRange.baseMipLevel = config.base_mip_level;   // default base mip is 0 automatically, and for custom it already has the value
+    image_view_create_info.subresourceRange.levelCount = config.mips == auto_mips ? image.config.mips : config.mips;
+    image_view_create_info.subresourceRange.baseArrayLayer = config.base_array_layer;  // default base array layer is 0 automatically, and for custom it already has the value
+    image_view_create_info.subresourceRange.layerCount = config.layers == auto_layers ? image.config.array_layers : config.layers;
+
+    auto result = vkCreateImageView(_device, &image_view_create_info, nullptr, &image_view.image_view);
+    if (result != VK_SUCCESS) {
+        horizon_error("Failed to create image view");
+        exit(EXIT_FAILURE);
+    }
+
+    image_view_handle_t handle = _image_views.size();
+    while (_image_views.contains(handle)) {
+        handle++;
+    }
+
+    _image_views.insert({handle, image_view});
+    horizon_trace("created image_view");
+    return handle;
+}
+
+void context_t::destroy_image_view(image_view_handle_t handle) {
+    horizon_profile();
+    assert(_image_views.contains(handle));
+    image_view_t& image_view = _image_views[handle];
+    vkDestroyImageView(_device, image_view, nullptr);
+    _image_views.erase(handle); 
+}
+
 descriptor_set_layout_handle_t context_t::create_descriptor_set_layout(const descriptor_set_layout_config_t& config) {
     horizon_profile();
     descriptor_set_layout_t descriptor_set_layout{ .config = config };
@@ -963,6 +1129,60 @@ context_t::update_descriptor_t context_t::update_descriptor_set(descriptor_set_h
     return { .context = *this, .handle = handle };
 }
 
+semaphore_handle_t context_t::create_semaphore(const semaphore_config_t& config) {
+    horizon_profile();
+    semaphore_t semaphore{ .config = config };
+    VkSemaphoreCreateInfo semaphore_create_info{ .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+    auto result = vkCreateSemaphore(_device, &semaphore_create_info, nullptr, &semaphore.semaphore);
+    if (result != VK_SUCCESS) {
+        horizon_error("Failed to create info");
+        exit(EXIT_FAILURE);
+    }
+    semaphore_handle_t handle = _semaphores.size();
+    while (_semaphores.contains(handle)) {
+        handle++;
+    }
+
+    _semaphores.insert({handle, semaphore});
+    horizon_trace("created descriptor set");
+    return handle;
+}
+
+void context_t::destroy_semaphore(semaphore_handle_t handle) {
+    horizon_profile();
+    assert(_semaphores.contains(handle));
+    semaphore_t& semaphore = _semaphores[handle];
+    vkDestroySemaphore(_device, semaphore.semaphore, nullptr);
+    _semaphores.erase(handle);   
+}
+
+fence_handle_t context_t::create_fence(const fence_config_t& config) {
+    horizon_profile();
+    fence_t fence{ .config = config };
+    VkFenceCreateInfo fence_create_info{ .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+    auto result = vkCreateFence(_device, &fence_create_info, nullptr, &fence.fence);
+    if (result != VK_SUCCESS) {
+        horizon_error("Failed to create info");
+        exit(EXIT_FAILURE);
+    }
+    fence_handle_t handle = _fences.size();
+    while (_fences.contains(handle)) {
+        handle++;
+    }
+
+    _fences.insert({handle, fence});
+    horizon_trace("created descriptor set");
+    return handle;
+}
+
+void context_t::destroy_fence(fence_handle_t handle) {
+    horizon_profile();
+    assert(_fences.contains(handle));
+    fence_t& fence = _fences[handle];
+    vkDestroyFence(_device, fence.fence, nullptr);
+    _fences.erase(handle);   
+}
+
 void context_t::exec_commands(VkCommandBuffer commandbuffer, const std::vector<command_t>& commands) {
     horizon_profile();
     // TODO: do it properly
@@ -1004,6 +1224,54 @@ void context_t::exec_commands(VkCommandBuffer commandbuffer, const std::vector<c
                     assert(_pipelines.contains(current_active_pipeline_handle));
                     auto& pipeline = _pipelines[current_active_pipeline_handle];
                     vkCmdPushConstants(commandbuffer, pipeline.layout, push_constant.shader_stage, push_constant.offset, push_constant.size, push_constant.data);
+                }
+                break;
+            case command_type_t::e_begin_rendering:
+                {
+                    const command_begin_rendering_t& begin_rendering = command.as.begin_rendering;
+                    VkRenderingAttachmentInfo *p_color_attachment_infos = reinterpret_cast<VkRenderingAttachmentInfo *>(alloca(8 * sizeof(VkRenderingAttachmentInfo)));
+                    VkRenderingAttachmentInfo depth_attachment_info;
+                    for (size_t i = 0; i < begin_rendering.color_attachments_count; i++) {
+                        assert(_image_views.contains(begin_rendering.p_color_attachments[i].image_view_handle));
+                        auto& image_view = _image_views[begin_rendering.p_color_attachments[i].image_view_handle];
+                        p_color_attachment_infos[i] = {};
+                        p_color_attachment_infos[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                        p_color_attachment_infos[i].clearValue = begin_rendering.p_color_attachments[i].clear_value;
+                        p_color_attachment_infos[i].imageLayout = begin_rendering.p_color_attachments[i].image_layout;
+                        p_color_attachment_infos[i].loadOp = begin_rendering.p_color_attachments[i].load_op;
+                        p_color_attachment_infos[i].storeOp = begin_rendering.p_color_attachments[i].store_op;
+                        p_color_attachment_infos[i].imageView = image_view;
+                    }
+                    assert(_image_views.contains(begin_rendering.depth_attachment.image_view_handle));
+                    auto& image_view = _image_views[begin_rendering.depth_attachment.image_view_handle];
+                    depth_attachment_info = {};
+                    depth_attachment_info.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+                    depth_attachment_info.clearValue = begin_rendering.depth_attachment.clear_value;
+                    depth_attachment_info.imageLayout = begin_rendering.depth_attachment.image_layout;
+                    depth_attachment_info.loadOp = begin_rendering.depth_attachment.load_op;
+                    depth_attachment_info.storeOp = begin_rendering.depth_attachment.store_op;
+                    depth_attachment_info.imageView = image_view;
+                    
+                    VkRenderingInfo rendering_info{ .sType = VK_STRUCTURE_TYPE_RENDERING_INFO };
+                    rendering_info.renderArea = begin_rendering.render_area;
+                    rendering_info.layerCount = begin_rendering.layer_count;
+                    rendering_info.colorAttachmentCount = begin_rendering.color_attachments_count;
+                    rendering_info.pColorAttachments = p_color_attachment_infos;
+                    if (begin_rendering.use_depth) {
+                        rendering_info.pDepthAttachment = &depth_attachment_info;
+                    }
+                    vkCmdBeginRendering(commandbuffer, &rendering_info);
+                }
+                break;
+            case command_type_t::e_end_rendering:
+                {
+                    vkCmdEndRendering(commandbuffer);
+                }
+                break;
+            case command_type_t::e_draw:
+                {
+                    const command_draw_t& draw = command.as.draw;
+                    vkCmdDraw(commandbuffer, draw.vertex_count, draw.instance_count, draw.first_vertex, draw.first_instance);
                 }
                 break;
             default:    

@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <map>
 #include <limits>
+#include <optional>
 
 #define vk_check(result, msg) \
 do {                              \
@@ -56,13 +57,18 @@ class window_t;
 
 namespace gfx {
 
+constexpr uint64_t null_handle = std::numeric_limits<uint64_t>::max();
+
 handle(swapchain_handle_t);
 handle(shader_module_handle_t);
 handle(pipeline_handle_t);
 handle(buffer_handle_t);
 handle(image_handle_t);
+handle(image_view_handle_t);
 handle(descriptor_set_layout_handle_t);
 handle(descriptor_set_handle_t);
+handle(semaphore_handle_t);
+handle(fence_handle_t);
 
 struct queue_t {
     VkQueue queue;
@@ -78,17 +84,30 @@ enum class shader_type_t {
     e_compute,
 };
 
+struct shader_module_config_t {
+    std::string code;
+    std::string name;
+    shader_type_t type;
+};
+
 struct shader_module_t {
     VkShaderModule module;
-    shader_type_t type;
+    shader_module_config_t config;
     operator VkShaderModule() {
         return module;
     }
 };
 
+struct swapchain_config_t {
+
+};
+
 struct swapchain_t {
     VkSurfaceKHR surface;
     vkb::Swapchain swapchain;
+    std::vector<image_view_handle_t> image_views;
+    std::vector<image_handle_t> images;
+    swapchain_config_t config;
     operator vkb::Swapchain() {
         return swapchain;
     }
@@ -114,25 +133,25 @@ struct pipeline_config_t {
     pipeline_config_t& set_pipeline_rasterization_state(const VkPipelineRasterizationStateCreateInfo& pipeline_rasterization_state);
     pipeline_config_t& set_pipeline_multisample_state(const VkPipelineMultisampleStateCreateInfo& pipeline_multisample_state);
 
-    std::vector<shader_module_handle_t> shaders;
-    std::vector<descriptor_set_layout_handle_t> descriptor_set_layouts;
-    std::vector<VkPushConstantRange> push_constant_ranges;
+    std::vector<shader_module_handle_t> shaders{};
+    std::vector<descriptor_set_layout_handle_t> descriptor_set_layouts{};
+    std::vector<VkPushConstantRange> push_constant_ranges{};
 
-    std::vector<VkFormat> color_formats;
-    VkFormat depth_format;
-    std::vector<VkPipelineColorBlendAttachmentState> pipeline_color_blend_attachment_states;
-    VkPipelineDepthStencilStateCreateInfo pipeline_depth_stencil_state_create_info;
+    std::vector<VkFormat> color_formats{};
+    VkFormat depth_format{};
+    std::vector<VkPipelineColorBlendAttachmentState> pipeline_color_blend_attachment_states{};
+    VkPipelineDepthStencilStateCreateInfo pipeline_depth_stencil_state_create_info{};
     
     std::vector<VkDynamicState> dynamic_states = { VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT };
 
-    std::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions;
-    std::vector<VkVertexInputBindingDescription> vertex_input_binding_descriptions;
+    std::vector<VkVertexInputAttributeDescription> vertex_input_attribute_descriptions{};
+    std::vector<VkVertexInputBindingDescription> vertex_input_binding_descriptions{};
 
-    VkPipelineInputAssemblyStateCreateInfo pipeline_input_assembly_state{ .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO, .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, .primitiveRestartEnable = VK_FALSE };
+    VkPipelineInputAssemblyStateCreateInfo pipeline_input_assembly_state{};
 
-    VkPipelineRasterizationStateCreateInfo pipeline_rasterization_state;
+    VkPipelineRasterizationStateCreateInfo pipeline_rasterization_state{};
 
-    VkPipelineMultisampleStateCreateInfo pipeline_multisample_state;
+    VkPipelineMultisampleStateCreateInfo pipeline_multisample_state{};
 };
 
 VkPipelineColorBlendAttachmentState default_color_blend_attachment();
@@ -166,6 +185,31 @@ struct buffer_t {
 
 static const uint32_t auto_calculate_mip_levels = std::numeric_limits<uint32_t>::max();
 
+constexpr VkImageViewType auto_image_view_type = static_cast<VkImageViewType>(0x7FFFFFFF - 1);  // -1 cause I dont wanna collide with the max enum enum in the enum definition
+constexpr VkFormat auto_image_format = static_cast<VkFormat>(0x7FFFFFFF - 1);  
+constexpr uint32_t auto_mips = 0x7FFFFFFF;   // this should work I guess ??
+constexpr uint32_t auto_layers = 0x7FFFFFFF;   // this should work I guess ??
+constexpr uint32_t default_base_mip_level = 0;
+constexpr uint32_t default_base_array_layer = 0;
+
+struct image_view_config_t {
+    VkImageViewType image_view_type = auto_image_view_type;
+    VkFormat format = auto_image_format;
+    uint32_t base_mip_level = default_base_mip_level;
+    uint32_t mips = auto_mips;  // gets the max level count possible for the image
+    uint32_t base_array_layer = default_base_array_layer;
+    uint32_t layers = auto_layers;
+};
+
+struct image_view_t {
+    VkImageView image_view;
+    image_view_config_t config;
+    image_handle_t image_handle;
+    operator VkImageView() {
+        return image_view;
+    }
+};
+
 struct image_config_t {
     uint32_t width, height, depth;
     VkImageType type;
@@ -185,6 +229,7 @@ struct image_t {
     VmaAllocation allocation;
     image_config_t config;
     void *map = nullptr;
+    bool from_swapchain = false;
     operator VkImage() {
         return image;
     }
@@ -219,6 +264,30 @@ struct buffer_descriptor_info_t {
     VkDeviceSize range; 
 };
 
+struct semaphore_config_t {
+
+};
+
+struct semaphore_t {
+    VkSemaphore semaphore;
+    semaphore_config_t config;
+    operator VkSemaphore() {
+        return semaphore;
+    }
+};
+
+struct fence_config_t {
+
+};
+
+struct fence_t {
+    VkFence fence;
+    fence_config_t config;
+    operator VkFence() {
+        return fence;
+    }
+};
+
 struct command_bind_pipeline_t {
     pipeline_handle_t handle;
 };
@@ -228,20 +297,49 @@ struct command_dispatch_t {
 };
 
 struct command_bind_descriptor_sets_t {
-    // maybe remove pipeline handle and automatically get it from the current bound pipeline ? 
-    // pipeline_handle_t pipeline_handle;
     descriptor_set_handle_t p_descriptors[8];  // 8 is widely minimum available for desktops
     uint32_t first_set;
     size_t count;
 };
 
 struct command_push_constant_t {
-    // maybe remove pipeline handle and automatically get it from the current bound pipeline ? 
-    // pipeline_handle_t pipeline_handle;
     uint32_t offset;
     uint32_t size;
     VkShaderStageFlags shader_stage;
     char *data[128];  // 128 is the max allowed on most platforms
+};
+
+struct render_attachment_t {
+    image_view_handle_t image_view_handle;
+    VkImageLayout image_layout;
+    VkAttachmentLoadOp       load_op;
+    VkAttachmentStoreOp      store_op;
+    VkClearValue             clear_value;
+};
+
+struct command_begin_rendering_t {
+    render_attachment_t p_color_attachments[8];
+    size_t color_attachments_count;
+    render_attachment_t depth_attachment;
+    bool use_depth;
+
+    VkRect2D render_area;
+    uint32_t layer_count;
+};
+
+struct command_end_rendering_t {};
+
+struct command_draw_t {
+    uint32_t vertex_count; 
+    uint32_t instance_count; 
+    uint32_t first_vertex; 
+    uint32_t first_instance;
+};
+
+struct command_transition_image_layout_t {
+    image_handle_t image;
+    VkImageLayout old_image_layout;
+    VkImageLayout new_image_layout;
 };
 
 enum class command_type_t {
@@ -250,6 +348,10 @@ enum class command_type_t {
     e_dispatch,
     e_bind_descriptor_sets,
     e_push_constant,
+    e_begin_rendering,
+    e_end_rendering,
+    e_draw,
+    e_transition_image_layout,
 };
 
 struct command_t {
@@ -259,6 +361,10 @@ struct command_t {
         command_dispatch_t dispatch;
         command_bind_descriptor_sets_t bind_descriptor_sets;
         command_push_constant_t push_constant;
+        command_begin_rendering_t begin_rendering;
+        command_end_rendering_t end_rendering;
+        command_draw_t draw;
+        command_transition_image_layout_t transition_image_layout;
     } as;
 };
 
@@ -307,6 +413,39 @@ public:
         _commands.push_back(command);
     }
 
+    void begin_rendering(const command_begin_rendering_t& command_begin_rendering) {
+        horizon_profile();
+        command_t command{ .type = command_type_t::e_begin_rendering };
+        command.as.begin_rendering = command_begin_rendering;
+        _commands.push_back(command);
+    }
+
+    void end_rendering() {
+        horizon_profile();
+        command_t command{ .type = command_type_t::e_end_rendering };
+        command.as.end_rendering = {};
+        _commands.push_back(command);
+    }
+
+    void draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance) {
+        horizon_profile();
+        command_t command{ .type = command_type_t::e_draw };
+        command.as.draw.vertex_count = vertex_count;
+        command.as.draw.instance_count = instance_count;
+        command.as.draw.first_vertex = first_vertex;
+        command.as.draw.first_instance = first_instance;
+        _commands.push_back(command);
+    }
+
+    void transition_image_layout(image_handle_t handle, VkImageLayout old_image_layout, VkImageLayout new_image_layout) {
+        horizon_profile();
+        command_t command{ .type = command_type_t::e_transition_image_layout };
+        command.as.transition_image_layout.image = handle;
+        command.as.transition_image_layout.old_image_layout = old_image_layout;
+        command.as.transition_image_layout.new_image_layout = new_image_layout;
+        _commands.push_back(command);
+    }
+
     friend class context_t;
 private:
     std::vector<command_t> _commands;
@@ -318,9 +457,53 @@ public:
     ~context_t();
 
     swapchain_handle_t create_swapchain(const core::window_t& window);
-    // TODO: add destroy swapchain
+    void destroy_swapchain(swapchain_handle_t handle);
+    std::vector<image_handle_t> swapchain_images(swapchain_handle_t handle);
+    std::vector<image_view_handle_t> swapchain_image_views(swapchain_handle_t handle);
+    std::optional<uint32_t> acquire_swapchain_next_image_index(swapchain_handle_t handle, semaphore_handle_t semaphore_handle, fence_handle_t fence_handle);
+    template <size_t count>
+    void present_swapchain(std::array<swapchain_handle_t, count> handles, std::array<uint32_t, count> image_indices, std::vector<semaphore_handle_t> semaphore_handles) {
+        VkSwapchainKHR *swapchains = reinterpret_cast<VkSwapchainKHR *>(alloca(count * sizeof(VkSwapchainKHR)));
+        for (size_t i = 0; i < count; i++) {
+            assert(_swapchains.contains(handles[i]));
+            swapchain_t& swapchain = _swapchains[handles[i]];
+            swapchains[i] = swapchain.swapchain;
+        }
+        VkSemaphore *semaphores = reinterpret_cast<VkSemaphore *>(alloca(semaphore_handles.size() * sizeof(VkSemaphore)));
+        for (size_t i = 0; i < semaphore_handles.size(); i++) {
+            assert(_semaphores.contains(semaphore_handles[i]));
+            semaphore_t& semaphore = _semaphores[semaphore_handles[i]];
+            semaphores[i] = semaphore;
+        }
 
-    shader_module_handle_t create_shader_module(const std::string& code, shader_type_t shader_type, const std::string& name);
+        VkResult *results = reinterpret_cast<VkResult *>(alloca(count * sizeof(VkResult)));
+
+        VkPresentInfoKHR present_info{ .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+        present_info.waitSemaphoreCount = semaphore_handles.size();
+        present_info.pWaitSemaphores = semaphores;
+        present_info.swapchainCount = count;
+        present_info.pSwapchains = swapchains;
+        present_info.pImageIndices = image_indices.data();
+        present_info.pResults = results;
+
+        {
+            auto result = vkQueuePresentKHR(_present_queue, &present_info);
+            if (result != VK_SUCCESS) {
+                horizon_error("Failed to present");
+                exit(EXIT_FAILURE);
+            }
+        }
+
+        for (size_t i = 0; i < count; i++) {
+            if (results[i] != VK_SUCCESS) {
+                horizon_error("Failed to present");
+                exit(EXIT_FAILURE);
+            }
+        }
+        
+    }
+
+    shader_module_handle_t create_shader_module(const shader_module_config_t& config);
     void destroy_shader_module(shader_module_handle_t handle);
 
     pipeline_handle_t create_compute_pipeline(const pipeline_config_t& config);
@@ -338,6 +521,9 @@ public:
     void *map_image(image_handle_t handle);
     void unmap_image(image_handle_t handle);
     // TODO: add flush and invalidate
+
+    image_view_handle_t create_image_view(image_handle_t image_handle, const image_view_config_t& config);
+    void destroy_image_view(image_view_handle_t handle);
 
     descriptor_set_layout_handle_t create_descriptor_set_layout(const descriptor_set_layout_config_t& config);
     void destroy_descriptor_set_layout(descriptor_set_layout_handle_t handle);
@@ -401,6 +587,42 @@ public:
 
     update_descriptor_t update_descriptor_set(descriptor_set_handle_t handle);
 
+    semaphore_handle_t create_semaphore(const semaphore_config_t& config);
+    void destroy_semaphore(semaphore_handle_t handle);
+
+    fence_handle_t create_fence(const fence_config_t& config);
+    void destroy_fence(fence_handle_t handle);
+    template <size_t size>
+    void wait_fence(std::array<fence_handle_t, size> handles, bool wait_all = true) {
+        horizon_profile();
+        VkFence *fences = reinterpret_cast<VkFence *>(alloca(size * sizeof(VkFence)));
+        for (size_t i = 0; i < size; i++) {
+            assert(_fences.contains(handles[i]));
+            fence_t& fence = _fences[handles[i]];
+            fences[i] = fence;
+        }
+        auto result = vkWaitForFences(_device, size, fences, wait_all, UINT64_MAX);
+        if (result != VK_SUCCESS) {
+            horizon_error("Failed to wait for fence");
+            exit(EXIT_FAILURE);
+        }
+    }
+    template <size_t size>
+    void reset_fence(std::array<fence_handle_t, size> handles) {
+        horizon_profile();
+        VkFence *fences = reinterpret_cast<VkFence *>(alloca(size * sizeof(VkFence)));
+        for (size_t i = 0; i < size; i++) {
+            assert(_fences.contains(handles[i]));
+            fence_t& fence = _fences[handles[i]];
+            fences[i] = fence;
+        }
+        auto result = vkResetFences(_device, size, fences);
+        if (result != VK_SUCCESS) {
+            horizon_error("Failed to reset fence");
+            exit(EXIT_FAILURE);
+        }
+    }
+
     void exec_command_list_immediate(const command_list_t& command_list) {
         horizon_profile();
         VkCommandBufferAllocateInfo commandbuffer_allocate_info{};
@@ -428,12 +650,12 @@ public:
 
         VkFenceCreateInfo fence_create_info{};
         fence_create_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        VkFence single_use_command_complete_fence;
-        vk_check(vkCreateFence(_device, &fence_create_info, nullptr, &single_use_command_complete_fence), "Failed to create fence");
-        vk_check(vkQueueSubmit(_graphics_queue, 1, &submit_info, single_use_command_complete_fence), "Failed to submit to queue");
-        vk_check(vkWaitForFences(_device, 1, &single_use_command_complete_fence, VK_TRUE, UINT64_MAX), "Failed to wait for fence");
+        VkFence fence;
+        vk_check(vkCreateFence(_device, &fence_create_info, nullptr, &fence), "Failed to create fence");
+        vk_check(vkQueueSubmit(_graphics_queue, 1, &submit_info, fence), "Failed to submit to queue");
+        vk_check(vkWaitForFences(_device, 1, &fence, VK_TRUE, UINT64_MAX), "Failed to wait for fence");
 
-        vkDestroyFence(_device, single_use_command_complete_fence, nullptr);
+        vkDestroyFence(_device, fence, nullptr);
         vkFreeCommandBuffers(_device, _command_pool, 1, &commandbuffer);
     }
 
@@ -466,10 +688,13 @@ private:
     std::map<swapchain_handle_t, swapchain_t> _swapchains;
     std::map<buffer_handle_t, buffer_t> _buffers;
     std::map<image_handle_t, image_t> _images;
+    std::map<image_view_handle_t, image_view_t> _image_views;
     std::map<shader_module_handle_t, shader_module_t> _shader_modules;
     std::map<pipeline_handle_t, pipeline_t> _pipelines;
     std::map<descriptor_set_layout_handle_t, descriptor_set_layout_t> _descriptor_set_layouts;
     std::map<descriptor_set_handle_t, descriptor_set_t> _descriptor_sets;
+    std::map<semaphore_handle_t, semaphore_t> _semaphores;
+    std::map<fence_handle_t, fence_t> _fences;
 };
 
 // TODO: for future, slot system available id queue with version encoding

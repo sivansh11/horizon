@@ -19,6 +19,7 @@ public:
     std::string title() const { return _title; }
     GLFWwindow *window() const { return _p_window; }
     bool should_close() const;
+    std::pair<int, int> dimensions() const;
 
     operator GLFWwindow*() const {
         return _p_window;

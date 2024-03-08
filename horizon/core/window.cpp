@@ -53,4 +53,9 @@ bool window_t::should_close() const {
     return glfwWindowShouldClose(_p_window);
 }
 
+std::pair<int, int> window_t::dimensions() const {
+    int width, height;
+    glfwGetWindowSize(_p_window, &width, &height);
+    return { width, height };
+}
 } // namespace core
