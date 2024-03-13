@@ -77,12 +77,12 @@ void test_compute() {
     pipeline_config.add_push_constant(sizeof(int), 0, VK_SHADER_STAGE_COMPUTE_BIT);
     auto pipeline = context.create_compute_pipeline(pipeline_config);
 
-    auto ds = context.create_descriptor_set(dsl);
+    auto ds = context.allocate_descriptor_set(dsl);
 
-    auto buffer = context.create_buffer(gfx::buffer_config_t{ .size = sizeof(int), .usage_flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, .vma_allocation_create_flags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT });
+    auto buffer = context.create_buffer(gfx::buffer_config_t{ .size = sizeof(int), .vk_usage_flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, .vma_allocation_create_flags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT });
 
     context.update_descriptor_set(ds)
-           .push_write(0, gfx::buffer_descriptor_info_t{ .buffer = buffer, .offset = 0, .range = VK_WHOLE_SIZE })
+           .push_write(0, gfx::buffer_descriptor_info_t{ .buffer = buffer, .vk_offset = 0, .vk_range = VK_WHOLE_SIZE })
            .commit();
 
     gfx::command_list_t command_list{};
@@ -91,63 +91,93 @@ void test_compute() {
     command_list.push_constant(pipeline, 0, sizeof(int), VK_SHADER_STAGE_COMPUTE_BIT, 5);
     command_list.dispatch(1, 1, 1);
 
+    auto command_pool = context.create_command_pool({});
+
     int *i = reinterpret_cast<int *>(context.map_buffer(buffer));
     *i = 0;
-    context.exec_command_list_immediate(command_list);
+    context.exec_command_list_immediate(command_pool, command_list);
     horizon_info("{}", *i);
 }
 
-void test_dynamic_rendering() {
-    core::window_t window{"test", 600, 400};
+void new_test() {
+    core::window_t window{ "test", 600, 400 };
     gfx::context_t context{ true };
-
     auto swapchain = context.create_swapchain(window);
 
-    gfx::pipeline_config_t gpc{};
-    gpc.add_shader(context.create_shader_module(gfx::shader_module_config_t{ .code = test_vertex, .name = "test-vert", .type = gfx::shader_type_t::e_vertex }));
-    gpc.add_shader(context.create_shader_module(gfx::shader_module_config_t{ .code = test_fragment, .name = "test-frag", .type = gfx::shader_type_t::e_fragment }));
-    gpc.add_color_attachment(VK_FORMAT_R8G8B8A8_UNORM, gfx::default_color_blend_attachment());
-    auto gp = context.create_graphics_pipeline(gpc);
+    gfx::pipeline_config_t pipeline_config{};
+    pipeline_config.add_shader(context.create_shader_module(gfx::shader_module_config_t{ .code = test_vertex, .name = "test-vert", .type = gfx::shader_type_t::e_vertex }));
+    pipeline_config.add_shader(context.create_shader_module(gfx::shader_module_config_t{ .code = test_fragment, .name = "test-frag", .type = gfx::shader_type_t::e_fragment }));
+    pipeline_config.add_color_attachment(VK_FORMAT_B8G8R8A8_SRGB, gfx::default_color_blend_attachment());
+    auto pipeline = context.create_graphics_pipeline(pipeline_config);
 
-    gfx::command_begin_rendering_t begin_rendering{};
-    begin_rendering.render_area = VkRect2D{VkOffset2D{}, { 600, 400 }};
-    begin_rendering.layer_count = 1;
-    begin_rendering.color_attachments_count = 1;
-    begin_rendering.p_color_attachments[0].clear_value = {0, 0, 0, 0};
-    begin_rendering.p_color_attachments[0].image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    begin_rendering.p_color_attachments[0].load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    begin_rendering.p_color_attachments[0].store_op = VK_ATTACHMENT_STORE_OP_STORE;
-    begin_rendering.use_depth = false;
+    auto in_flight_fence = context.create_fence({});
+    auto image_available_semaphore = context.create_semaphore({});
+    auto render_finished_semaphore = context.create_semaphore({});
 
-    gfx::command_list_t command_list{};
-    for (auto image_view : context.swapchain_image_views(swapchain)) {
-        begin_rendering.p_color_attachments[0].image_view_handle = image_view;
-        command_list.begin_rendering(begin_rendering);
-        command_list.bind_pipeline(gp);
-        command_list.draw(6, 1, 0, 0);
-        command_list.end_rendering();
-    }
-    context.exec_command_list_immediate(command_list);
+    auto command_pool = context.create_command_pool({});
+    auto commandbuffers = context.allocate_commandbuffers<1>(command_pool);  // 1 frame in flight
 
-
-    auto fence = context.create_fence({});
+    VkViewport swapchain_viewport{};
+    swapchain_viewport.x = 0;
+    swapchain_viewport.y = 0;
+    swapchain_viewport.width = 600;
+    swapchain_viewport.height = 400;
+    swapchain_viewport.minDepth = 0;
+    swapchain_viewport.maxDepth = 1;
+    VkRect2D swapchain_scissor{};
+    swapchain_scissor.offset = {0, 0};
+    swapchain_scissor.extent = {600, 400};
 
     while (!window.should_close()) {
         core::window_t::poll_events();
-        auto next_image = context.acquire_swapchain_next_image_index(swapchain, gfx::null_handle, fence);
+
+        context.wait_fence<1>({in_flight_fence});
+
+        auto next_image = context.acquire_swapchain_next_image_index(swapchain, image_available_semaphore, gfx::null_handle);
         if (!next_image) {
-            horizon_error("Failed to acquire next image");
+            horizon_error("Failed to get next image");
             exit(EXIT_FAILURE);
         }
+        context.reset_fence<1>({in_flight_fence});
 
-        context.present_swapchain<1>({swapchain}, {*next_image}, {});
+        context.begin_commandbuffer(commandbuffers[0]);
+
+        gfx::command_begin_rendering_t begin_rendering{};
+        begin_rendering.render_area = VkRect2D{VkOffset2D{}, { 600, 400 }};
+        begin_rendering.layer_count = 1;
+        begin_rendering.color_attachments_count = 1;
+        begin_rendering.p_color_attachments[0].clear_value = {0, 0, 0, 0};
+        begin_rendering.p_color_attachments[0].image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        begin_rendering.p_color_attachments[0].load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        begin_rendering.p_color_attachments[0].store_op = VK_ATTACHMENT_STORE_OP_STORE;
+        begin_rendering.use_depth = false;
+
+        gfx::command_list_t command_list{};
+
+        command_list.image_memory_barrier(context.swapchain_images(swapchain)[*next_image], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        begin_rendering.p_color_attachments[0].image_view_handle = context.swapchain_image_views(swapchain)[*next_image];
+        command_list.begin_rendering(begin_rendering);
+        command_list.bind_pipeline(pipeline);
+        command_list.set_viewport_and_scissor(swapchain_viewport, swapchain_scissor);
+        command_list.draw(6, 1, 0, 0);
+        command_list.end_rendering();
+        command_list.image_memory_barrier(context.swapchain_images(swapchain)[*next_image], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
+
+        context.exec_commands(commandbuffers[0], command_list);
+
+        context.end_commandbuffer(commandbuffers[0]);
+
+        context.submit_commandbuffer(commandbuffers[0], {image_available_semaphore}, {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT}, {render_finished_semaphore}, in_flight_fence);
+
+        context.present_swapchain<1>({swapchain}, {*next_image}, {render_finished_semaphore});
+
     }
 }
 
 int main() {
-    // test_compute();
+    test_compute();
 
-    test_dynamic_rendering();
+    new_test();
     
     return 0;
 }
