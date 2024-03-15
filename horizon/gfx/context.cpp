@@ -178,6 +178,65 @@ VkPipelineColorBlendAttachmentState default_color_blend_attachment() {
     return vk_color_blend_attachment;
 }
 
+void command_list_t::bind_pipeline(pipeline_handle_t pipeline_handle) {
+    horizon_profile();
+    command_t command{ .type = command_type_t::e_bind_pipeline };
+    command.as.bind_pipeline.handle = pipeline_handle;
+    _commands.push_back(command);
+}
+
+void command_list_t::dispatch(uint32_t x, uint32_t y, uint32_t z) {
+    horizon_profile();
+    command_t command{ .type = command_type_t::e_dispatch };
+    command.as.dispatch = { x, y, z };
+    _commands.push_back(command);
+}
+
+void command_list_t::begin_rendering(const command_begin_rendering_t& command_begin_rendering) {
+    horizon_profile();
+    command_t command{ .type = command_type_t::e_begin_rendering };
+    command.as.begin_rendering = command_begin_rendering;
+    _commands.push_back(command);
+}
+
+void command_list_t::end_rendering() {
+    horizon_profile();
+    command_t command{ .type = command_type_t::e_end_rendering };
+    command.as.end_rendering = {};
+    _commands.push_back(command);
+}
+
+void command_list_t::draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance) {
+    horizon_profile();
+    command_t command{ .type = command_type_t::e_draw };
+    command.as.draw.vertex_count = vertex_count;
+    command.as.draw.instance_count = instance_count;
+    command.as.draw.first_vertex = first_vertex;
+    command.as.draw.first_instance = first_instance;
+    _commands.push_back(command);
+}
+
+void command_list_t::image_memory_barrier(image_handle_t handle, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask, VkPipelineStageFlags src_pipeline_stage, VkPipelineStageFlags dst_pipeline_stage) {
+    horizon_profile();
+    command_t command{ .type = command_type_t::e_image_memory_barrier };
+    command.as.image_memory_barrier.image = handle;
+    command.as.image_memory_barrier.old_image_layout = old_image_layout;
+    command.as.image_memory_barrier.new_image_layout = new_image_layout;
+    command.as.image_memory_barrier.src_access_mask = src_access_mask;
+    command.as.image_memory_barrier.dst_access_mask = dst_access_mask;
+    command.as.image_memory_barrier.src_pipeline_stage = src_pipeline_stage;
+    command.as.image_memory_barrier.dst_pipeline_stage = dst_pipeline_stage;
+    _commands.push_back(command);
+}
+
+void command_list_t::set_viewport_and_scissor(const VkViewport& viewport, const VkRect2D& scissor) {
+    horizon_profile();
+    command_t command{ .type = command_type_t::e_set_viewport_and_scissor };
+    command.as.set_viewport_and_scissor.viewport = viewport;
+    command.as.set_viewport_and_scissor.scissor = scissor;
+    _commands.push_back(command);
+}
+
 struct volk_initializer_t {
     volk_initializer_t() {
         horizon_profile();

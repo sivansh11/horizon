@@ -103,7 +103,6 @@ struct swapchain_t {
     }
 };
 
-// TODO: add builder style add{thing}
 struct pipeline_config_t {
     pipeline_config_t();
 
@@ -376,20 +375,8 @@ struct command_t {
 
 class command_list_t {
 public:
-    void bind_pipeline(pipeline_handle_t pipeline_handle) {
-        horizon_profile();
-        command_t command{ .type = command_type_t::e_bind_pipeline };
-        command.as.bind_pipeline.handle = pipeline_handle;
-
-        _commands.push_back(command);
-    }   
-    void dispatch(uint32_t x, uint32_t y, uint32_t z) {
-        horizon_profile();
-        command_t command{ .type = command_type_t::e_dispatch };
-        command.as.dispatch = { x, y, z };
-
-        _commands.push_back(command);
-    }
+    void bind_pipeline(pipeline_handle_t pipeline_handle);
+    void dispatch(uint32_t x, uint32_t y, uint32_t z);
     template <size_t count>
     void bind_descriptor_sets(pipeline_handle_t pipeline_handle, uint32_t first_set, std::array<descriptor_set_handle_t, count> descriptor_sets) {
         horizon_profile();
@@ -403,7 +390,6 @@ public:
 
         _commands.push_back(command);
     }
-
     template <typename type_t> 
     void push_constant(pipeline_handle_t pipeline_handle, uint32_t offset, uint32_t size, VkShaderStageFlags shader_stage, type_t val) {
         horizon_profile();
@@ -418,51 +404,11 @@ public:
 
         _commands.push_back(command);
     }
-
-    void begin_rendering(const command_begin_rendering_t& command_begin_rendering) {
-        horizon_profile();
-        command_t command{ .type = command_type_t::e_begin_rendering };
-        command.as.begin_rendering = command_begin_rendering;
-        _commands.push_back(command);
-    }
-
-    void end_rendering() {
-        horizon_profile();
-        command_t command{ .type = command_type_t::e_end_rendering };
-        command.as.end_rendering = {};
-        _commands.push_back(command);
-    }
-
-    void draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance) {
-        horizon_profile();
-        command_t command{ .type = command_type_t::e_draw };
-        command.as.draw.vertex_count = vertex_count;
-        command.as.draw.instance_count = instance_count;
-        command.as.draw.first_vertex = first_vertex;
-        command.as.draw.first_instance = first_instance;
-        _commands.push_back(command);
-    }
-
-    void image_memory_barrier(image_handle_t handle, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask, VkPipelineStageFlags src_pipeline_stage, VkPipelineStageFlags dst_pipeline_stage) {
-        horizon_profile();
-        command_t command{ .type = command_type_t::e_image_memory_barrier };
-        command.as.image_memory_barrier.image = handle;
-        command.as.image_memory_barrier.old_image_layout = old_image_layout;
-        command.as.image_memory_barrier.new_image_layout = new_image_layout;
-        command.as.image_memory_barrier.src_access_mask = src_access_mask;
-        command.as.image_memory_barrier.dst_access_mask = dst_access_mask;
-        command.as.image_memory_barrier.src_pipeline_stage = src_pipeline_stage;
-        command.as.image_memory_barrier.dst_pipeline_stage = dst_pipeline_stage;
-        _commands.push_back(command);
-    }
-
-    void set_viewport_and_scissor(const VkViewport& viewport, const VkRect2D& scissor) {
-        horizon_profile();
-        command_t command{ .type = command_type_t::e_set_viewport_and_scissor };
-        command.as.set_viewport_and_scissor.viewport = viewport;
-        command.as.set_viewport_and_scissor.scissor = scissor;
-        _commands.push_back(command);
-    }
+    void begin_rendering(const command_begin_rendering_t& command_begin_rendering);
+    void end_rendering();
+    void draw(uint32_t vertex_count, uint32_t instance_count, uint32_t first_vertex, uint32_t first_instance);
+    void image_memory_barrier(image_handle_t handle, VkImageLayout old_image_layout, VkImageLayout new_image_layout, VkAccessFlags src_access_mask, VkAccessFlags dst_access_mask, VkPipelineStageFlags src_pipeline_stage, VkPipelineStageFlags dst_pipeline_stage);
+    void set_viewport_and_scissor(const VkViewport& viewport, const VkRect2D& scissor);
 
     friend class context_t;
 private:

@@ -4,3 +4,4 @@ project(projects)
 
 add_subdirectory(test)
 add_subdirectory(new_test)
+add_subdirectory(idk_test)

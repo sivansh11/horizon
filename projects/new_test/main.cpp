@@ -55,9 +55,9 @@ enum class resource_usage_t {
 };
 
 struct buffer_t {
-    std::vector<gfx::buffer_handle_t> buffers;
+    std::vector<gfx::buffer_handle_t>         buffers;
     std::vector<gfx::descriptor_set_handle_t> descriptor_sets;
-    resource_usage_t usage;      
+    resource_usage_t                          usage;      
 };
 
 struct buffer_descriptor_info_t {
@@ -191,7 +191,7 @@ private:
 };
 
 int main() {
-    renderer_t<2> renderer;
+    renderer_t<1> renderer;
 
     gfx::descriptor_set_layout_config_t descriptor_set_layout_config{};
     descriptor_set_layout_config.add_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
@@ -227,7 +227,6 @@ int main() {
     VkRect2D swapchain_scissor{};
     swapchain_scissor.offset = {0, 0};
     swapchain_scissor.extent = {600, 400};
-
 
     while (!renderer.window.should_close()) {
         core::window_t::poll_events();
@@ -272,80 +271,6 @@ int main() {
 
         renderer.end_frame();
     }
-    
-
-    // core::window_t window{ "test", 600, 400 };
-    // gfx::context_t context{ true };
-    // auto swapchain = context.create_swapchain(window);
-
-    // gfx::pipeline_config_t pipeline_config{};
-    // pipeline_config.add_shader(context.create_shader_module(gfx::shader_module_config_t{ .code = test_vertex, .name = "test-vert", .type = gfx::shader_type_t::e_vertex }));
-    // pipeline_config.add_shader(context.create_shader_module(gfx::shader_module_config_t{ .code = test_fragment, .name = "test-frag", .type = gfx::shader_type_t::e_fragment }));
-    // pipeline_config.add_color_attachment(VK_FORMAT_B8G8R8A8_SRGB, gfx::default_color_blend_attachment());
-    // auto pipeline = context.create_graphics_pipeline(pipeline_config);
-
-    // auto in_flight_fence = context.create_fence({});
-    // auto image_available_semaphore = context.create_semaphore({});
-    // auto render_finished_semaphore = context.create_semaphore({});
-
-    // auto command_pool = context.create_command_pool({});
-    // auto commandbuffers = context.allocate_commandbuffers<1>(command_pool);  // 1 frame in flight
-
-    // VkViewport swapchain_viewport{};
-    // swapchain_viewport.x = 0;
-    // swapchain_viewport.y = 0;
-    // swapchain_viewport.width = 600;
-    // swapchain_viewport.height = 400;
-    // swapchain_viewport.minDepth = 0;
-    // swapchain_viewport.maxDepth = 1;
-    // VkRect2D swapchain_scissor{};
-    // swapchain_scissor.offset = {0, 0};
-    // swapchain_scissor.extent = {600, 400};
-
-    // while (!window.should_close()) {
-    //     core::window_t::poll_events();
-
-    //     context.wait_fence<1>({in_flight_fence});
-
-    //     auto next_image = context.acquire_swapchain_next_image_index(swapchain, image_available_semaphore, gfx::null_handle);
-    //     if (!next_image) {
-    //         horizon_error("Failed to get next image");
-    //         std::terminate();
-    //     }
-    //     context.reset_fence<1>({in_flight_fence});
-
-    //     context.begin_commandbuffer(commandbuffers[0]);
-
-    //     gfx::command_begin_rendering_t begin_rendering{};
-    //     begin_rendering.render_area = VkRect2D{VkOffset2D{}, { 600, 400 }};
-    //     begin_rendering.layer_count = 1;
-    //     begin_rendering.color_attachments_count = 1;
-    //     begin_rendering.p_color_attachments[0].clear_value = {0, 0, 0, 0};
-    //     begin_rendering.p_color_attachments[0].image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    //     begin_rendering.p_color_attachments[0].load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    //     begin_rendering.p_color_attachments[0].store_op = VK_ATTACHMENT_STORE_OP_STORE;
-    //     begin_rendering.use_depth = false;
-
-    //     gfx::command_list_t command_list{};
-
-    //     command_list.image_memory_barrier(context.swapchain_images(swapchain)[*next_image], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-    //     begin_rendering.p_color_attachments[0].image_view_handle = context.swapchain_image_views(swapchain)[*next_image];
-    //     command_list.begin_rendering(begin_rendering);
-    //     command_list.bind_pipeline(pipeline);
-    //     command_list.set_viewport_and_scissor(swapchain_viewport, swapchain_scissor);
-    //     command_list.draw(6, 1, 0, 0);
-    //     command_list.end_rendering();
-    //     command_list.image_memory_barrier(context.swapchain_images(swapchain)[*next_image], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-
-    //     context.exec_commands(commandbuffers[0], command_list);
-
-    //     context.end_commandbuffer(commandbuffers[0]);
-
-    //     context.submit_commandbuffer(commandbuffers[0], {image_available_semaphore}, {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT}, {render_finished_semaphore}, in_flight_fence);
-
-    //     context.present_swapchain<1>({swapchain}, {*next_image}, {render_finished_semaphore});
-
-    // }
-    
+        
     return 0;
 }
