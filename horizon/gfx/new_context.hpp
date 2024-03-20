@@ -142,10 +142,11 @@ struct config_pipeline_t {
     config_pipeline_t& set_pipeline_rasterization_state(const VkPipelineRasterizationStateCreateInfo& vk_pipeline_rasterization_state);
     config_pipeline_t& set_pipeline_multisample_state(const VkPipelineMultisampleStateCreateInfo& vk_pipeline_multisample_state);
 
-    handle_pipeline_layout_t pipeline_layout{};
+    
+    handle_pipeline_layout_t pipeline_layout;
     std::vector<handle_shader_t> shaders{};
     std::vector<VkFormat>                            vk_color_formats{};
-    VkFormat                                         vk_depth_format{ VK_FORMAT_UNDEFINED };
+    VkFormat                                         vk_depth_format{};
     std::vector<VkPipelineColorBlendAttachmentState> vk_pipeline_color_blend_attachment_states{};
     VkPipelineDepthStencilStateCreateInfo            vk_pipeline_depth_stencil_state_create_info{};
     std::vector<VkDynamicState>                      vk_dynamic_states{};

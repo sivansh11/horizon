@@ -959,8 +959,6 @@ handle_pipeline_t new_context_t::create_graphics_pipeline(const config_pipeline_
     vk_pipeline_rendering_create.depthAttachmentFormat   = config.vk_depth_format;
     vk_pipeline_rendering_create.stencilAttachmentFormat = config.vk_depth_format;
 
-    internal::pipeline_layout_t& pipeline_layout = utils::assert_and_get_data<internal::pipeline_layout_t>(config.pipeline_layout, _pipeline_layouts);
-
     VkGraphicsPipelineCreateInfo vk_pipeline_info{};
     vk_pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     vk_pipeline_info.stageCount = static_cast<uint32_t>(config.shaders.size());
@@ -973,13 +971,13 @@ handle_pipeline_t new_context_t::create_graphics_pipeline(const config_pipeline_
     vk_pipeline_info.pDepthStencilState = &vk_depth_stencil;
     vk_pipeline_info.pColorBlendState = &vk_color_blending;
     vk_pipeline_info.pDynamicState = &vk_dynamic_state;
-    vk_pipeline_info.layout = pipeline_layout;
+    vk_pipeline_info.layout = utils::assert_and_get_data<internal::pipeline_layout_t>(config.pipeline_layout, _pipeline_layouts);
     vk_pipeline_info.renderPass = VK_NULL_HANDLE;
     vk_pipeline_info.subpass = 0;
     vk_pipeline_info.pNext = &vk_pipeline_rendering_create;
 
     VkResult vk_result = vkCreateGraphicsPipelines(_vkb_device, VK_NULL_HANDLE, 1, &vk_pipeline_info, nullptr, &pipeline.vk_pipeline);
-    check(vk_result == VK_SUCCESS, "Failed to create graphics pipeline");
+    check(vk_result, "Failed to create graphics pipeline");
 
     handle_pipeline_t handle = utils::create_and_insert_new_handle<handle_pipeline_t>(_pipelines, pipeline);
     horizon_trace("created graphics pipeline");
