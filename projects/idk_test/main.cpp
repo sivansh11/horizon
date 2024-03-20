@@ -9,22 +9,38 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-static const char *compute_shader_code = R"(
+static const char *test_vertex = R"(
 #version 450
-#extension GL_EXT_scalar_block_layout : enable
 
-layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+layout(location = 0) out vec3 fragColor;
 
-layout (scalar, binding = 0) buffer ssbo {
-    int data;
-};
+vec2 positions[3] = vec2[](
+    vec2(0.0, -0.5),
+    vec2(0.5, 0.5),
+    vec2(-0.5, 0.5)
+);
 
-layout (push_constant) uniform push {
-    int val;
-};
+vec3 colors[3] = vec3[](
+    vec3(1.0, 0.0, 0.0),
+    vec3(0.0, 1.0, 0.0),
+    vec3(0.0, 0.0, 1.0)
+);
 
 void main() {
-    data = val;
+    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+    fragColor = colors[gl_VertexIndex];
+}
+)";
+
+static const char *test_fragment = R"(
+#version 450
+
+layout(location = 0) in vec3 fragColor;
+
+layout(location = 0) out vec4 outColor;
+
+void main() {
+    outColor = vec4(1, 1, 1, 1.0);
 }
 )";
 
@@ -37,30 +53,14 @@ int main() {
     config_buffer.vma_allocation_create_flags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
     gfx::handle_buffer_t buffer = context.create_buffer(config_buffer);
 
-    gfx::config_descriptor_set_layout_t config_descriptor_set_layout{};
-    config_descriptor_set_layout.add_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_COMPUTE_BIT);
-    gfx::handle_descriptor_set_layout_t descriptor_set_layout = context.create_descriptor_set_layout(config_descriptor_set_layout);
-
-    gfx::config_descriptor_set_t config_descriptor_set{};
-    config_descriptor_set.descriptor_set_layout = descriptor_set_layout;
-    gfx::handle_descriptor_set_t descriptor_set = context.allocate_descriptor_set(config_descriptor_set);
-    context.update_descriptor_set(descriptor_set).push_buffer_write(0, gfx::buffer_descriptor_info_t{ .buffer = buffer, .vk_offset = 0, .vk_range = VK_WHOLE_SIZE }).commit();
-
-    gfx::config_shader_t config_shader{};
-    config_shader.code = compute_shader_code;
-    config_shader.name = "test compute";
-    config_shader.type = gfx::shader_type_t::e_compute;
-    gfx::handle_shader_t compute_shader = context.create_shader(config_shader);
-
-    gfx::config_pipeline_layout_t config_pipeline_layout{};
-    config_pipeline_layout.descriptor_set_layouts = { descriptor_set_layout };
-    config_pipeline_layout.add_push_constant(sizeof(int), VK_SHADER_STAGE_COMPUTE_BIT);
-    gfx::handle_pipeline_layout_t pipeline_layout = context.create_pipeline_layout(config_pipeline_layout);
+    gfx::handle_pipeline_layout_t pipeline_layout = context.create_pipeline_layout({});
 
     gfx::config_pipeline_t config_pipeline{};
     config_pipeline.pipeline_layout = pipeline_layout;
-    config_pipeline.shaders = { compute_shader };
-    gfx::handle_pipeline_t pipeline = context.create_compute_pipeline(config_pipeline);
+    config_pipeline.add_shader(context.create_shader(gfx::config_shader_t{ .code = test_vertex, .name = "vertex", .type = gfx::shader_type_t::e_vertex }));
+    config_pipeline.add_shader(context.create_shader(gfx::config_shader_t{ .code = test_fragment, .name = "fragment", .type = gfx::shader_type_t::e_fragment }));
+    config_pipeline.add_color_attachment(VK_FORMAT_B8G8R8A8_SRGB, gfx::default_color_blend_attachment());
+    gfx::handle_pipeline_t pipeline = context.create_graphics_pipeline(config_pipeline);
 
     gfx::handle_fence_t fence = context.create_fence({});
     // context.destroy_fence(fence);
@@ -82,16 +82,16 @@ int main() {
     // context.submit_commandbuffer(commandbuffer, {}, {}, {}, fence);
     // context.wait_fence(fence);
     
-    context.reset_fence(fence);
-    context.begin_commandbuffer(commandbuffer, true);
+    // context.reset_fence(fence);
+    // context.begin_commandbuffer(commandbuffer, true);
 
-    gfx::rendering_attachment_t color_rendering_attachment{};
-    color_rendering_attachment.
-    context.cmd_image_memory_barrier(commandbuffer, {})
+    // // gfx::rendering_attachment_t color_rendering_attachment{};
+    // // color_rendering_attachment.
+    // // context.cmd_image_memory_barrier(commandbuffer, {})
 
-    context.end_commandbuffer(commandbuffer);        
-    context.submit_commandbuffer(commandbuffer, {}, {}, {}, fence);
-    context.wait_fence(fence);
+    // // context.end_commandbuffer(commandbuffer);        
+    // context.submit_commandbuffer(commandbuffer, {}, {}, {}, fence);
+    // context.wait_fence(fence);
     
 
     int *p = (int *)context.map_buffer(buffer);

@@ -6,6 +6,8 @@ file(GLOB_RECURSE SRC_FILES ./*.cpp)
 
 add_library(horizon ${SRC_FILES})
 
+set(Vulkan_INCLUDE_DIR "/home/sivansh/programming/vulkan_sdk/1.3.275.0/x86_64/include")
+set(Vulkan_LIBRARY "/home/sivansh/programming/vulkan_sdk/1.3.275.0/x86_64/lib")
 find_package(Vulkan REQUIRED)
 
 find_package(X11 REQUIRED)

@@ -123,11 +123,37 @@ struct config_shader_t {
     shader_type_t type;
 };
 
+VkPipelineColorBlendAttachmentState default_color_blend_attachment();
+
 struct config_pipeline_t {
+    config_pipeline_t();
+
     config_pipeline_t& add_shader(handle_shader_t handle);
-    
-    handle_pipeline_layout_t pipeline_layout;
+
+    config_pipeline_t& add_color_attachment(VkFormat vk_format, const VkPipelineColorBlendAttachmentState& vk_pipeline_color_blend_state);
+    config_pipeline_t& set_depth(VkFormat vk_format, const VkPipelineDepthStencilStateCreateInfo& vk_pipeline_depth_state);
+
+    config_pipeline_t& add_dynamic_state(const VkDynamicState& vk_dynamic_state);
+
+    config_pipeline_t& add_vertex_input_binding_description(uint32_t vk_binding, uint32_t vk_stride, VkVertexInputRate vk_input_rate);
+    config_pipeline_t& add_vertex_input_attribute_description(uint32_t vk_binding, uint32_t vk_location, VkFormat vk_format, uint32_t vk_offset);   
+
+    config_pipeline_t& set_pipeline_input_assembly_state(const VkPipelineInputAssemblyStateCreateInfo& vk_pipeline_input_assembly_state);
+    config_pipeline_t& set_pipeline_rasterization_state(const VkPipelineRasterizationStateCreateInfo& vk_pipeline_rasterization_state);
+    config_pipeline_t& set_pipeline_multisample_state(const VkPipelineMultisampleStateCreateInfo& vk_pipeline_multisample_state);
+
+    handle_pipeline_layout_t pipeline_layout{};
     std::vector<handle_shader_t> shaders{};
+    std::vector<VkFormat>                            vk_color_formats{};
+    VkFormat                                         vk_depth_format{ VK_FORMAT_UNDEFINED };
+    std::vector<VkPipelineColorBlendAttachmentState> vk_pipeline_color_blend_attachment_states{};
+    VkPipelineDepthStencilStateCreateInfo            vk_pipeline_depth_stencil_state_create_info{};
+    std::vector<VkDynamicState>                      vk_dynamic_states{};
+    std::vector<VkVertexInputAttributeDescription>   vk_vertex_input_attribute_descriptions{};
+    std::vector<VkVertexInputBindingDescription>     vk_vertex_input_binding_descriptions{};
+    VkPipelineInputAssemblyStateCreateInfo           vk_pipeline_input_assembly_state{};
+    VkPipelineRasterizationStateCreateInfo           vk_pipeline_rasterization_state{};
+    VkPipelineMultisampleStateCreateInfo             vk_pipeline_multisample_state{};
 };
 
 struct config_fence_t {
@@ -300,6 +326,7 @@ public:
     void destroy_shader(handle_shader_t handle);
 
     handle_pipeline_t create_compute_pipeline(const config_pipeline_t& config);
+    handle_pipeline_t create_graphics_pipeline(const config_pipeline_t& config);
     void destroy_pipeline(handle_pipeline_t handle);
 
     handle_fence_t create_fence(const config_fence_t& config);
