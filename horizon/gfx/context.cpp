@@ -1,4 +1,4 @@
-#include "new_context.hpp"
+#include "context.hpp"
 
 #include "core/window.hpp"
 
@@ -14,14 +14,6 @@
 
 #include <iostream>
 #include <set>
-
-#define check(truthy, fail_msg) \
-do {                             \
-    if (!(truthy)) {            \
-        horizon_error(fail_msg); \
-        std::terminate();        \
-    }                            \
-} while (false)
 
 namespace gfx {
 
@@ -249,7 +241,7 @@ struct volk_initializer_t {
 
 static volk_initializer_t volk_initializer{};
 
-new_context_t::new_context_t(const bool enable_validation) : _validation(enable_validation) {
+context_t::context_t(const bool enable_validation) : _validation(enable_validation) {
     horizon_profile();
     create_instance();
     create_device();
@@ -257,7 +249,7 @@ new_context_t::new_context_t(const bool enable_validation) : _validation(enable_
     create_descriptor_pool();
 }
 
-new_context_t::~new_context_t() {
+context_t::~context_t() {
     horizon_profile();
     vkDeviceWaitIdle(_vkb_device);
     for (auto& [handle, commandbuffer] : _commandbuffers) {
@@ -347,11 +339,11 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
     return VK_FALSE;
 }
 
-void new_context_t::create_instance() {
+void context_t::create_instance() {
     horizon_profile();
     vkb::InstanceBuilder vkb_instance_builder{};
     vkb_instance_builder.set_debug_callback(debug_callback)
-                       .set_minimum_instance_version(VK_API_VERSION_1_3)
+                       .desire_api_version(VK_API_VERSION_1_3)
                        .enable_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
                        .request_validation_layers(_validation);
     auto result = vkb_instance_builder.build();
@@ -361,7 +353,7 @@ void new_context_t::create_instance() {
     horizon_trace("created instance");
 }
 
-void new_context_t::create_device() {
+void context_t::create_device() {
     horizon_profile();
     vkb::PhysicalDeviceSelector vkb_physical_device_selector{ _vkb_instance };
     vkb_physical_device_selector.add_required_extension(VK_KHR_SWAPCHAIN_EXTENSION_NAME);
@@ -385,7 +377,7 @@ void new_context_t::create_device() {
     VkPhysicalDeviceDynamicRenderingFeaturesKHR vk_physical_device_dynamic_rendering_features{ .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
     vk_physical_device_dynamic_rendering_features.dynamicRendering = VK_TRUE;
     vkb_physical_device_selector.add_required_extension_features<VkPhysicalDeviceDynamicRenderingFeaturesKHR>(vk_physical_device_dynamic_rendering_features);
-    vkb_physical_device_selector.prefer_gpu_device_type(vkb::PreferredDeviceType::integrated);
+    // vkb_physical_device_selector.prefer_gpu_device_type(vkb::PreferredDeviceType::);
 
     // create temp window to get surface information
     core::window_t temp_window{ "temp", 2, 2 };
@@ -429,10 +421,11 @@ void new_context_t::create_device() {
     }
     vkDestroySurfaceKHR(_vkb_instance, vk_temp_surface, nullptr);
     volkLoadDevice(_vkb_device);
+
     horizon_trace("created device");
 }
 
-void new_context_t::create_allocator() {
+void context_t::create_allocator() {
     horizon_profile();
     VmaVulkanFunctions vma_vulkan_functions = {
         .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
@@ -475,7 +468,7 @@ void new_context_t::create_allocator() {
     horizon_trace("created allocator");
 }
 
-void new_context_t::create_descriptor_pool() {
+void context_t::create_descriptor_pool() {
     horizon_profile();
     std::vector<VkDescriptorPoolSize> vk_pool_sizes{};
     {
@@ -525,7 +518,7 @@ void new_context_t::create_descriptor_pool() {
     horizon_trace("created descriptor pool");
 }
 
-handle_swapchain_t new_context_t::create_swapchain(const core::window_t& window) {
+handle_swapchain_t context_t::create_swapchain(const core::window_t& window) {
     horizon_profile();
     internal::swapchain_t swapchain {};
     {
@@ -572,7 +565,7 @@ handle_swapchain_t new_context_t::create_swapchain(const core::window_t& window)
     return handle;
 }
 
-void new_context_t::destroy_swapchain(handle_swapchain_t handle) {
+void context_t::destroy_swapchain(handle_swapchain_t handle) {
     horizon_profile();
     internal::swapchain_t& swapchain = utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
     vkDestroySwapchainKHR(_vkb_device, swapchain.vk_swapchain, nullptr);
@@ -580,7 +573,62 @@ void new_context_t::destroy_swapchain(handle_swapchain_t handle) {
     _swapchains.erase(handle);
 }
 
-handle_buffer_t new_context_t::create_buffer(const config_buffer_t& config) {
+std::vector<handle_image_t> context_t::get_swapchain_images(handle_swapchain_t handle) {
+    horizon_profile();
+    internal::swapchain_t& swapchain = utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
+    return swapchain.images;
+}
+
+std::vector<handle_image_view_t> context_t::get_swapchain_image_views(handle_swapchain_t handle) {
+    horizon_profile();
+    internal::swapchain_t& swapchain = utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
+    return swapchain.image_views;
+}
+
+std::optional<uint32_t> context_t::get_swapchain_next_image_index(handle_swapchain_t handle, handle_semaphore_t handle_semaphore, handle_fence_t handle_fence) {
+    horizon_profile();
+    internal::swapchain_t& swapchain = utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
+    VkSemaphore vk_semaphore = VK_NULL_HANDLE;
+    VkFence vk_fence = VK_NULL_HANDLE;
+    if (handle_semaphore != null_handle) {
+        vk_semaphore = utils::assert_and_get_data<internal::semaphore_t>(handle_semaphore, _semaphores);
+    }
+    if (handle_fence != null_handle) {
+        vk_fence = utils::assert_and_get_data<internal::fence_t>(handle_fence, _fences);
+    }
+    uint32_t next_image;
+    {
+        VkResult vk_result = vkAcquireNextImageKHR(_vkb_device, swapchain.vk_swapchain, UINT64_MAX, vk_semaphore, vk_fence, &next_image);
+        if (vk_result == VK_ERROR_OUT_OF_DATE_KHR) return std::nullopt;
+        check(vk_result == VK_SUCCESS || vk_result == VK_SUBOPTIMAL_KHR, "Failed to acquire swapchain image");
+    }
+    return next_image;
+}
+
+void context_t::present_swapchain(handle_swapchain_t handle, uint32_t image_index, std::vector<handle_semaphore_t> handle_semaphores) {
+    horizon_profile();
+    internal::swapchain_t& swapchain = utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
+    VkSemaphore *vk_semaphores = reinterpret_cast<VkSemaphore *>(alloca(handle_semaphores.size() * sizeof(VkSemaphore)));
+    for (size_t i = 0; i < handle_semaphores.size(); i++) {
+        vk_semaphores[i] = utils::assert_and_get_data<internal::semaphore_t>(handle_semaphores[i], _semaphores);
+    }
+    VkResult vk_result;
+    VkPresentInfoKHR vk_present_info{ .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
+    vk_present_info.waitSemaphoreCount = handle_semaphores.size();
+    vk_present_info.pWaitSemaphores = vk_semaphores;
+    vk_present_info.swapchainCount = 1;
+    vk_present_info.pSwapchains = &swapchain.vk_swapchain.swapchain;
+    vk_present_info.pImageIndices = &image_index;
+    vk_present_info.pResults = &vk_result;
+
+    {
+        VkResult vk_result = vkQueuePresentKHR(_present_queue.vk_queue, &vk_present_info);
+        check(vk_result == VK_SUCCESS, "Failed to present");
+    }
+    check(vk_result == VK_SUCCESS, "Failed to present");
+}
+
+handle_buffer_t context_t::create_buffer(const config_buffer_t& config) {
     horizon_profile();
     internal::buffer_t buffer{ .config = config };
 
@@ -600,14 +648,14 @@ handle_buffer_t new_context_t::create_buffer(const config_buffer_t& config) {
     return handle;
 }
 
-void new_context_t::destroy_buffer(handle_buffer_t handle) {
+void context_t::destroy_buffer(handle_buffer_t handle) {
     horizon_profile();
     internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(handle, _buffers);
     vmaDestroyBuffer(_vma_allocator, buffer, buffer.vma_allocation);
     _buffers.erase(handle);
 }
 
-void *new_context_t::map_buffer(handle_buffer_t handle) {
+void *context_t::map_buffer(handle_buffer_t handle) {
     horizon_profile();
     internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(handle, _buffers);
     if (buffer.p_data) return buffer.p_data;
@@ -615,7 +663,7 @@ void *new_context_t::map_buffer(handle_buffer_t handle) {
     return buffer.p_data;
 }
 
-void new_context_t::unmap_buffer(handle_buffer_t handle) {
+void context_t::unmap_buffer(handle_buffer_t handle) {
     horizon_profile();
     internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(handle, _buffers);
     if (!buffer.p_data) return;
@@ -623,7 +671,7 @@ void new_context_t::unmap_buffer(handle_buffer_t handle) {
     buffer.p_data = nullptr;
 }
 
-handle_image_t new_context_t::create_image(const config_image_t& config) {
+handle_image_t context_t::create_image(const config_image_t& config) {
     horizon_profile();
     VkImageCreateInfo vk_image_create_info{ .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO };
     vk_image_create_info.imageType = config.vk_type;
@@ -660,14 +708,14 @@ handle_image_t new_context_t::create_image(const config_image_t& config) {
     return handle;
 }
 
-void new_context_t::destroy_image(handle_image_t handle) {
+void context_t::destroy_image(handle_image_t handle) {
     horizon_profile();
     internal::image_t& image = utils::assert_and_get_data<internal::image_t>(handle, _images);
     vmaDestroyImage(_vma_allocator, image, image.vma_allocation);
     _images.erase(handle);
 }
 
-handle_image_view_t new_context_t::create_image_view(const config_image_view_t& config) {
+handle_image_view_t context_t::create_image_view(const config_image_view_t& config) {
     horizon_profile();
     internal::image_t image = utils::assert_and_get_data<internal::image_t>(config.image, _images);
 
@@ -700,14 +748,14 @@ handle_image_view_t new_context_t::create_image_view(const config_image_view_t& 
     return handle;
 }
 
-void new_context_t::destroy_image_view(handle_image_view_t handle) {
+void context_t::destroy_image_view(handle_image_view_t handle) {
     horizon_profile();
     internal::image_view_t& image_view = utils::assert_and_get_data<internal::image_view_t>(handle, _image_views);
     vkDestroyImageView(_vkb_device, image_view, nullptr);
     _image_views.erase(handle);
 }
 
-handle_descriptor_set_layout_t new_context_t::create_descriptor_set_layout(const config_descriptor_set_layout_t& config) {
+handle_descriptor_set_layout_t context_t::create_descriptor_set_layout(const config_descriptor_set_layout_t& config) {
     horizon_profile();
     internal::descriptor_set_layout_t descriptor_set_layout{ .config = config };
 
@@ -723,14 +771,14 @@ handle_descriptor_set_layout_t new_context_t::create_descriptor_set_layout(const
     return handle;
 }
 
-void new_context_t::destroy_descriptor_set_layout(handle_descriptor_set_layout_t handle) {
+void context_t::destroy_descriptor_set_layout(handle_descriptor_set_layout_t handle) {
     horizon_profile();
     internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(handle, _descriptor_set_layouts);
     vkDestroyDescriptorSetLayout(_vkb_device, descriptor_set_layout, nullptr);
     _descriptor_set_layouts.erase(handle);
 }
 
-handle_descriptor_set_t new_context_t::allocate_descriptor_set(const config_descriptor_set_t& config) {
+handle_descriptor_set_t context_t::allocate_descriptor_set(const config_descriptor_set_t& config) {
     horizon_profile();
     internal::descriptor_set_t descriptor_set{ .config = config };
 
@@ -749,7 +797,7 @@ handle_descriptor_set_t new_context_t::allocate_descriptor_set(const config_desc
     return handle;
 }
 
-void new_context_t::free_descriptor_set(handle_descriptor_set_t handle) {
+void context_t::free_descriptor_set(handle_descriptor_set_t handle) {
     horizon_profile();
     internal::descriptor_set_t& descriptor_set = utils::assert_and_get_data<internal::descriptor_set_t>(handle, _descriptor_sets);
     VkResult vk_result = vkFreeDescriptorSets(_vkb_device, _vk_descriptor_pool, 1, &descriptor_set.vk_descriptor_set);
@@ -757,12 +805,12 @@ void new_context_t::free_descriptor_set(handle_descriptor_set_t handle) {
     _descriptor_sets.erase(handle);
 }
 
-update_descriptor_set_t new_context_t::update_descriptor_set(handle_descriptor_set_t handle) {
+update_descriptor_set_t context_t::update_descriptor_set(handle_descriptor_set_t handle) {
     horizon_profile();
     return { *this, handle };
 }
 
-handle_pipeline_layout_t new_context_t::create_pipeline_layout(const config_pipeline_layout_t& config) {
+handle_pipeline_layout_t context_t::create_pipeline_layout(const config_pipeline_layout_t& config) {
     horizon_profile();
     internal::pipeline_layout_t pipeline_layout{ .config = config };
     VkDescriptorSetLayout *vk_descriptor_set_layouts = reinterpret_cast<VkDescriptorSetLayout *>(alloca(config.descriptor_set_layouts.size() * sizeof(VkDescriptorSetLayout)));
@@ -785,13 +833,13 @@ handle_pipeline_layout_t new_context_t::create_pipeline_layout(const config_pipe
     return handle;
 }
 
-void new_context_t::destroy_pipeline_layout(handle_pipeline_layout_t handle) {
+void context_t::destroy_pipeline_layout(handle_pipeline_layout_t handle) {
     horizon_profile();
     internal::pipeline_layout_t& pipeline_layout = utils::assert_and_get_data<internal::pipeline_layout_t>(handle, _pipeline_layouts);
     vkDestroyPipelineLayout(_vkb_device, pipeline_layout, nullptr);
     _pipeline_layouts.erase(handle);
 }
-handle_shader_t new_context_t::create_shader(const config_shader_t& config) {
+handle_shader_t context_t::create_shader(const config_shader_t& config) {
     horizon_profile();
 
     shaderc_shader_kind shaderc_kind;
@@ -848,16 +896,18 @@ handle_shader_t new_context_t::create_shader(const config_shader_t& config) {
     return handle;
 }
 
-void new_context_t::destroy_shader(handle_shader_t handle) {
+void context_t::destroy_shader(handle_shader_t handle) {
     horizon_profile();
     internal::shader_t& shader = utils::assert_and_get_data<internal::shader_t>(handle, _shaders);
     vkDestroyShaderModule(_vkb_device, shader, nullptr);
     _shaders.erase(handle);
 }
 
-handle_pipeline_t new_context_t::create_compute_pipeline(const config_pipeline_t& config) {
+handle_pipeline_t context_t::create_compute_pipeline(const config_pipeline_t& config) {
     horizon_profile();
     internal::pipeline_t pipeline{ .vk_pipeline_bind_point = VK_PIPELINE_BIND_POINT_COMPUTE, .config = config };
+
+    assert(config.shaders.size() > 0);
 
     VkPipelineShaderStageCreateInfo vk_pipeline_shader_stage_create_info{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
     vk_pipeline_shader_stage_create_info.pName = "main";
@@ -877,7 +927,7 @@ handle_pipeline_t new_context_t::create_compute_pipeline(const config_pipeline_t
     return handle;
 }
 
-handle_pipeline_t new_context_t::create_graphics_pipeline(const config_pipeline_t& config) {
+handle_pipeline_t context_t::create_graphics_pipeline(const config_pipeline_t& config) {
     horizon_profile();
     internal::pipeline_t pipeline{ .vk_pipeline_bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS, .config = config };
     
@@ -952,7 +1002,7 @@ handle_pipeline_t new_context_t::create_graphics_pipeline(const config_pipeline_
     vk_viewport_state.scissorCount = 1;
     vk_viewport_state.pScissors = &vk_scissor;
 
-    VkPipelineRenderingCreateInfoKHR vk_pipeline_rendering_create{ .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR };
+    VkPipelineRenderingCreateInfo vk_pipeline_rendering_create{ .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
     vk_pipeline_rendering_create.pNext                   = nullptr;
     vk_pipeline_rendering_create.colorAttachmentCount    = config.vk_color_formats.size();
     vk_pipeline_rendering_create.pColorAttachmentFormats = config.vk_color_formats.data();
@@ -977,21 +1027,21 @@ handle_pipeline_t new_context_t::create_graphics_pipeline(const config_pipeline_
     vk_pipeline_info.pNext = &vk_pipeline_rendering_create;
 
     VkResult vk_result = vkCreateGraphicsPipelines(_vkb_device, VK_NULL_HANDLE, 1, &vk_pipeline_info, nullptr, &pipeline.vk_pipeline);
-    check(vk_result, "Failed to create graphics pipeline");
+    check(vk_result == VK_SUCCESS, "Failed to create graphics pipeline");
 
     handle_pipeline_t handle = utils::create_and_insert_new_handle<handle_pipeline_t>(_pipelines, pipeline);
     horizon_trace("created graphics pipeline");
     return handle;
 }
 
-void new_context_t::destroy_pipeline(handle_pipeline_t handle) {
+void context_t::destroy_pipeline(handle_pipeline_t handle) {
     horizon_profile();
     internal::pipeline_t& pipeline = utils::assert_and_get_data<internal::pipeline_t>(handle, _pipelines);
     vkDestroyPipeline(_vkb_device, pipeline, nullptr);
     _pipelines.erase(handle);
 }
 
-handle_fence_t new_context_t::create_fence(const config_fence_t& config) {
+handle_fence_t context_t::create_fence(const config_fence_t& config) {
     horizon_profile();
     internal::fence_t fence{ .config = config };
     VkFenceCreateInfo vk_fence_create_info{ .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
@@ -1003,28 +1053,28 @@ handle_fence_t new_context_t::create_fence(const config_fence_t& config) {
     return handle;
 }
 
-void new_context_t::destroy_fence(handle_fence_t handle) {
+void context_t::destroy_fence(handle_fence_t handle) {
     horizon_profile();
     internal::fence_t& fence = utils::assert_and_get_data<internal::fence_t>(handle, _fences);
     vkDestroyFence(_vkb_device, fence, nullptr);
     _fences.erase(handle);
 }
 
-void new_context_t::wait_fence(handle_fence_t handle) {
+void context_t::wait_fence(handle_fence_t handle) {
     horizon_profile();
     internal::fence_t& fence = utils::assert_and_get_data<internal::fence_t>(handle, _fences);
     VkResult vk_result = vkWaitForFences(_vkb_device, 1, &fence.vk_fence, true, UINT64_MAX);
     check(vk_result == VK_SUCCESS, "Failed to wait for fence");
 }
 
-void new_context_t::reset_fence(handle_fence_t handle) {
+void context_t::reset_fence(handle_fence_t handle) {
     horizon_profile();
     internal::fence_t& fence = utils::assert_and_get_data<internal::fence_t>(handle, _fences);
     VkResult vk_result = vkResetFences(_vkb_device, 1, &fence.vk_fence);
     check(vk_result == VK_SUCCESS, "Failed to reset fence");
 }
 
-handle_semaphore_t new_context_t::create_semaphore(const config_semaphore_t& config) {
+handle_semaphore_t context_t::create_semaphore(const config_semaphore_t& config) {
     horizon_profile();
     internal::semaphore_t semaphore{ .config = config };
     VkSemaphoreCreateInfo vk_semaphore_create_info{ .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
@@ -1035,14 +1085,14 @@ handle_semaphore_t new_context_t::create_semaphore(const config_semaphore_t& con
     return handle;
 }
 
-void new_context_t::destroy_semaphore(handle_semaphore_t handle) {
+void context_t::destroy_semaphore(handle_semaphore_t handle) {
     horizon_profile();
     internal::semaphore_t& semaphore = utils::assert_and_get_data<internal::semaphore_t>(handle, _semaphores);
     vkDestroySemaphore(_vkb_device, semaphore, nullptr);
     _semaphores.erase(handle);
 }
 
-handle_command_pool_t new_context_t::create_command_pool(const config_command_pool_t& config) {
+handle_command_pool_t context_t::create_command_pool(const config_command_pool_t& config) {
     horizon_profile();
     internal::command_pool_t command_pool{ .config = config };
     VkCommandPoolCreateInfo vk_command_pool_create_info{ .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO };
@@ -1055,14 +1105,14 @@ handle_command_pool_t new_context_t::create_command_pool(const config_command_po
     return handle;
 }
 
-void new_context_t::destroy_command_pool(handle_command_pool_t handle) {
+void context_t::destroy_command_pool(handle_command_pool_t handle) {
     horizon_profile();
     internal::command_pool_t& command_pool = utils::assert_and_get_data<internal::command_pool_t>(handle, _command_pools);
     vkDestroyCommandPool(_vkb_device, command_pool, nullptr);
     _command_pools.erase(handle);
 }
 
-handle_commandbuffer_t new_context_t::allocate_commandbuffer(const config_commandbuffer_t& config) {
+handle_commandbuffer_t context_t::allocate_commandbuffer(const config_commandbuffer_t& config) {
     horizon_profile();
     internal::commandbuffer_t commandbuffer{ .config = config };
     VkCommandBufferAllocateInfo vk_commandbuffer_allocate_info{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
@@ -1076,14 +1126,14 @@ handle_commandbuffer_t new_context_t::allocate_commandbuffer(const config_comman
     return handle;
 }
 
-void new_context_t::free_commandbuffer(handle_commandbuffer_t handle) {
+void context_t::free_commandbuffer(handle_commandbuffer_t handle) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle, _commandbuffers);
     vkFreeCommandBuffers(_vkb_device, utils::assert_and_get_data<internal::command_pool_t>(commandbuffer.config.command_pool, _command_pools), 1, &commandbuffer.vk_commandbuffer);
     _commandbuffers.erase(handle);
 }
 
-void new_context_t::begin_commandbuffer(handle_commandbuffer_t handle, bool single_use) {
+void context_t::begin_commandbuffer(handle_commandbuffer_t handle, bool single_use) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle, _commandbuffers);
     VkCommandBufferBeginInfo vk_commandbuffer_begin_info{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
@@ -1092,14 +1142,14 @@ void new_context_t::begin_commandbuffer(handle_commandbuffer_t handle, bool sing
     check(vk_result == VK_SUCCESS, "Failed to begin commandbuffer");
 }
 
-void new_context_t::end_commandbuffer(handle_commandbuffer_t handle) {
+void context_t::end_commandbuffer(handle_commandbuffer_t handle) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle, _commandbuffers);
     VkResult vk_result = vkEndCommandBuffer(commandbuffer);
     check(vk_result == VK_SUCCESS, "Failed to end commandbuffer");
 }
 
-void new_context_t::submit_commandbuffer(handle_commandbuffer_t handle, const std::vector<handle_semaphore_t>& wait_semaphore_handles, const std::vector<VkPipelineStageFlags>& vk_pipeline_stages, const std::vector<handle_semaphore_t>& signal_semaphore_handles, handle_fence_t handle_fence) {
+void context_t::submit_commandbuffer(handle_commandbuffer_t handle, const std::vector<handle_semaphore_t>& wait_semaphore_handles, const std::vector<VkPipelineStageFlags>& vk_pipeline_stages, const std::vector<handle_semaphore_t>& signal_semaphore_handles, handle_fence_t handle_fence) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle, _commandbuffers);
     VkSemaphore *p_vk_wait_semaphores = reinterpret_cast<VkSemaphore *>(alloca(wait_semaphore_handles.size() * sizeof(VkSemaphore)));
@@ -1126,14 +1176,14 @@ void new_context_t::submit_commandbuffer(handle_commandbuffer_t handle, const st
     check(vk_result == VK_SUCCESS, "Failed to submit commandbuffer");
 }
 
-void new_context_t::cmd_bind_pipeliine(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline) {
+void context_t::cmd_bind_pipeliine(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     internal::pipeline_t& pipeline = utils::assert_and_get_data<internal::pipeline_t>(handle_pipeline, _pipelines);
     vkCmdBindPipeline(commandbuffer, pipeline.vk_pipeline_bind_point, pipeline);
 }
 
-void new_context_t::cmd_bind_descriptor_sets(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline, uint32_t vk_first_set, const std::vector<handle_descriptor_set_t>& handle_descriptor_sets) {
+void context_t::cmd_bind_descriptor_sets(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline, uint32_t vk_first_set, const std::vector<handle_descriptor_set_t>& handle_descriptor_sets) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     internal::pipeline_t& pipeline = utils::assert_and_get_data<internal::pipeline_t>(handle_pipeline, _pipelines);
@@ -1145,27 +1195,27 @@ void new_context_t::cmd_bind_descriptor_sets(handle_commandbuffer_t handle_comma
     vkCmdBindDescriptorSets(commandbuffer, pipeline.vk_pipeline_bind_point, pipeline_layout, vk_first_set, handle_descriptor_sets.size(), vk_descriptor_sets, 0, nullptr);
 }
 
-void new_context_t::cmd_push_constants(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_layout_t handle_pipeline_layout, VkShaderStageFlags vk_shader_stages, uint32_t vk_offset, uint32_t vk_size, const void *vk_data) {
+void context_t::cmd_push_constants(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_layout_t handle_pipeline_layout, VkShaderStageFlags vk_shader_stages, uint32_t vk_offset, uint32_t vk_size, const void *vk_data) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     internal::pipeline_layout_t& pipeline_layout = utils::assert_and_get_data<internal::pipeline_layout_t>(handle_pipeline_layout, _pipeline_layouts);
     vkCmdPushConstants(commandbuffer, pipeline_layout, vk_shader_stages, vk_offset, vk_size, vk_data);
 }
 
-void new_context_t::cmd_dispatch(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_group_count_x, uint32_t vk_group_count_y, uint32_t vk_group_count_z) {
+void context_t::cmd_dispatch(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_group_count_x, uint32_t vk_group_count_y, uint32_t vk_group_count_z) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     vkCmdDispatch(commandbuffer, vk_group_count_x, vk_group_count_y, vk_group_count_z);
 }
 
-void new_context_t::cmd_set_viewport_and_scissor(handle_commandbuffer_t handle_commandbuffer, VkViewport viewport, VkRect2D scissor) {
+void context_t::cmd_set_viewport_and_scissor(handle_commandbuffer_t handle_commandbuffer, VkViewport viewport, VkRect2D scissor) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     vkCmdSetViewport(commandbuffer, 0, 1, &viewport);
     vkCmdSetScissor(commandbuffer, 0, 1, &scissor);
 }
 
-void new_context_t::cmd_begin_rendering(handle_commandbuffer_t handle_commandbuffer, const std::vector<rendering_attachment_t>& color_rendering_attachments, const std::optional<rendering_attachment_t>& depth_rendering_attachment, const VkRect2D& vk_render_area, uint32_t vk_layer_count) {
+void context_t::cmd_begin_rendering(handle_commandbuffer_t handle_commandbuffer, const std::vector<rendering_attachment_t>& color_rendering_attachments, const std::optional<rendering_attachment_t>& depth_rendering_attachment, const VkRect2D& vk_render_area, uint32_t vk_layer_count) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     VkRenderingInfo vk_rendering_info{ .sType = VK_STRUCTURE_TYPE_RENDERING_INFO };
@@ -1194,19 +1244,19 @@ void new_context_t::cmd_begin_rendering(handle_commandbuffer_t handle_commandbuf
     vkCmdBeginRendering(commandbuffer, &vk_rendering_info);
 }
 
-void new_context_t::cmd_end_rendering(handle_commandbuffer_t handle_commandbuffer) {
+void context_t::cmd_end_rendering(handle_commandbuffer_t handle_commandbuffer) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     vkCmdEndRendering(commandbuffer);
 }
 
-void new_context_t::cmd_draw(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_vertex_count, uint32_t vk_instance_count, uint32_t vk_first_vertex, uint32_t vk_first_instance) {
+void context_t::cmd_draw(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_vertex_count, uint32_t vk_instance_count, uint32_t vk_first_vertex, uint32_t vk_first_instance) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     vkCmdDraw(commandbuffer, vk_vertex_count, vk_instance_count, vk_first_vertex, vk_first_instance);
 }
 
-void new_context_t::cmd_image_memory_barrier(handle_commandbuffer_t handle_commandbuffer, handle_image_t handle_image, VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout, VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask, VkPipelineStageFlags vk_src_pipeline_stage, VkPipelineStageFlags vk_dst_pipeline_stage) {
+void context_t::cmd_image_memory_barrier(handle_commandbuffer_t handle_commandbuffer, handle_image_t handle_image, VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout, VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask, VkPipelineStageFlags vk_src_pipeline_stage, VkPipelineStageFlags vk_dst_pipeline_stage) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     internal::image_t& image = utils::assert_and_get_data<internal::image_t>(handle_image, _images);

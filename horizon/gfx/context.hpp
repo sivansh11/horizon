@@ -84,7 +84,7 @@ constexpr uint32_t        vk_auto_layers = 0x7FFFFFFF;   // this should work I g
 constexpr uint32_t        vk_default_base_mip_level = 0;
 constexpr uint32_t        vk_default_base_array_layer = 0;
 struct config_image_view_t {
-    handle_image_t  image;
+    handle_image_t  image = null_handle;
     VkImageViewType vk_image_view_type = vk_auto_image_view_type;
     VkFormat        vk_format = vk_auto_image_format;
     uint32_t        vk_base_mip_level = vk_default_base_mip_level;
@@ -100,7 +100,7 @@ struct config_descriptor_set_layout_t {
 };
 
 struct config_descriptor_set_t {
-    handle_descriptor_set_layout_t descriptor_set_layout;
+    handle_descriptor_set_layout_t descriptor_set_layout = null_handle;
 };
 
 enum class shader_type_t {
@@ -143,8 +143,8 @@ struct config_pipeline_t {
     config_pipeline_t& set_pipeline_multisample_state(const VkPipelineMultisampleStateCreateInfo& vk_pipeline_multisample_state);
 
     
-    handle_pipeline_layout_t pipeline_layout;
-    std::vector<handle_shader_t> shaders{};
+    handle_pipeline_layout_t                         pipeline_layout = null_handle;
+    std::vector<handle_shader_t>                     shaders{};
     std::vector<VkFormat>                            vk_color_formats{};
     VkFormat                                         vk_depth_format{};
     std::vector<VkPipelineColorBlendAttachmentState> vk_pipeline_color_blend_attachment_states{};
@@ -269,10 +269,10 @@ struct commandbuffer_t {
 
 } // namespace internal
 
-class new_context_t;
+class context_t;
 
 struct buffer_descriptor_info_t {
-    handle_buffer_t buffer;
+    handle_buffer_t buffer = null_handle;
     VkDeviceSize    vk_offset;
     VkDeviceSize    vk_range;
 };
@@ -281,26 +281,30 @@ struct update_descriptor_set_t {
     update_descriptor_set_t& push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t count = 1);
     void commit();
 
-    new_context_t& context;
-    handle_descriptor_set_t handle;
+    context_t& context;
+    handle_descriptor_set_t handle = null_handle;
     std::vector<VkWriteDescriptorSet> vk_writes;
 };
 
 struct rendering_attachment_t {
-    handle_image_view_t handle_image_view;
+    handle_image_view_t handle_image_view = null_handle;
     VkImageLayout       image_layout;
     VkAttachmentLoadOp  load_op;
     VkAttachmentStoreOp store_op;
     VkClearValue        clear_value;
 };
 
-class new_context_t {
+class context_t {
 public:
-    new_context_t(const bool enable_validation);
-    ~new_context_t();
+    context_t(const bool enable_validation);
+    ~context_t();
 
     handle_swapchain_t create_swapchain(const core::window_t& window);
     void destroy_swapchain(handle_swapchain_t handle);
+    std::vector<handle_image_t> get_swapchain_images(handle_swapchain_t handle);
+    std::vector<handle_image_view_t> get_swapchain_image_views(handle_swapchain_t handle);
+    std::optional<uint32_t> get_swapchain_next_image_index(handle_swapchain_t handle, handle_semaphore_t handle_swapchain, handle_fence_t handle_fence);
+    void present_swapchain(handle_swapchain_t handle, uint32_t image_index, std::vector<handle_semaphore_t> handle_semaphore);
 
     handle_buffer_t create_buffer(const config_buffer_t& config);
     void destroy_buffer(handle_buffer_t handle);
