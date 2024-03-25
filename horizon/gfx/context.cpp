@@ -219,11 +219,37 @@ update_descriptor_set_t& update_descriptor_set_t::push_buffer_write(uint32_t bin
     return *this;
 }
 
+update_descriptor_set_t& update_descriptor_set_t::push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t count) {
+    horizon_profile();
+    internal::descriptor_set_t& descriptor_set = utils::assert_and_get_data<internal::descriptor_set_t>(handle, context._descriptor_sets);
+    VkWriteDescriptorSet vk_write{ .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
+    vk_write.dstBinding = binding;
+    vk_write.descriptorCount = count;
+    vk_write.dstSet = descriptor_set;
+    VkDescriptorImageInfo *vk_image_info = new VkDescriptorImageInfo;
+    vk_image_info->sampler = utils::assert_and_get_data<internal::sampler_t>(info.handle_sampler, context._samplers);
+    vk_image_info->imageView = utils::assert_and_get_data<internal::image_view_t>(info.handle_image_view, context._image_views);
+    vk_image_info->imageLayout = info.vk_image_layout;
+
+    internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(descriptor_set.config.descriptor_set_layout, context._descriptor_set_layouts);
+    auto itr = std::find_if(descriptor_set_layout.config.vk_descriptor_set_layout_bindings.begin(),
+                            descriptor_set_layout.config.vk_descriptor_set_layout_bindings.end(),
+                            [binding](const VkDescriptorSetLayoutBinding& layout_binding) {
+                                return binding == layout_binding.binding;
+                            });
+    assert(itr != descriptor_set_layout.config.vk_descriptor_set_layout_bindings.end());
+    vk_write.descriptorType = itr->descriptorType;
+    vk_write.pImageInfo = vk_image_info;
+    vk_writes.push_back(vk_write);
+    return *this;
+}
+
 void update_descriptor_set_t::commit() {
     horizon_profile();
     vkUpdateDescriptorSets(context._vkb_device, vk_writes.size(), vk_writes.data(), 0, nullptr);
     for (auto& vk_write : vk_writes) {
         if (vk_write.pBufferInfo) delete vk_write.pBufferInfo;
+        if (vk_write.pImageInfo) delete vk_write.pImageInfo;
     }    
     vk_writes.clear();
     horizon_trace("updated descriptor set {}", handle);
@@ -296,6 +322,10 @@ context_t::~context_t() {
         horizon_warn("forgot to clear image with handle: {}", handle);
         // if (image.p_data) unmap_image(handle);
         vmaDestroyImage(_vma_allocator, image, image.vma_allocation);
+    }
+    for (auto& [handle, sampler] : _samplers) {
+        horizon_warn("forgot to clear sampler with handle: {}", handle);
+        vkDestroySampler(_vkb_device, sampler, nullptr);
     }
     for (auto& [handle, buffer] : _buffers) {
         horizon_warn("forgot to clear buffer with handle: {}", handle);
@@ -669,6 +699,43 @@ void context_t::unmap_buffer(handle_buffer_t handle) {
     if (!buffer.p_data) return;
     vmaUnmapMemory(_vma_allocator, buffer.vma_allocation);
     buffer.p_data = nullptr;
+}
+
+handle_sampler_t context_t::create_sampler(const config_sampler_t& config) {
+    horizon_profile();
+    
+    internal::sampler_t sampler{ .config = config };
+    VkSamplerCreateInfo vk_sampler_create_info{ .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO };
+    vk_sampler_create_info.flags;
+    vk_sampler_create_info.magFilter = config.vk_mag_filter;
+    vk_sampler_create_info.minFilter = config.vk_min_filter;
+    vk_sampler_create_info.mipmapMode = config.vk_mipmap_mode;
+    vk_sampler_create_info.addressModeU = config.vk_address_mode_u;
+    vk_sampler_create_info.addressModeV = config.vk_address_mode_v;
+    vk_sampler_create_info.addressModeW = config.vk_address_mode_w;
+    vk_sampler_create_info.mipLodBias = config.vk_mip_lod_bias;
+    vk_sampler_create_info.anisotropyEnable = config.vk_anisotropy_enable;
+    vk_sampler_create_info.maxAnisotropy = config.vk_max_anisotropy;
+    vk_sampler_create_info.compareEnable = config.vk_compare_enable;
+    vk_sampler_create_info.compareOp = config.vk_compare_op;
+    vk_sampler_create_info.minLod = config.vk_min_lod;
+    vk_sampler_create_info.maxLod = config.vk_max_lod;
+    vk_sampler_create_info.borderColor = config.vk_border_color;
+    vk_sampler_create_info.unnormalizedCoordinates = config.vk_unnormalized_coordinates;
+
+    VkResult vk_result = vkCreateSampler(_vkb_device, &vk_sampler_create_info, nullptr, &sampler.vk_sampler);
+    check(vk_result == VK_SUCCESS, "Failed to create sampler");
+
+    handle_sampler_t handle = utils::create_and_insert_new_handle<handle_sampler_t>(_samplers, sampler);
+    horizon_trace("created sampler");
+    return handle;
+}
+
+void context_t::destroy_sampler(handle_sampler_t handle) {
+    horizon_profile();
+    internal::sampler_t& sampler = utils::assert_and_get_data<internal::sampler_t>(handle, _samplers);
+    vkDestroySampler(_vkb_device, sampler, nullptr);
+    _samplers.erase(handle);
 }
 
 handle_image_t context_t::create_image(const config_image_t& config) {

@@ -120,6 +120,30 @@ void test_graphics() {
     gfx::context_t context{ true };
     auto swapchain = context.create_swapchain(window);
 
+    // {
+    //     gfx::config_image_t config_image{};
+    //     config_image.vk_width = 640;
+    //     config_image.vk_height = 420;
+    //     config_image.vk_depth = 1;
+    //     config_image.vk_type = VK_IMAGE_TYPE_2D;
+    //     config_image.vk_format = VK_FORMAT_R8G8B8A8_SRGB;
+    //     config_image.vk_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    //     config_image.vk_mips = 1;
+    //     auto image = context.create_image(config_image);
+
+    //     auto image_view = context.create_image_view({.image = image});
+
+    //     auto sampler = context.create_sampler({});
+
+    //     gfx::config_descriptor_set_layout_t cdsl{};
+    //     cdsl.add_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS);
+    //     auto dsl = context.create_descriptor_set_layout(cdsl);
+
+    //     auto ds = context.allocate_descriptor_set({.descriptor_set_layout = dsl});
+
+    //     context.update_descriptor_set(ds).push_image_write(0, gfx::image_descriptor_info_t{ .handle_sampler = sampler, .handle_image_view = image_view, .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }).commit();
+    // }
+
     gfx::config_pipeline_layout_t config_pipeline_layout{};
     auto pipeline_layout = context.create_pipeline_layout(config_pipeline_layout);
     gfx::config_pipeline_t config_pipeline{};

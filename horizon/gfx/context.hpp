@@ -40,6 +40,7 @@ namespace gfx {
 
 define_handle(handle_swapchain_t);
 define_handle(handle_buffer_t);
+define_handle(handle_sampler_t);
 define_handle(handle_image_t);
 define_handle(handle_image_view_t);
 define_handle(handle_descriptor_set_layout_t);
@@ -58,6 +59,24 @@ struct config_buffer_t {
     VkBufferUsageFlags       vk_buffer_usage_flags;
     VmaAllocationCreateFlags vma_allocation_create_flags;
     VmaMemoryUsage           vma_memory_usage = default_vma_memory_usage;
+};
+
+struct config_sampler_t {
+    VkFilter                vk_mag_filter = /*VK_FILTER_LINEAR*/ VK_FILTER_NEAREST;
+    VkFilter                vk_min_filter = /*VK_FILTER_LINEAR*/ VK_FILTER_NEAREST;
+    VkSamplerMipmapMode     vk_mipmap_mode = /*VK_SAMPLER_MIPMAP_MODE_LINEAR*/ VK_SAMPLER_MIPMAP_MODE_NEAREST;
+    VkSamplerAddressMode    vk_address_mode_u = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    VkSamplerAddressMode    vk_address_mode_v = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    VkSamplerAddressMode    vk_address_mode_w = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    float                   vk_mip_lod_bias = 0;
+    VkBool32                vk_anisotropy_enable = VK_FALSE;
+    float                   vk_max_anisotropy = 0;  // maybe shouldnt be 0 ?
+    VkBool32                vk_compare_enable = VK_FALSE;
+    VkCompareOp             vk_compare_op = VK_COMPARE_OP_LESS;  // maybe should choose a different default
+    float                   vk_min_lod = 0;
+    float                   vk_max_lod = VK_LOD_CLAMP_NONE;
+    VkBorderColor           vk_border_color = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    VkBool32                vk_unnormalized_coordinates = VK_FALSE;
 };
 
 constexpr const uint32_t vk_auto_calculate_mip_levels = std::numeric_limits<uint32_t>::max();
@@ -197,6 +216,12 @@ struct buffer_t {
     operator VkBuffer() { return vk_buffer; }
 };
 
+struct sampler_t {
+    VkSampler        vk_sampler;
+    config_sampler_t config;
+    operator VkSampler() { return vk_sampler; }
+};
+
 struct image_t {
     VkImage        vk_image;
     VmaAllocation  vma_allocation;
@@ -277,8 +302,15 @@ struct buffer_descriptor_info_t {
     VkDeviceSize    vk_range;
 };
 
+struct image_descriptor_info_t {
+    handle_sampler_t    handle_sampler = null_handle;
+    handle_image_view_t handle_image_view = null_handle;
+    VkImageLayout       vk_image_layout;
+};
+
 struct update_descriptor_set_t {
     update_descriptor_set_t& push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t count = 1);
+    update_descriptor_set_t& push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t count = 1);
     void commit();
 
     context_t& context;
@@ -310,6 +342,9 @@ public:
     void destroy_buffer(handle_buffer_t handle);
     void *map_buffer(handle_buffer_t handle);
     void unmap_buffer(handle_buffer_t handle);
+
+    handle_sampler_t create_sampler(const config_sampler_t& config);
+    void destroy_sampler(handle_sampler_t handle);
 
     handle_image_t create_image(const config_image_t& config);
     void destroy_image(handle_image_t handle);
@@ -382,6 +417,7 @@ private:
     
     std::map<handle_swapchain_t, internal::swapchain_t> _swapchains;
     std::map<handle_buffer_t, internal::buffer_t> _buffers;
+    std::map<handle_sampler_t, internal::sampler_t> _samplers;
     std::map<handle_image_t, internal::image_t> _images;
     std::map<handle_image_view_t, internal::image_view_t> _image_views;
     std::map<handle_descriptor_set_layout_t, internal::descriptor_set_layout_t> _descriptor_set_layouts;
@@ -413,6 +449,7 @@ struct fmt::formatter<name> {                                                   
 
 define_fmt(gfx::handle_swapchain_t);
 define_fmt(gfx::handle_buffer_t);
+define_fmt(gfx::handle_sampler_t);
 define_fmt(gfx::handle_image_t);
 define_fmt(gfx::handle_image_view_t);
 define_fmt(gfx::handle_descriptor_set_layout_t);
