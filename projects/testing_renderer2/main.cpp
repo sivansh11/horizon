@@ -72,7 +72,7 @@ int main() {
     auto fragment_shader = renderer.context.create_shader(config_shader);
     config_pipeline.add_shader(vertex_shader);
     config_pipeline.add_shader(fragment_shader);
-    config_pipeline.add_color_attachment(VK_FORMAT_B8G8R8A8_SRGB, gfx::default_color_blend_attachment());
+    config_pipeline.add_color_attachment(VK_FORMAT_R8G8B8A8_SRGB, gfx::default_color_blend_attachment());
     config_pipeline.handle_pipeline_layout = pipeline_layout;
     auto pipeline = renderer.context.create_graphics_pipeline(config_pipeline);
 
@@ -84,6 +84,19 @@ int main() {
     auto descriptor_set = renderer.allocate_descriptor_set(renderer::resource_policy_t::e_every_frame, { .handle_descriptor_set_layout = descriptor_set_layout });
 
     renderer.update_descriptor_set(descriptor_set).push_buffer_write(0, renderer::buffer_descriptor_info_t{ .handle_buffer = buffer }).commit();
+
+    gfx::config_image_t config_image{};
+    config_image.vk_width = 640;
+    config_image.vk_height = 420;
+    config_image.vk_depth = 1;
+    config_image.vk_type = VK_IMAGE_TYPE_2D;
+    config_image.vk_format = VK_FORMAT_R8G8B8A8_SRGB;
+    config_image.vk_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    config_image.vk_mips = 1;
+    auto image = renderer.context.create_image(config_image);
+
+    gfx::config_image_view_t config_image_view{ .handle_image = image };
+    auto image_view = renderer.context.create_image_view(config_image_view);
 
     float current_val = 0;
 
@@ -110,7 +123,21 @@ int main() {
 
         auto commandbuffer = renderer.current_commandbuffer();
 
-        auto rendering_attachment = renderer.swapchain_rendering_attachment({0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
+        // auto rendering_attachment = renderer.swapchain_rendering_attachment({0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
+        renderer.context.cmd_image_memory_barrier(commandbuffer, 
+                                                  image, 
+                                                  VK_IMAGE_LAYOUT_UNDEFINED, 
+                                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 
+                                                  0, 
+                                                  VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 
+                                                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+                                                  VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
+        gfx::rendering_attachment_t rendering_attachment{};
+        rendering_attachment.clear_value = {0, 0, 0, 0};
+        rendering_attachment.handle_image_view = image_view;
+        rendering_attachment.image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        rendering_attachment.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        rendering_attachment.store_op = VK_ATTACHMENT_STORE_OP_STORE;
         renderer.context.cmd_begin_rendering(commandbuffer, {rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {640, 420}});
         renderer.context.cmd_bind_pipeliine(commandbuffer, pipeline);
         renderer.context.cmd_bind_descriptor_sets(commandbuffer, pipeline, 0, { renderer.descriptor_set(descriptor_set) });
