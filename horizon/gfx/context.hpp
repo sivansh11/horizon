@@ -20,6 +20,24 @@ class window_t;
 
 } // namespace core
 
+namespace utils {
+
+template <typename handle_t, typename map_t, typename data_t> 
+inline handle_t create_and_insert_new_handle(map_t& map, data_t& data) {
+    handle_t handle = map.size();
+    while (map.contains(handle)) { handle++; }
+    map.insert({handle, data});
+    return handle;
+}
+
+template <typename data_t, typename handle_t, typename map_t> 
+inline data_t& assert_and_get_data(handle_t handle, map_t& map) {
+    assert(map.contains(handle));
+    return map[handle];
+}
+
+} // namespace utils
+
 using handle_t = uint64_t;
 constexpr handle_t null_handle = std::numeric_limits<handle_t>::max();
 
@@ -103,7 +121,7 @@ constexpr uint32_t        vk_auto_layers = 0x7FFFFFFF;   // this should work I g
 constexpr uint32_t        vk_default_base_mip_level = 0;
 constexpr uint32_t        vk_default_base_array_layer = 0;
 struct config_image_view_t {
-    handle_image_t  image = null_handle;
+    handle_image_t  handle_image = null_handle;
     VkImageViewType vk_image_view_type = vk_auto_image_view_type;
     VkFormat        vk_format = vk_auto_image_format;
     uint32_t        vk_base_mip_level = vk_default_base_mip_level;
@@ -119,7 +137,7 @@ struct config_descriptor_set_layout_t {
 };
 
 struct config_descriptor_set_t {
-    handle_descriptor_set_layout_t descriptor_set_layout = null_handle;
+    handle_descriptor_set_layout_t handle_descriptor_set_layout = null_handle;
 };
 
 enum class shader_type_t {
@@ -132,7 +150,7 @@ struct config_pipeline_layout_t {
     config_pipeline_layout_t& add_descriptor_set_layout(handle_descriptor_set_layout_t handle);
     config_pipeline_layout_t& add_push_constant(uint32_t vk_size, VkShaderStageFlagBits vk_shader_stages, uint32_t vk_offset = 0);
 
-    std::vector<handle_descriptor_set_layout_t> descriptor_set_layouts{};
+    std::vector<handle_descriptor_set_layout_t> handle_descriptor_set_layouts{};
     std::vector<VkPushConstantRange> vk_push_constant_ranges{};
 };
 
@@ -162,8 +180,8 @@ struct config_pipeline_t {
     config_pipeline_t& set_pipeline_multisample_state(const VkPipelineMultisampleStateCreateInfo& vk_pipeline_multisample_state);
 
     
-    handle_pipeline_layout_t                         pipeline_layout = null_handle;
-    std::vector<handle_shader_t>                     shaders{};
+    handle_pipeline_layout_t                         handle_pipeline_layout = null_handle;
+    std::vector<handle_shader_t>                     handle_shaders{};
     std::vector<VkFormat>                            vk_color_formats{};
     VkFormat                                         vk_depth_format{};
     std::vector<VkPipelineColorBlendAttachmentState> vk_pipeline_color_blend_attachment_states{};
@@ -189,7 +207,7 @@ struct config_command_pool_t {
 };
 
 struct config_commandbuffer_t {
-    handle_command_pool_t command_pool;
+    handle_command_pool_t handle_command_pool;
 };
 
 namespace internal {
@@ -203,8 +221,8 @@ struct queue_t {
 struct swapchain_t {
     vkb::Swapchain                   vk_swapchain;
     VkSurfaceKHR                     vk_surface;
-    std::vector<handle_image_t>      images;
-    std::vector<handle_image_view_t> image_views;
+    std::vector<handle_image_t>      handle_images;
+    std::vector<handle_image_view_t> handle_image_views;
     operator vkb::Swapchain() { return vk_swapchain; }
 };
 
@@ -297,7 +315,7 @@ struct commandbuffer_t {
 class context_t;
 
 struct buffer_descriptor_info_t {
-    handle_buffer_t buffer = null_handle;
+    handle_buffer_t handle_buffer = null_handle;
     VkDeviceSize    vk_offset;
     VkDeviceSize    vk_range;
 };
@@ -342,22 +360,27 @@ public:
     void destroy_buffer(handle_buffer_t handle);
     void *map_buffer(handle_buffer_t handle);
     void unmap_buffer(handle_buffer_t handle);
+    internal::buffer_t& get_buffer(handle_buffer_t handle);
 
     handle_sampler_t create_sampler(const config_sampler_t& config);
     void destroy_sampler(handle_sampler_t handle);
+    internal::sampler_t& get_sampler(handle_sampler_t handle);
 
     handle_image_t create_image(const config_image_t& config);
     void destroy_image(handle_image_t handle);
 
     handle_image_view_t create_image_view(const config_image_view_t& config);
     void destroy_image_view(handle_image_view_t handle);
+    internal::image_view_t& get_image_view(handle_image_view_t handle);
 
     handle_descriptor_set_layout_t create_descriptor_set_layout(const config_descriptor_set_layout_t& config);
     void destroy_descriptor_set_layout(handle_descriptor_set_layout_t handle);
+    internal::descriptor_set_layout_t& get_descriptor_set_layout(handle_descriptor_set_layout_t handle);
 
     handle_descriptor_set_t allocate_descriptor_set(const config_descriptor_set_t& config);
     void free_descriptor_set(handle_descriptor_set_t handle);
     update_descriptor_set_t update_descriptor_set(handle_descriptor_set_t handle);
+    internal::descriptor_set_t& get_descriptor_set(handle_descriptor_set_t handle);
 
     handle_pipeline_layout_t create_pipeline_layout(const config_pipeline_layout_t& config);
     void destroy_pipeline_layout(handle_pipeline_layout_t handle);
@@ -390,7 +413,7 @@ public:
     void cmd_bind_descriptor_sets(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline, uint32_t vk_first_set, const std::vector<handle_descriptor_set_t>& handle_descriptor_sets);
     void cmd_push_constants(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_layout_t handle_pipeline_layout, VkShaderStageFlags vk_shader_stages, uint32_t vk_offset, uint32_t vk_size, const void *vk_data);
     void cmd_dispatch(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_group_count_x, uint32_t vk_group_count_y, uint32_t vk_group_count_z);
-    void cmd_set_viewport_and_scissor(handle_commandbuffer_t handle_commandbuffer, VkViewport viewport, VkRect2D scissor);
+    void cmd_set_viewport_and_scissor(handle_commandbuffer_t handle_commandbuffer, VkViewport vk_viewport, VkRect2D vk_scissor);
     void cmd_begin_rendering(handle_commandbuffer_t handle_commandbuffer, const std::vector<rendering_attachment_t>& color_rendering_attachments, const std::optional<rendering_attachment_t>& depth_rendering_attachment, const VkRect2D& vk_render_area, uint32_t vk_layer_count = 1);
     void cmd_end_rendering(handle_commandbuffer_t handle_commandbuffer);
     void cmd_draw(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_vertex_count, uint32_t vk_instance_count, uint32_t vk_first_vertex, uint32_t vk_first_instance);

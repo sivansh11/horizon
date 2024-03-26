@@ -15,23 +15,7 @@
 #include <iostream>
 #include <set>
 
-namespace gfx {
-
 namespace utils {
-
-template <typename handle_t, typename map_t, typename data_t> 
-inline handle_t create_and_insert_new_handle(map_t& map, data_t& data) {
-    handle_t handle = map.size();
-    while (map.contains(handle)) { handle++; }
-    map.insert({handle, data});
-    return handle;
-}
-
-template <typename data_t, typename handle_t, typename map_t> 
-inline data_t& assert_and_get_data(handle_t handle, map_t& map) {
-    assert(map.contains(handle));
-    return map[handle];
-}
 
 static VkImageAspectFlags get_image_aspect(VkFormat vk_format) {
     horizon_profile();
@@ -50,6 +34,8 @@ static VkImageAspectFlags get_image_aspect(VkFormat vk_format) {
 
 } // namespace utils
 
+namespace gfx {
+
 config_descriptor_set_layout_t& config_descriptor_set_layout_t::add_layout_binding(uint32_t vk_binding, VkDescriptorType vk_descriptor_type, VkShaderStageFlags vk_shader_stages, uint32_t vk_count) {
     horizon_profile();
     VkDescriptorSetLayoutBinding vk_descriptor_set_layout_binding{};
@@ -63,7 +49,7 @@ config_descriptor_set_layout_t& config_descriptor_set_layout_t::add_layout_bindi
 
 config_pipeline_layout_t& config_pipeline_layout_t::add_descriptor_set_layout(handle_descriptor_set_layout_t handle) {
     horizon_profile();
-    descriptor_set_layouts.push_back(handle);
+    handle_descriptor_set_layouts.push_back(handle);
     return *this;
 }
 
@@ -117,7 +103,7 @@ config_pipeline_t::config_pipeline_t() {
 
 config_pipeline_t& config_pipeline_t::add_shader(handle_shader_t handle) {
     horizon_profile();
-    shaders.push_back(handle);
+    handle_shaders.push_back(handle);
     return *this;
 }
 
@@ -202,11 +188,11 @@ update_descriptor_set_t& update_descriptor_set_t::push_buffer_write(uint32_t bin
     vk_write.descriptorCount = count;
     vk_write.dstSet = descriptor_set;
     VkDescriptorBufferInfo *vk_buffer_info = new VkDescriptorBufferInfo;
-    vk_buffer_info->buffer = utils::assert_and_get_data<internal::buffer_t>(info.buffer, context._buffers);
+    vk_buffer_info->buffer = utils::assert_and_get_data<internal::buffer_t>(info.handle_buffer, context._buffers);
     vk_buffer_info->offset = info.vk_offset;
     vk_buffer_info->range = info.vk_range;
     
-    internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(descriptor_set.config.descriptor_set_layout, context._descriptor_set_layouts);
+    internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(descriptor_set.config.handle_descriptor_set_layout, context._descriptor_set_layouts);
     auto itr = std::find_if(descriptor_set_layout.config.vk_descriptor_set_layout_bindings.begin(),
                             descriptor_set_layout.config.vk_descriptor_set_layout_bindings.end(),
                             [binding](const VkDescriptorSetLayoutBinding& layout_binding) {
@@ -231,7 +217,7 @@ update_descriptor_set_t& update_descriptor_set_t::push_image_write(uint32_t bind
     vk_image_info->imageView = utils::assert_and_get_data<internal::image_view_t>(info.handle_image_view, context._image_views);
     vk_image_info->imageLayout = info.vk_image_layout;
 
-    internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(descriptor_set.config.descriptor_set_layout, context._descriptor_set_layouts);
+    internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(descriptor_set.config.handle_descriptor_set_layout, context._descriptor_set_layouts);
     auto itr = std::find_if(descriptor_set_layout.config.vk_descriptor_set_layout_bindings.begin(),
                             descriptor_set_layout.config.vk_descriptor_set_layout_bindings.end(),
                             [binding](const VkDescriptorSetLayoutBinding& layout_binding) {
@@ -280,7 +266,7 @@ context_t::~context_t() {
     vkDeviceWaitIdle(_vkb_device);
     for (auto& [handle, commandbuffer] : _commandbuffers) {
         horizon_warn("forgot to clear commandbuffer with handle: {}", handle);
-        vkFreeCommandBuffers(_vkb_device, utils::assert_and_get_data<internal::command_pool_t>(commandbuffer.config.command_pool, _command_pools), 1, &commandbuffer.vk_commandbuffer);
+        vkFreeCommandBuffers(_vkb_device, utils::assert_and_get_data<internal::command_pool_t>(commandbuffer.config.handle_command_pool, _command_pools), 1, &commandbuffer.vk_commandbuffer);
     }
     for (auto& [handle, command_pool] : _command_pools) {
         horizon_warn("forgot to clear command pool with handle: {}", handle);
@@ -585,10 +571,10 @@ handle_swapchain_t context_t::create_swapchain(const core::window_t& window) {
 
         handle_image_t handle_image = utils::create_and_insert_new_handle<handle_image_t>(_images, image);
 
-        handle_image_view_t handle_image_view = create_image_view({ .image = handle_image });        
+        handle_image_view_t handle_image_view = create_image_view({ .handle_image = handle_image });        
 
-        swapchain.images.push_back(handle_image);
-        swapchain.image_views.push_back(handle_image_view);
+        swapchain.handle_images.push_back(handle_image);
+        swapchain.handle_image_views.push_back(handle_image_view);
     }
     handle_swapchain_t handle = utils::create_and_insert_new_handle<handle_swapchain_t>(_swapchains, swapchain);
     horizon_trace("created swapchain");
@@ -606,13 +592,13 @@ void context_t::destroy_swapchain(handle_swapchain_t handle) {
 std::vector<handle_image_t> context_t::get_swapchain_images(handle_swapchain_t handle) {
     horizon_profile();
     internal::swapchain_t& swapchain = utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
-    return swapchain.images;
+    return swapchain.handle_images;
 }
 
 std::vector<handle_image_view_t> context_t::get_swapchain_image_views(handle_swapchain_t handle) {
     horizon_profile();
     internal::swapchain_t& swapchain = utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
-    return swapchain.image_views;
+    return swapchain.handle_image_views;
 }
 
 std::optional<uint32_t> context_t::get_swapchain_next_image_index(handle_swapchain_t handle, handle_semaphore_t handle_semaphore, handle_fence_t handle_fence) {
@@ -701,6 +687,11 @@ void context_t::unmap_buffer(handle_buffer_t handle) {
     buffer.p_data = nullptr;
 }
 
+internal::buffer_t& context_t::get_buffer(handle_buffer_t handle) {
+    horizon_profile();
+    return utils::assert_and_get_data<internal::buffer_t>(handle, _buffers);
+}
+
 handle_sampler_t context_t::create_sampler(const config_sampler_t& config) {
     horizon_profile();
     
@@ -736,6 +727,11 @@ void context_t::destroy_sampler(handle_sampler_t handle) {
     internal::sampler_t& sampler = utils::assert_and_get_data<internal::sampler_t>(handle, _samplers);
     vkDestroySampler(_vkb_device, sampler, nullptr);
     _samplers.erase(handle);
+}
+
+internal::sampler_t& context_t::get_sampler(handle_sampler_t handle) {
+    horizon_profile();
+    return utils::assert_and_get_data<internal::sampler_t>(handle, _samplers);
 }
 
 handle_image_t context_t::create_image(const config_image_t& config) {
@@ -784,7 +780,7 @@ void context_t::destroy_image(handle_image_t handle) {
 
 handle_image_view_t context_t::create_image_view(const config_image_view_t& config) {
     horizon_profile();
-    internal::image_t image = utils::assert_and_get_data<internal::image_t>(config.image, _images);
+    internal::image_t image = utils::assert_and_get_data<internal::image_t>(config.handle_image, _images);
 
     internal::image_view_t image_view{ .config = config };
 
@@ -822,6 +818,11 @@ void context_t::destroy_image_view(handle_image_view_t handle) {
     _image_views.erase(handle);
 }
 
+internal::image_view_t& context_t::get_image_view(handle_image_view_t handle) {
+    horizon_profile();
+    return utils::assert_and_get_data<internal::image_view_t>(handle, _image_views);
+}
+
 handle_descriptor_set_layout_t context_t::create_descriptor_set_layout(const config_descriptor_set_layout_t& config) {
     horizon_profile();
     internal::descriptor_set_layout_t descriptor_set_layout{ .config = config };
@@ -845,11 +846,16 @@ void context_t::destroy_descriptor_set_layout(handle_descriptor_set_layout_t han
     _descriptor_set_layouts.erase(handle);
 }
 
+internal::descriptor_set_layout_t& context_t::get_descriptor_set_layout(handle_descriptor_set_layout_t handle) {
+    horizon_profile();
+    return utils::assert_and_get_data<internal::descriptor_set_layout_t>(handle, _descriptor_set_layouts);
+}
+
 handle_descriptor_set_t context_t::allocate_descriptor_set(const config_descriptor_set_t& config) {
     horizon_profile();
     internal::descriptor_set_t descriptor_set{ .config = config };
 
-    internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(config.descriptor_set_layout, _descriptor_set_layouts);
+    internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(config.handle_descriptor_set_layout, _descriptor_set_layouts);
 
     VkDescriptorSetAllocateInfo vk_descriptor_set_allocate_info{ .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO };
     vk_descriptor_set_allocate_info.descriptorPool = _vk_descriptor_pool;
@@ -877,17 +883,22 @@ update_descriptor_set_t context_t::update_descriptor_set(handle_descriptor_set_t
     return { *this, handle };
 }
 
+internal::descriptor_set_t& context_t::get_descriptor_set(handle_descriptor_set_t handle) {
+    horizon_profile();
+    return utils::assert_and_get_data<internal::descriptor_set_t>(handle, _descriptor_sets);
+}
+
 handle_pipeline_layout_t context_t::create_pipeline_layout(const config_pipeline_layout_t& config) {
     horizon_profile();
     internal::pipeline_layout_t pipeline_layout{ .config = config };
-    VkDescriptorSetLayout *vk_descriptor_set_layouts = reinterpret_cast<VkDescriptorSetLayout *>(alloca(config.descriptor_set_layouts.size() * sizeof(VkDescriptorSetLayout)));
-    for (size_t i = 0; i < config.descriptor_set_layouts.size(); i++) {
-        internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(config.descriptor_set_layouts[i], _descriptor_set_layouts);
+    VkDescriptorSetLayout *vk_descriptor_set_layouts = reinterpret_cast<VkDescriptorSetLayout *>(alloca(config.handle_descriptor_set_layouts.size() * sizeof(VkDescriptorSetLayout)));
+    for (size_t i = 0; i < config.handle_descriptor_set_layouts.size(); i++) {
+        internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(config.handle_descriptor_set_layouts[i], _descriptor_set_layouts);
         vk_descriptor_set_layouts[i] = descriptor_set_layout;
     }
     
     VkPipelineLayoutCreateInfo vk_pipeline_layout_create_info{ .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO };
-    vk_pipeline_layout_create_info.setLayoutCount = config.descriptor_set_layouts.size();
+    vk_pipeline_layout_create_info.setLayoutCount = config.handle_descriptor_set_layouts.size();
     vk_pipeline_layout_create_info.pSetLayouts = vk_descriptor_set_layouts;
     vk_pipeline_layout_create_info.pushConstantRangeCount = config.vk_push_constant_ranges.size();
     vk_pipeline_layout_create_info.pPushConstantRanges = config.vk_push_constant_ranges.data();
@@ -974,15 +985,15 @@ handle_pipeline_t context_t::create_compute_pipeline(const config_pipeline_t& co
     horizon_profile();
     internal::pipeline_t pipeline{ .vk_pipeline_bind_point = VK_PIPELINE_BIND_POINT_COMPUTE, .config = config };
 
-    assert(config.shaders.size() > 0);
+    assert(config.handle_shaders.size() > 0);
 
     VkPipelineShaderStageCreateInfo vk_pipeline_shader_stage_create_info{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
     vk_pipeline_shader_stage_create_info.pName = "main";
     vk_pipeline_shader_stage_create_info.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    vk_pipeline_shader_stage_create_info.module = utils::assert_and_get_data<internal::shader_t>(config.shaders[0], _shaders);
+    vk_pipeline_shader_stage_create_info.module = utils::assert_and_get_data<internal::shader_t>(config.handle_shaders[0], _shaders);
 
     VkComputePipelineCreateInfo vk_compute_pipeline_create_info{ .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO };
-    vk_compute_pipeline_create_info.layout = utils::assert_and_get_data<internal::pipeline_layout_t>(config.pipeline_layout, _pipeline_layouts);
+    vk_compute_pipeline_create_info.layout = utils::assert_and_get_data<internal::pipeline_layout_t>(config.handle_pipeline_layout, _pipeline_layouts);
     vk_compute_pipeline_create_info.stage = vk_pipeline_shader_stage_create_info;
     {
         VkResult vk_result = vkCreateComputePipelines(_vkb_device, VK_NULL_HANDLE, 1, &vk_compute_pipeline_create_info, nullptr, &pipeline.vk_pipeline);
@@ -1030,7 +1041,7 @@ handle_pipeline_t context_t::create_graphics_pipeline(const config_pipeline_t& c
 
     std::vector<VkPipelineShaderStageCreateInfo> vk_pipeline_shader_stage_create_infos;
 
-    for (auto& handle_shader : config.shaders) {
+    for (auto& handle_shader : config.handle_shaders) {
         internal::shader_t& shader = utils::assert_and_get_data<internal::shader_t>(handle_shader, _shaders);
 
         VkPipelineShaderStageCreateInfo vk_pipeline_shader_stage_create_info{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
@@ -1078,7 +1089,7 @@ handle_pipeline_t context_t::create_graphics_pipeline(const config_pipeline_t& c
 
     VkGraphicsPipelineCreateInfo vk_pipeline_info{};
     vk_pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    vk_pipeline_info.stageCount = static_cast<uint32_t>(config.shaders.size());
+    vk_pipeline_info.stageCount = static_cast<uint32_t>(config.handle_shaders.size());
     vk_pipeline_info.pStages = vk_pipeline_shader_stage_create_infos.data();
     vk_pipeline_info.pVertexInputState = &vk_vertex_input_info;
     vk_pipeline_info.pInputAssemblyState = &vk_input_assembly;
@@ -1088,7 +1099,7 @@ handle_pipeline_t context_t::create_graphics_pipeline(const config_pipeline_t& c
     vk_pipeline_info.pDepthStencilState = &vk_depth_stencil;
     vk_pipeline_info.pColorBlendState = &vk_color_blending;
     vk_pipeline_info.pDynamicState = &vk_dynamic_state;
-    vk_pipeline_info.layout = utils::assert_and_get_data<internal::pipeline_layout_t>(config.pipeline_layout, _pipeline_layouts);
+    vk_pipeline_info.layout = utils::assert_and_get_data<internal::pipeline_layout_t>(config.handle_pipeline_layout, _pipeline_layouts);
     vk_pipeline_info.renderPass = VK_NULL_HANDLE;
     vk_pipeline_info.subpass = 0;
     vk_pipeline_info.pNext = &vk_pipeline_rendering_create;
@@ -1184,7 +1195,7 @@ handle_commandbuffer_t context_t::allocate_commandbuffer(const config_commandbuf
     internal::commandbuffer_t commandbuffer{ .config = config };
     VkCommandBufferAllocateInfo vk_commandbuffer_allocate_info{ .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO };
     vk_commandbuffer_allocate_info.commandBufferCount = 1;
-    vk_commandbuffer_allocate_info.commandPool = utils::assert_and_get_data<internal::command_pool_t>(config.command_pool, _command_pools);
+    vk_commandbuffer_allocate_info.commandPool = utils::assert_and_get_data<internal::command_pool_t>(config.handle_command_pool, _command_pools);
     vk_commandbuffer_allocate_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     VkResult vk_result = vkAllocateCommandBuffers(_vkb_device, &vk_commandbuffer_allocate_info, &commandbuffer.vk_commandbuffer);
     check(vk_result == VK_SUCCESS, "Failed to allocate commandbuffer");
@@ -1196,7 +1207,7 @@ handle_commandbuffer_t context_t::allocate_commandbuffer(const config_commandbuf
 void context_t::free_commandbuffer(handle_commandbuffer_t handle) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle, _commandbuffers);
-    vkFreeCommandBuffers(_vkb_device, utils::assert_and_get_data<internal::command_pool_t>(commandbuffer.config.command_pool, _command_pools), 1, &commandbuffer.vk_commandbuffer);
+    vkFreeCommandBuffers(_vkb_device, utils::assert_and_get_data<internal::command_pool_t>(commandbuffer.config.handle_command_pool, _command_pools), 1, &commandbuffer.vk_commandbuffer);
     _commandbuffers.erase(handle);
 }
 
@@ -1254,7 +1265,7 @@ void context_t::cmd_bind_descriptor_sets(handle_commandbuffer_t handle_commandbu
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     internal::pipeline_t& pipeline = utils::assert_and_get_data<internal::pipeline_t>(handle_pipeline, _pipelines);
-    internal::pipeline_layout_t& pipeline_layout = utils::assert_and_get_data<internal::pipeline_layout_t>(pipeline.config.pipeline_layout, _pipeline_layouts);
+    internal::pipeline_layout_t& pipeline_layout = utils::assert_and_get_data<internal::pipeline_layout_t>(pipeline.config.handle_pipeline_layout, _pipeline_layouts);
     VkDescriptorSet *vk_descriptor_sets = reinterpret_cast<VkDescriptorSet *>(alloca(handle_descriptor_sets.size() * sizeof(VkDescriptorSet)));
     for (size_t i = 0; i < handle_descriptor_sets.size(); i++) {
         vk_descriptor_sets[i] = utils::assert_and_get_data<internal::descriptor_set_t>(handle_descriptor_sets[i], _descriptor_sets);
@@ -1275,11 +1286,11 @@ void context_t::cmd_dispatch(handle_commandbuffer_t handle_commandbuffer, uint32
     vkCmdDispatch(commandbuffer, vk_group_count_x, vk_group_count_y, vk_group_count_z);
 }
 
-void context_t::cmd_set_viewport_and_scissor(handle_commandbuffer_t handle_commandbuffer, VkViewport viewport, VkRect2D scissor) {
+void context_t::cmd_set_viewport_and_scissor(handle_commandbuffer_t handle_commandbuffer, VkViewport vk_viewport, VkRect2D vk_scissor) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
-    vkCmdSetViewport(commandbuffer, 0, 1, &viewport);
-    vkCmdSetScissor(commandbuffer, 0, 1, &scissor);
+    vkCmdSetViewport(commandbuffer, 0, 1, &vk_viewport);
+    vkCmdSetScissor(commandbuffer, 0, 1, &vk_scissor);
 }
 
 void context_t::cmd_begin_rendering(handle_commandbuffer_t handle_commandbuffer, const std::vector<rendering_attachment_t>& color_rendering_attachments, const std::optional<rendering_attachment_t>& depth_rendering_attachment, const VkRect2D& vk_render_area, uint32_t vk_layer_count) {
