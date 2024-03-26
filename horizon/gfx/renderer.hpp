@@ -106,6 +106,7 @@ struct renderer_t {
 
 template <size_t MAX_FRAMES_IN_FLIGHT>
 update_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>& update_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>::push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t count) {
+    horizon_profile();
     internal::descriptor_set_t& descriptor_set = utils::assert_and_get_data<internal::descriptor_set_t>(handle, renderer._descriptor_sets);
     internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(info.handle_buffer, renderer._buffers);
     if (descriptor_set.policy == resource_policy_t::e_sparse) {
@@ -123,6 +124,7 @@ update_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>& update_descriptor_set_t<MAX_FRAME
 
 template <size_t MAX_FRAMES_IN_FLIGHT>
 update_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>& update_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>::push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t count) {
+    horizon_profile();
     descriptor_info_t descriptor_info{};
     descriptor_info.binding = binding;
     descriptor_info.count = count;
@@ -134,6 +136,7 @@ update_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>& update_descriptor_set_t<MAX_FRAME
 
 template <size_t MAX_FRAMES_IN_FLIGHT>
 void update_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>::commit() {
+    horizon_profile();
     internal::descriptor_set_t& descriptor_set = utils::assert_and_get_data<internal::descriptor_set_t>(handle, renderer._descriptor_sets);
     if (descriptor_set.policy == resource_policy_t::e_sparse) {
         // single buffer/image
@@ -317,6 +320,7 @@ gfx::handle_commandbuffer_t renderer_t<MAX_FRAMES_IN_FLIGHT>::current_commandbuf
 
 template <size_t MAX_FRAMES_IN_FLIGHT>
 gfx::rendering_attachment_t renderer_t<MAX_FRAMES_IN_FLIGHT>::swapchain_rendering_attachment(VkClearValue vk_clear_value, VkImageLayout vk_layout, VkAttachmentLoadOp vk_load_op, VkAttachmentStoreOp vk_store_op) {
+    horizon_profile();
     gfx::rendering_attachment_t rendering_attachment{};
     rendering_attachment.clear_value = vk_clear_value;
     rendering_attachment.image_layout = vk_layout;
