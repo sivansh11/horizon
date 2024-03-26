@@ -4,3 +4,4 @@ project(projects)
 
 add_subdirectory(test)
 add_subdirectory(testing_renderer)
+add_subdirectory(testing_renderer2)

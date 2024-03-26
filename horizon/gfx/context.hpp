@@ -316,8 +316,8 @@ class context_t;
 
 struct buffer_descriptor_info_t {
     handle_buffer_t handle_buffer = null_handle;
-    VkDeviceSize    vk_offset;
-    VkDeviceSize    vk_range;
+    VkDeviceSize    vk_offset = 0;
+    VkDeviceSize    vk_range = VK_WHOLE_SIZE;
 };
 
 struct image_descriptor_info_t {

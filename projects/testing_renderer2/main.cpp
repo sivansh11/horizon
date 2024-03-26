@@ -1,0 +1,125 @@
+#include "test.hpp"
+
+#define horizon_profile_enable
+#include "core/core.hpp"
+#include "core/window.hpp"
+
+#include "gfx/context.hpp"
+#include "gfx/renderer.hpp"
+
+#define GLFW_INCLUDE_NONE
+#include <GLFW/glfw3.h>
+
+static const char *test_vertex = R"(
+#version 450
+
+layout(location = 0) out vec3 fragColor;
+
+vec2 positions[3] = vec2[](
+    vec2(0.0, -0.5),
+    vec2(0.5, 0.5),
+    vec2(-0.5, 0.5)
+);
+
+vec3 colors[3] = vec3[](
+    vec3(1.0, 0.0, 0.0),
+    vec3(0.0, 1.0, 0.0),
+    vec3(0.0, 0.0, 1.0)
+);
+
+void main() {
+    gl_Position = vec4(positions[gl_VertexIndex], 0.0, 1.0);
+    fragColor = colors[gl_VertexIndex];
+}
+)";
+
+static const char *test_fragment = R"(
+#version 450
+
+layout(location = 0) in vec3 fragColor;
+
+layout(location = 0) out vec4 outColor;
+
+layout(set = 0, binding = 0) uniform somthing_t {
+    float col_mul;
+};
+
+void main() {
+    outColor = vec4(fragColor, 1.0) * col_mul;
+}
+)";
+
+int main() {
+    core::window_t window{ "test", 640, 420 };
+    renderer::renderer_t<2> renderer{ window };
+
+    gfx::config_descriptor_set_layout_t config_descriptor_set_layout{};
+    config_descriptor_set_layout.add_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    auto descriptor_set_layout = renderer.context.create_descriptor_set_layout(config_descriptor_set_layout);
+
+    gfx::config_pipeline_layout_t config_pipeline_layout{};
+    config_pipeline_layout.add_descriptor_set_layout(descriptor_set_layout);
+    auto pipeline_layout = renderer.context.create_pipeline_layout(config_pipeline_layout);
+    gfx::config_pipeline_t config_pipeline{};
+    gfx::config_shader_t config_shader{};
+    config_shader.code = test_vertex;
+    config_shader.name = "test_vertex";
+    config_shader.type = gfx::shader_type_t::e_vertex;
+    auto vertex_shader = renderer.context.create_shader(config_shader);
+    config_shader.code = test_fragment;
+    config_shader.name = "test_fragment";
+    config_shader.type = gfx::shader_type_t::e_fragment;
+    auto fragment_shader = renderer.context.create_shader(config_shader);
+    config_pipeline.add_shader(vertex_shader);
+    config_pipeline.add_shader(fragment_shader);
+    config_pipeline.add_color_attachment(VK_FORMAT_B8G8R8A8_SRGB, gfx::default_color_blend_attachment());
+    config_pipeline.handle_pipeline_layout = pipeline_layout;
+    auto pipeline = renderer.context.create_graphics_pipeline(config_pipeline);
+
+    gfx::config_buffer_t config_buffer{};
+    config_buffer.vk_size = sizeof(float);
+    config_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    config_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
+    auto buffer = renderer.create_buffer(renderer::resource_policy_t::e_every_frame, config_buffer);
+    auto descriptor_set = renderer.allocate_descriptor_set(renderer::resource_policy_t::e_every_frame, { .handle_descriptor_set_layout = descriptor_set_layout });
+
+    renderer.update_descriptor_set(descriptor_set).push_buffer_write(0, renderer::buffer_descriptor_info_t{ .handle_buffer = buffer }).commit();
+
+    float current_val = 0;
+
+    VkViewport swapchain_viewport{};
+    swapchain_viewport.x = 0;
+    swapchain_viewport.y = 0;
+    swapchain_viewport.width = 640;
+    swapchain_viewport.height = 420;
+    swapchain_viewport.minDepth = 0;
+    swapchain_viewport.maxDepth = 1;
+    VkRect2D swapchain_scissor{};
+    swapchain_scissor.offset = {0, 0};
+    swapchain_scissor.extent = {640, 420};
+
+    while (!window.should_close()) {
+        core::window_t::poll_events();
+
+        current_val += .0001;
+        if (current_val > 1.0) current_val = 0;
+
+        *reinterpret_cast<float *>(renderer.context.map_buffer(renderer.buffer(buffer))) = current_val;
+
+        renderer.begin();
+
+        auto commandbuffer = renderer.current_commandbuffer();
+
+        auto rendering_attachment = renderer.swapchain_rendering_attachment({0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
+        renderer.context.cmd_begin_rendering(commandbuffer, {rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {640, 420}});
+        renderer.context.cmd_bind_pipeliine(commandbuffer, pipeline);
+        renderer.context.cmd_bind_descriptor_sets(commandbuffer, pipeline, 0, { renderer.descriptor_set(descriptor_set) });
+        renderer.context.cmd_set_viewport_and_scissor(commandbuffer, swapchain_viewport, swapchain_scissor);
+        renderer.context.cmd_draw(commandbuffer, 6, 1, 0, 0);
+        renderer.context.cmd_end_rendering(commandbuffer);
+
+        renderer.end();
+    }
+
+    return 0;
+}
