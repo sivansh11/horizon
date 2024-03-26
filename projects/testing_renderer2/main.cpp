@@ -153,7 +153,6 @@ int main() {
     config_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
     auto buffer = renderer.create_buffer(renderer::resource_policy_t::e_every_frame, config_buffer);
     auto descriptor_set = renderer.allocate_descriptor_set(renderer::resource_policy_t::e_every_frame, { .handle_descriptor_set_layout = descriptor_set_layout });
-
     renderer.update_descriptor_set(descriptor_set).push_buffer_write(0, renderer::buffer_descriptor_info_t{ .handle_buffer = buffer }).commit();
 
     gfx::config_image_t config_image{};
@@ -165,12 +164,9 @@ int main() {
     config_image.vk_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
     config_image.vk_mips = 1;
     auto image = renderer.context.create_image(config_image);
-
     gfx::config_image_view_t config_image_view{ .handle_image = image };
     auto image_view = renderer.context.create_image_view(config_image_view);
-
     auto sampler = renderer.context.create_sampler({});
-
     auto swapchain_descriptor_set = renderer.allocate_descriptor_set(renderer::resource_policy_t::e_sparse, { .handle_descriptor_set_layout = swapchain_descriptor_set_layout });
     renderer.update_descriptor_set(swapchain_descriptor_set).push_image_write(0, renderer::image_descriptor_info_t{ .handle_sampler = sampler, .handle_image_view = image_view, .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }).commit();
     
@@ -201,7 +197,6 @@ int main() {
 
         auto commandbuffer = renderer.current_commandbuffer();
 
-        // auto rendering_attachment = renderer.swapchain_rendering_attachment({0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
         renderer.context.cmd_image_memory_barrier(commandbuffer, 
                                                   image, 
                                                   VK_IMAGE_LAYOUT_UNDEFINED, 
