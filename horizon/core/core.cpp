@@ -1,6 +1,22 @@
 #include "core.hpp"
 
+#include <fstream>
+
 namespace core {
+
+std::string read_file(const std::filesystem::path& filename) {
+    std::ifstream file(filename, std::ios::ate | std::ios::binary);
+    check(file.is_open(), "Failed to open file {}", filename.string());
+    size_t file_size = (size_t) file.tellg();
+    // std::vector<char> buffer(file_size);
+    std::string buffer;
+    buffer.reserve(file_size);
+    file.seekg(0);
+    size_t counter = 0;
+    while (counter++ != file_size) buffer += file.get();
+    file.close();
+    return buffer;
+}
 
 namespace timer {
 

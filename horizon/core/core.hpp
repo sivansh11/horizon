@@ -7,6 +7,7 @@
 #include <chrono>
 #include <unordered_map>
 #include <functional>
+#include <filesystem>
 #include <source_location>
 #include <string_view>
 
@@ -26,6 +27,8 @@ constexpr void hash_combine(uint64_t& seed, const type_t& v, const rest_t&... re
     seed ^= std::hash<type_t>{}(v) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
     (hash_combine(seed, rest), ...);
 };
+
+std::string read_file(const std::filesystem::path& filename);
 
 namespace timer {
 
