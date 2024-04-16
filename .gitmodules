@@ -7,9 +7,6 @@
 [submodule "deps/volk"]
 	path = deps/volk
 	url = https://github.com/zeux/volk.git
-[submodule "deps/spdlog"]
-	path = deps/spdlog
-	url = https://github.com/gabime/spdlog.git
 [submodule "deps/vk-bootstrap"]
 	path = deps/vk-bootstrap
 	url = https://github.com/charles-lunarg/vk-bootstrap.git
