@@ -13,6 +13,7 @@
 #include <vk_mem_alloc.h>
 
 #include <iostream>
+#include <sstream>
 #include <set>
 
 namespace utils {
@@ -327,6 +328,11 @@ context_t::~context_t() {
     vmaDestroyAllocator(_vma_allocator);
     vkb::destroy_device(_vkb_device);
     vkb::destroy_instance(_vkb_instance);
+}
+
+void context_t::wait_idle() {
+    horizon_profile();
+    vkDeviceWaitIdle(_vkb_device);
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
@@ -667,6 +673,7 @@ handle_buffer_t context_t::create_buffer(const config_buffer_t& config) {
 void context_t::destroy_buffer(handle_buffer_t handle) {
     horizon_profile();
     internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(handle, _buffers);
+    if (buffer.p_data) unmap_buffer(handle);
     vmaDestroyBuffer(_vma_allocator, buffer, buffer.vma_allocation);
     _buffers.erase(handle);
 }
@@ -956,6 +963,13 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
     auto spirv_shader_module = shaderc_compiler.CompileGlslToSpv(preprocessed_code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
     if (spirv_shader_module.GetCompilationStatus() != shaderc_compilation_status_success) {
         horizon_error("{}", spirv_shader_module.GetErrorMessage());
+        std::cout << "CODE was: \n";
+        std::stringstream ss{ preprocessed_code };
+        std::string line;
+        uint32_t i = 0;
+        while ( std::getline(ss, line, '\n')) {
+            std::cout << i++ << ": " <<  line << '\n';
+        }
         std::terminate();
     }
     
@@ -1334,6 +1348,12 @@ void context_t::cmd_draw(handle_commandbuffer_t handle_commandbuffer, uint32_t v
     vkCmdDraw(commandbuffer, vk_vertex_count, vk_instance_count, vk_first_vertex, vk_first_instance);
 }
 
+void context_t::cmd_draw_indexed(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_index_count, uint32_t vk_instance_count, uint32_t vk_first_index, int32_t vk_vertex_offset, uint32_t vk_first_instance) {
+    horizon_profile();
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    vkCmdDrawIndexed(commandbuffer, vk_index_count, vk_instance_count, vk_first_index, vk_vertex_offset, vk_first_instance);
+}
+
 void context_t::cmd_image_memory_barrier(handle_commandbuffer_t handle_commandbuffer, handle_image_t handle_image, VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout, VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask, VkPipelineStageFlags vk_src_pipeline_stage, VkPipelineStageFlags vk_dst_pipeline_stage) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
@@ -1352,6 +1372,50 @@ void context_t::cmd_image_memory_barrier(handle_commandbuffer_t handle_commandbu
     vk_image_memory_barrier.srcAccessMask = vk_src_access_mask;
     vk_image_memory_barrier.dstAccessMask = vk_dst_access_mask;
     vkCmdPipelineBarrier(commandbuffer, vk_src_pipeline_stage, vk_dst_pipeline_stage, 0, 0, nullptr, 0, nullptr, 1, &vk_image_memory_barrier);
+}
+
+void context_t::cmd_buffer_memory_barrier(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t handle_buffer, VkDeviceSize vk_size, VkDeviceSize vk_offset, VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask, VkPipelineStageFlags vk_src_pipeline_stage, VkPipelineStageFlags vk_dst_pipeline_stage) {
+    horizon_profile();
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(handle_buffer, _buffers);
+    VkBufferMemoryBarrier vk_buffer_memory_barrier{ .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER };
+    vk_buffer_memory_barrier.srcAccessMask = vk_src_access_mask;
+    vk_buffer_memory_barrier.dstAccessMask = vk_dst_access_mask;
+    vk_buffer_memory_barrier.buffer = buffer;
+    vk_buffer_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vk_buffer_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vk_buffer_memory_barrier.size = vk_size;
+    vk_buffer_memory_barrier.offset = vk_offset;
+    vkCmdPipelineBarrier(commandbuffer, vk_src_pipeline_stage, vk_dst_pipeline_stage, 0, 0, nullptr, 1, &vk_buffer_memory_barrier, 0, nullptr);
+}
+
+void context_t::cmd_copy_buffer(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t src_handle, handle_buffer_t dst_handle, const buffer_copy_info_t& buffer_copy_info) {
+    horizon_profile();
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    internal::buffer_t& src_buffer = utils::assert_and_get_data<internal::buffer_t>(src_handle, _buffers);
+    internal::buffer_t& dst_buffer = utils::assert_and_get_data<internal::buffer_t>(dst_handle, _buffers);
+    VkBufferCopy vk_buffer_copy{};
+    vk_buffer_copy.dstOffset = buffer_copy_info.vk_dst_offset;
+    vk_buffer_copy.srcOffset = buffer_copy_info.vk_src_offset;
+    vk_buffer_copy.size = buffer_copy_info.vk_size;
+    vkCmdCopyBuffer(commandbuffer, src_buffer, dst_buffer, 1, &vk_buffer_copy);
+}
+
+void context_t::cmd_bind_vertex_buffers(handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding, const std::vector<handle_buffer_t>& handle_buffers, std::vector<VkDeviceSize> vk_offsets) {
+    horizon_profile();
+    horizon_assert(handle_buffers.size() == vk_offsets.size(), "handle assert and vk offset sizes should match");
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    VkBuffer *vk_buffers = reinterpret_cast<VkBuffer *>(alloca(sizeof(VkBuffer) * handle_buffers.size()));
+    for (int i = 0; i < handle_buffers.size(); i++) 
+        vk_buffers[i] = utils::assert_and_get_data<internal::buffer_t>(handle_buffers[i], _buffers);
+    vkCmdBindVertexBuffers(commandbuffer, first_binding, handle_buffers.size(), vk_buffers, vk_offsets.data());
+}
+
+void context_t::cmd_bind_index_buffer(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t handle_buffer, VkDeviceSize vk_offset, VkIndexType vk_index_type) {
+    horizon_profile();
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(handle_buffer, _buffers);
+    vkCmdBindIndexBuffer(commandbuffer, buffer, vk_offset, vk_index_type);
 }
 
 } // namespace gfx

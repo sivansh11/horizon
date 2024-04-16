@@ -24,7 +24,7 @@ namespace utils {
 
 template <typename handle_t, typename map_t, typename data_t> 
 inline handle_t create_and_insert_new_handle(map_t& map, data_t& data) {
-    handle_t handle = map.size();
+    handle_t handle = map.size() ? map.size() : 1;
     while (map.contains(handle)) { handle++; }
     map.insert({handle, data});
     return handle;
@@ -39,7 +39,7 @@ inline data_t& assert_and_get_data(handle_t handle, map_t& map) {
 } // namespace utils
 
 using handle_t = uint64_t;
-constexpr handle_t null_handle = std::numeric_limits<handle_t>::max();
+constexpr handle_t null_handle = 0;
 
 #define define_handle(name) \
 struct name { \
@@ -48,6 +48,8 @@ struct name { \
     name(handle_t val) : val(val) {} \
     constexpr name& operator = (const name& new_val) = default; \
     bool operator<(const name& other) const { return val < other.val; } \
+    bool operator==(const name& other) const { return val == other.val; } \
+    bool operator==(const handle_t& other) const { return val == other; } \
     operator handle_t() { return val; } \
     name& operator++(int) { val++; return *this; } \
     name& operator++() { val++; return *this; } \
@@ -323,7 +325,7 @@ struct buffer_descriptor_info_t {
 struct image_descriptor_info_t {
     handle_sampler_t    handle_sampler = null_handle;
     handle_image_view_t handle_image_view = null_handle;
-    VkImageLayout       vk_image_layout;
+    VkImageLayout       vk_image_layout = VK_IMAGE_LAYOUT_MAX_ENUM;
 };
 
 struct update_descriptor_set_t {
@@ -344,10 +346,18 @@ struct rendering_attachment_t {
     VkClearValue        clear_value;
 };
 
+struct buffer_copy_info_t {
+    VkDeviceSize vk_src_offset = 0;
+    VkDeviceSize vk_dst_offset = 0;
+    VkDeviceSize vk_size;
+};
+
 class context_t {
 public:
     context_t(const bool enable_validation);
     ~context_t();
+
+    void wait_idle();
 
     handle_swapchain_t create_swapchain(const core::window_t& window);
     void destroy_swapchain(handle_swapchain_t handle);
@@ -355,6 +365,7 @@ public:
     std::vector<handle_image_view_t> get_swapchain_image_views(handle_swapchain_t handle);
     std::optional<uint32_t> get_swapchain_next_image_index(handle_swapchain_t handle, handle_semaphore_t handle_swapchain, handle_fence_t handle_fence);
     void present_swapchain(handle_swapchain_t handle, uint32_t image_index, std::vector<handle_semaphore_t> handle_semaphore);
+    internal::swapchain_t& get_swapchain(handle_swapchain_t handle);
 
     handle_buffer_t create_buffer(const config_buffer_t& config);
     void destroy_buffer(handle_buffer_t handle);
@@ -368,6 +379,7 @@ public:
 
     handle_image_t create_image(const config_image_t& config);
     void destroy_image(handle_image_t handle);
+    internal::image_t& get_image(handle_image_t handle);
 
     handle_image_view_t create_image_view(const config_image_view_t& config);
     void destroy_image_view(handle_image_view_t handle);
@@ -384,30 +396,37 @@ public:
 
     handle_pipeline_layout_t create_pipeline_layout(const config_pipeline_layout_t& config);
     void destroy_pipeline_layout(handle_pipeline_layout_t handle);
+    internal::pipeline_layout_t& get_pipeline_layout(handle_pipeline_layout_t handle);
 
     handle_shader_t create_shader(const config_shader_t& config);
     void destroy_shader(handle_shader_t handle);
+    internal::shader_t& get_shader(handle_shader_t handle);
 
     handle_pipeline_t create_compute_pipeline(const config_pipeline_t& config);
     handle_pipeline_t create_graphics_pipeline(const config_pipeline_t& config);
     void destroy_pipeline(handle_pipeline_t handle);
+    internal::pipeline_t& get_pipeline(handle_pipeline_t handle);
 
     handle_fence_t create_fence(const config_fence_t& config);
     void destroy_fence(handle_fence_t handle);
     void wait_fence(handle_fence_t handle);
     void reset_fence(handle_fence_t handle);
+    internal::fence_t& get_fence(handle_fence_t handle);
 
     handle_semaphore_t create_semaphore(const config_semaphore_t& config);
     void destroy_semaphore(handle_semaphore_t handle);
+    internal::semaphore_t& get_semaphore(handle_semaphore_t handle);
 
     handle_command_pool_t create_command_pool(const config_command_pool_t& config);
     void destroy_command_pool(handle_command_pool_t handle);
+    internal::command_pool_t& get_command_pool(handle_command_pool_t handle);
 
     handle_commandbuffer_t allocate_commandbuffer(const config_commandbuffer_t& config);
     void free_commandbuffer(handle_commandbuffer_t handle);
     void begin_commandbuffer(handle_commandbuffer_t handle, bool single_use = false);
     void end_commandbuffer(handle_commandbuffer_t handle);
     void submit_commandbuffer(handle_commandbuffer_t handle, const std::vector<handle_semaphore_t>& wait_semaphore_handles, const std::vector<VkPipelineStageFlags>& vk_pipeline_stages, const std::vector<handle_semaphore_t>& signal_semaphore_handles, handle_fence_t handle_fence);
+    internal::commandbuffer_t& get_commandbuffer(handle_commandbuffer_t handle);
 
     void cmd_bind_pipeliine(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline);
     void cmd_bind_descriptor_sets(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline, uint32_t vk_first_set, const std::vector<handle_descriptor_set_t>& handle_descriptor_sets);
@@ -417,8 +436,13 @@ public:
     void cmd_begin_rendering(handle_commandbuffer_t handle_commandbuffer, const std::vector<rendering_attachment_t>& color_rendering_attachments, const std::optional<rendering_attachment_t>& depth_rendering_attachment, const VkRect2D& vk_render_area, uint32_t vk_layer_count = 1);
     void cmd_end_rendering(handle_commandbuffer_t handle_commandbuffer);
     void cmd_draw(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_vertex_count, uint32_t vk_instance_count, uint32_t vk_first_vertex, uint32_t vk_first_instance);
+    void cmd_draw_indexed(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_index_count, uint32_t vk_instance_count, uint32_t vk_first_index, int32_t vk_vertex_offset, uint32_t vk_first_instance);
     // TODO: add mip levels option to this
     void cmd_image_memory_barrier(handle_commandbuffer_t handle_commandbuffer, handle_image_t handle_image, VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout, VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask, VkPipelineStageFlags vk_src_pipeline_stage, VkPipelineStageFlags vk_dst_pipeline_stage);
+    void cmd_buffer_memory_barrier(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t handle_buffer, VkDeviceSize vk_size, VkDeviceSize vk_offset, VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask, VkPipelineStageFlags vk_src_pipeline_stage, VkPipelineStageFlags vk_dst_pipeline_stage);
+    void cmd_copy_buffer(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t src_handle, handle_buffer_t dst_handle, const buffer_copy_info_t& buffer_copy_info);
+    void cmd_bind_vertex_buffers(handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding, const std::vector<handle_buffer_t>& handle_buffers, std::vector<VkDeviceSize> vk_offsets);
+    void cmd_bind_index_buffer(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t handle_buffer, VkDeviceSize vk_offset, VkIndexType vk_index_type);
 
     friend struct update_descriptor_set_t;
 

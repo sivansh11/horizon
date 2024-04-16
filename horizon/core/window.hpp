@@ -28,7 +28,6 @@ public:
 private:
     std::string _title;
     GLFWwindow *_p_window;
-
 };
 
 } // namespace core

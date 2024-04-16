@@ -78,12 +78,19 @@ struct fmt::formatter<core::timer::duration_t> {
 #define horizon_profile()
 #endif
 
-#define check(truthy, fail_msg)  \
-do {                             \
-    if (!(truthy)) {             \
-        horizon_error(fail_msg); \
-        std::terminate();        \
-    }                            \
+#define check(truthy, fail_msg...)  \
+do {                                \
+    if (!(truthy)) {                \
+        horizon_error(fail_msg);    \
+        std::terminate();           \
+    }                               \
 } while (false)
+
+#ifndef NDEBUG
+#define horizon_assert(truthy, fail_msg...) \
+check(truthy, fail_msg)
+#else
+#define horizon_assert(truthy, fail_msg...) 
+#endif
 
 #endif

@@ -7,8 +7,7 @@ namespace core {
 std::string read_file(const std::filesystem::path& filename) {
     std::ifstream file(filename, std::ios::ate | std::ios::binary);
     check(file.is_open(), "Failed to open file {}", filename.string());
-    size_t file_size = (size_t) file.tellg();
-    // std::vector<char> buffer(file_size);
+    size_t file_size = static_cast<size_t>(file.tellg());
     std::string buffer;
     buffer.reserve(file_size);
     file.seekg(0);
@@ -43,10 +42,7 @@ frame_function_timer_t::frame_function_timer_t(std::string_view scope_name) noex
             // not found 
             scope_total_time.emplace(std::pair{scope_name, duration});
         }
-    })  
-    { 
-    
-}
+    }) {}
 
 } // namespace timer
 

@@ -55,8 +55,8 @@ target_link_libraries(horizon
     glslc
     shaderc_util
     VulkanMemoryAllocator
+    assimp
     # EnTT
-    # assimp
     # screen_capture_lite_static
     # imgui
     # msdf-atlas-gen
