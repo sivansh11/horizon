@@ -116,10 +116,10 @@ config_pipeline_t& config_pipeline_t::add_color_attachment(VkFormat vk_format, c
     return *this;
 }
 
-config_pipeline_t& config_pipeline_t::set_depth(VkFormat vk_format, const VkPipelineDepthStencilStateCreateInfo& vk_pipeline_color_blend_state) {
+config_pipeline_t& config_pipeline_t::set_depth_attachment(VkFormat vk_format, const VkPipelineDepthStencilStateCreateInfo& vk_pipeline_depth_stencil_state) {
     horizon_profile();
     vk_depth_format = vk_format;
-    this->vk_pipeline_depth_stencil_state_create_info = vk_pipeline_color_blend_state;
+    this->vk_pipeline_depth_stencil_state_create_info = vk_pipeline_depth_stencil_state;
     return *this;
 }
 

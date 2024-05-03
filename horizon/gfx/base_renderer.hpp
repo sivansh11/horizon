@@ -69,7 +69,7 @@ struct update_descriptor_set_t {
 struct base_renderer_t {
     constexpr static size_t MAX_FRAMES_IN_FLIGHT = 2;
     
-    base_renderer_t(const core::window_t& window);
+    base_renderer_t(const core::window_t& window, gfx::context_t& context, gfx::handle_sampler_t sampler, gfx::handle_image_view_t final_image_view);
     ~base_renderer_t();
 
     void begin(bool transition_swapchain_image = true);
@@ -88,7 +88,7 @@ struct base_renderer_t {
     gfx::rendering_attachment_t swapchain_rendering_attachment(VkClearValue vk_clear_value, VkImageLayout vk_layout, VkAttachmentLoadOp vk_load_op, VkAttachmentStoreOp vk_store_op);
 
     const core::window_t& window;
-    gfx::context_t        context;
+    gfx::context_t&       context;
     gfx::handle_swapchain_t     swapchain;
     gfx::handle_command_pool_t  command_pool;
     gfx::handle_commandbuffer_t commandbuffers[MAX_FRAMES_IN_FLIGHT];
@@ -101,6 +101,9 @@ struct base_renderer_t {
 
     std::map<handle_buffer_t, internal::buffer_t> _buffers;
     std::map<handle_descriptor_set_t, internal::descriptor_set_t> _descriptor_sets;
+
+    gfx::handle_pipeline_t swapchain_pipeline;
+    gfx::handle_descriptor_set_t swapchain_descriptor_set;
 };
 
 } // namespace renderer

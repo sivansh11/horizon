@@ -8,6 +8,7 @@ namespace gfx {
 namespace helper {
 
 VkImageAspectFlags image_aspect_from_format(VkFormat vk_format);
+std::pair<VkViewport, VkRect2D> fill_viewport_and_scissor_structs(uint32_t width, uint32_t height);
 handle_buffer_t create_staging_buffer(context_t& context, VkDeviceSize vk_device_size);
 handle_commandbuffer_t start_single_use_commandbuffer(context_t& context, handle_command_pool_t command_pool);
 void end_single_use_commandbuffer(context_t& context, handle_commandbuffer_t commandbuffer);

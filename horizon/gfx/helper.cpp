@@ -22,6 +22,20 @@ VkImageAspectFlags image_aspect_from_format(VkFormat vk_format) {
     return VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
+std::pair<VkViewport, VkRect2D> fill_viewport_and_scissor_structs(uint32_t width, uint32_t height) {
+    VkViewport viewport{};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = width;
+    viewport.height = height;
+    viewport.minDepth = 0;
+    viewport.maxDepth = 1;
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = { width, height };
+    return { viewport, scissor };
+}
+
 handle_buffer_t create_staging_buffer(context_t& context, VkDeviceSize vk_device_size) {
     config_buffer_t config_buffer{};
     config_buffer.vk_size = vk_device_size;

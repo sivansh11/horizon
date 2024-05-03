@@ -170,7 +170,7 @@ struct config_pipeline_t {
     config_pipeline_t& add_shader(handle_shader_t handle);
 
     config_pipeline_t& add_color_attachment(VkFormat vk_format, const VkPipelineColorBlendAttachmentState& vk_pipeline_color_blend_state);
-    config_pipeline_t& set_depth(VkFormat vk_format, const VkPipelineDepthStencilStateCreateInfo& vk_pipeline_depth_state);
+    config_pipeline_t& set_depth_attachment(VkFormat vk_format, const VkPipelineDepthStencilStateCreateInfo& vk_pipeline_depth_state);
 
     config_pipeline_t& add_dynamic_state(const VkDynamicState& vk_dynamic_state);
 

@@ -1,5 +1,7 @@
 #include "base_renderer.hpp"
 
+#include "helper.hpp"
+
 namespace renderer {
 
 update_descriptor_set_t& update_descriptor_set_t::push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t count) {
@@ -84,7 +86,7 @@ void update_descriptor_set_t::commit() {
     }
 }
 
-base_renderer_t::base_renderer_t(const core::window_t& window) : window(window), context(true) {
+base_renderer_t::base_renderer_t(const core::window_t& window, gfx::context_t& context, gfx::handle_sampler_t sampler, gfx::handle_image_view_t final_image_view) : window(window), context(context) {
     horizon_profile();
     swapchain = context.create_swapchain(window);
     command_pool = context.create_command_pool({});
@@ -100,6 +102,84 @@ base_renderer_t::base_renderer_t(const core::window_t& window) : window(window),
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         render_finished_semaphores[i] = context.create_semaphore({});
     }
+
+    gfx::config_descriptor_set_layout_t config_swapchain_descriptor_set_layout{};
+    config_swapchain_descriptor_set_layout.add_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    gfx::handle_descriptor_set_layout_t swapchain_descriptor_set_layout = context.create_descriptor_set_layout(config_swapchain_descriptor_set_layout);
+
+    gfx::config_pipeline_layout_t config_swapchain_pipeline_layout{};
+    config_swapchain_pipeline_layout.add_descriptor_set_layout(swapchain_descriptor_set_layout);
+    gfx::handle_pipeline_layout_t swapchain_pipeline_layout = context.create_pipeline_layout(config_swapchain_pipeline_layout);
+
+    const char *vertex_shader_code = R"(
+
+        #version 450
+
+        layout (location = 0) out vec2 out_uv;
+
+        vec2 positions[6] = vec2[](
+            vec2(-1, -1),
+            vec2(-1,  1),
+            vec2( 1,  1),
+            vec2(-1, -1),
+            vec2( 1,  1),
+            vec2( 1, -1)
+        );
+
+        vec2 uv[6] = vec2[](
+            vec2(0, 1),
+            vec2(0, 0),
+            vec2(1, 0),
+            vec2(0, 1),
+            vec2(1, 0),
+            vec2(1, 1)
+            // vec2(0, 0),
+            // vec2(0, 1),
+            // vec2(1, 1),
+            // vec2(0, 0),
+            // vec2(1, 1),
+            // vec2(1, 0)
+        );
+
+        void main() {
+            gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
+            out_uv = uv[gl_VertexIndex];
+        }
+
+    )";
+
+    const char *fragment_shader_code = R"(
+        #version 450
+
+        layout (location = 0) in vec2 uv;
+
+        layout (location = 0) out vec4 out_color;
+
+        layout (set = 0, binding = 0) uniform sampler2D screen;
+
+        void main() {
+            out_color = texture(screen, uv);
+        }
+    )";
+
+    gfx::handle_shader_t vertex_shader = context.create_shader(gfx::config_shader_t{.code = vertex_shader_code, .name = "swapchain vertex shader", .type = gfx::shader_type_t::e_vertex });
+    gfx::handle_shader_t fragment_shader = context.create_shader(gfx::config_shader_t{.code = fragment_shader_code, .name = "swapchain fragment shader", .type = gfx::shader_type_t::e_fragment });
+
+    gfx::config_pipeline_t config_swapchain_pipeline{};
+    config_swapchain_pipeline.handle_pipeline_layout = swapchain_pipeline_layout;
+    config_swapchain_pipeline.add_color_attachment(VK_FORMAT_B8G8R8A8_SRGB, gfx::default_color_blend_attachment())
+                             .add_shader(vertex_shader)
+                             .add_shader(fragment_shader);
+    swapchain_pipeline = context.create_graphics_pipeline(config_swapchain_pipeline);
+
+    swapchain_descriptor_set = context.allocate_descriptor_set({.handle_descriptor_set_layout = swapchain_descriptor_set_layout});
+    context.update_descriptor_set(swapchain_descriptor_set)
+        .push_image_write(0, gfx::image_descriptor_info_t{.handle_sampler = sampler, .handle_image_view = final_image_view, .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL })
+        .commit();
+    // context.destroy_shader(vertex_shader);
+    // context.destroy_shader(fragment_shader);
+    // context.destroy_descriptor_set_layout(swapchain_descriptor_set_layout);
+    // context.destroy_pipeline_layout(swapchain_pipeline_layout);
 }
 
 base_renderer_t::~base_renderer_t() {
@@ -142,6 +222,15 @@ void base_renderer_t::begin(bool transition_swapchain_image) {
 void base_renderer_t::end() {
     horizon_profile();
     gfx::handle_commandbuffer_t commandbuffer = commandbuffers[current_frame];
+    auto rendering_attachment = swapchain_rendering_attachment({0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
+    auto [width, height] = window.dimensions();
+    context.cmd_begin_rendering(commandbuffer, {rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {width, height}});
+    context.cmd_bind_pipeline(commandbuffer, swapchain_pipeline);
+    context.cmd_bind_descriptor_sets(commandbuffer, swapchain_pipeline, 0, { swapchain_descriptor_set });
+    auto [viewport, scissor] = gfx::helper::fill_viewport_and_scissor_structs(width, height);
+    context.cmd_set_viewport_and_scissor(commandbuffer, viewport, scissor);
+    context.cmd_draw(commandbuffer, 6, 1, 0, 0);
+    context.cmd_end_rendering(commandbuffer);
     gfx::handle_fence_t in_flight_fence = in_flight_fences[current_frame];
     gfx::handle_semaphore_t image_available_semaphore = image_available_semaphores[current_frame];
     gfx::handle_semaphore_t render_finished_semaphore = render_finished_semaphores[current_frame];
