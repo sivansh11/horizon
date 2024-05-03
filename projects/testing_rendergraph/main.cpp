@@ -204,7 +204,7 @@ int main() {
                                     rendering_attachment.load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
                                     rendering_attachment.store_op = VK_ATTACHMENT_STORE_OP_STORE;
                                     renderer.context.cmd_begin_rendering(commandbuffer, {rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {640, 420}});
-                                    renderer.context.cmd_bind_pipeliine(commandbuffer, pipeline);
+                                    renderer.context.cmd_bind_pipeline(commandbuffer, pipeline);
                                     renderer.context.cmd_bind_descriptor_sets(commandbuffer, pipeline, 0, { renderer.descriptor_set(descriptor_set) });
                                     renderer.context.cmd_set_viewport_and_scissor(commandbuffer, swapchain_viewport, swapchain_scissor);
                                     renderer.context.cmd_draw(commandbuffer, 3, 1, 0, 0);
@@ -217,7 +217,7 @@ int main() {
                                     auto commandbuffer = renderer.current_commandbuffer();
                                     auto swapchain_rendering_attachment = renderer.swapchain_rendering_attachment({0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
                                     renderer.context.cmd_begin_rendering(commandbuffer, {swapchain_rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {640, 420}});
-                                    renderer.context.cmd_bind_pipeliine(commandbuffer, swapchain_pipeline);
+                                    renderer.context.cmd_bind_pipeline(commandbuffer, swapchain_pipeline);
                                     renderer.context.cmd_bind_descriptor_sets(commandbuffer, swapchain_pipeline, 0, { renderer.descriptor_set(swapchain_descriptor_set) });
                                     renderer.context.cmd_set_viewport_and_scissor(commandbuffer, swapchain_viewport, swapchain_scissor);
                                     renderer.context.cmd_draw(commandbuffer, 6, 1, 0, 0);

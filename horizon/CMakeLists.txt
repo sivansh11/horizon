@@ -22,7 +22,7 @@ if (!X11_Xext_LIB)
 endif()
 
 target_compile_definitions(horizon PUBLIC
-    VIZON_PROFILE_ENABLE
+    # horizon_profile_enable
 )
 
 include_directories(horizon
@@ -45,7 +45,6 @@ target_link_libraries(horizon
     glfw
     glm
     stb_image
-    spdlog
     volk
     vk-bootstrap
     glslang

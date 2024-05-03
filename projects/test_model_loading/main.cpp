@@ -1,4 +1,3 @@
-#define horizon_profile_enable
 #include "core/core.hpp"
 #include "core/window.hpp"
 
@@ -103,10 +102,10 @@ struct renderer_t {
                             auto [viewport, scissor] = fill_viewport_and_scissor_structs(width, height);
 
                             base_renderer.context.cmd_begin_rendering(commandbuffer, {rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {uint32_t(width), uint32_t(height)}});
-                            // base_renderer.context.cmd_bind_pipeliine(commandbuffer, test_pipeline);
+                            // base_renderer.context.cmd_bind_pipeline(commandbuffer, test_pipeline);
                             // base_renderer.context.cmd_set_viewport_and_scissor(commandbuffer, viewport, scissor);
                             // base_renderer.context.cmd_draw(commandbuffer, 3, 1, 0, 0);
-                            base_renderer.context.cmd_bind_pipeliine(commandbuffer, test_model_pipeline);
+                            base_renderer.context.cmd_bind_pipeline(commandbuffer, test_model_pipeline);
                             base_renderer.context.cmd_set_viewport_and_scissor(commandbuffer, viewport, scissor);
                             for (auto& gpu_mesh : gpu_meshes) {
                                 base_renderer.context.cmd_bind_vertex_buffers(commandbuffer, 0, { gpu_mesh.vertex_buffer }, {0});
@@ -124,7 +123,7 @@ struct renderer_t {
                             auto swapchain_rendering_attachment = base_renderer.swapchain_rendering_attachment({0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
                             auto [width, height] = base_renderer.window.dimensions();
                             base_renderer.context.cmd_begin_rendering(commandbuffer, {swapchain_rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {640, 420}});
-                            base_renderer.context.cmd_bind_pipeliine(commandbuffer, swapchain_pipeline);
+                            base_renderer.context.cmd_bind_pipeline(commandbuffer, swapchain_pipeline);
                             base_renderer.context.cmd_bind_descriptor_sets(commandbuffer, swapchain_pipeline, 0, { base_renderer.descriptor_set(swapchain_descriptor_set) });
                             auto [viewport, scissor] = fill_viewport_and_scissor_structs(width, height);
                             base_renderer.context.cmd_set_viewport_and_scissor(commandbuffer, viewport, scissor);
@@ -209,8 +208,17 @@ int main() {
         }   
     }
 
+    // for (auto [name, count_and_time] : core::get_frame_function_times()) {
+    //     auto [count, time] = count_and_time;
+    //     horizon_info("{} took {} and was called {} times", name, time, count);
+    // }
+
+    core::frame_timer_t frame_timer{60.f};
+
     while (!window.should_close()) {
         core::window_t::poll_events();  
+        auto dt = frame_timer.update();
+        std::cout << dt.count() << ' ' << 1000.f / frame_timer._target_fps << '\n';
         if (glfwGetKey(window.window(), GLFW_KEY_ESCAPE) == GLFW_PRESS) break;
         
         renderer.render(gpu_meshes);

@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <sstream>
+#include <cmath>
 #include <set>
 
 namespace utils {
@@ -785,6 +786,11 @@ void context_t::destroy_image(handle_image_t handle) {
     _images.erase(handle);
 }
 
+internal::image_t& context_t::get_image(handle_image_t handle) {
+    horizon_profile();
+    return utils::assert_and_get_data<internal::image_t>(handle, _images);
+}
+
 handle_image_view_t context_t::create_image_view(const config_image_view_t& config) {
     horizon_profile();
     internal::image_t image = utils::assert_and_get_data<internal::image_t>(config.handle_image, _images);
@@ -1268,7 +1274,7 @@ void context_t::submit_commandbuffer(handle_commandbuffer_t handle, const std::v
     check(vk_result == VK_SUCCESS, "Failed to submit commandbuffer");
 }
 
-void context_t::cmd_bind_pipeliine(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline) {
+void context_t::cmd_bind_pipeline(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     internal::pipeline_t& pipeline = utils::assert_and_get_data<internal::pipeline_t>(handle_pipeline, _pipelines);
@@ -1354,6 +1360,20 @@ void context_t::cmd_draw_indexed(handle_commandbuffer_t handle_commandbuffer, ui
     vkCmdDrawIndexed(commandbuffer, vk_index_count, vk_instance_count, vk_first_index, vk_vertex_offset, vk_first_instance);
 }
 
+void context_t::cmd_blit_image(handle_commandbuffer_t handle_commandbuffer, handle_image_t src_image_handle, VkImageLayout vk_src_image_layout, handle_image_t dst_image_handle, VkImageLayout vk_dst_image_layout, const std::vector<VkImageBlit>& vk_image_blits, VkFilter vk_filter) {
+    horizon_profile();
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    internal::image_t& src_image = utils::assert_and_get_data<internal::image_t>(src_image_handle, _images);
+    internal::image_t& dst_image = utils::assert_and_get_data<internal::image_t>(dst_image_handle, _images);
+    vkCmdBlitImage(commandbuffer, src_image, vk_src_image_layout, dst_image, vk_dst_image_layout, vk_image_blits.size(), vk_image_blits.data(), vk_filter);
+}
+
+void context_t::cmd_pipeline_barrier(handle_commandbuffer_t handle_commandbuffer, VkPipelineStageFlags vk_src_pipeline_stage_flags, VkPipelineStageFlags vk_dst_pipeline_stage_flags, VkDependencyFlags vk_dependency_flags, const std::vector<VkMemoryBarrier>& vk_memory_barriers, const std::vector<VkBufferMemoryBarrier>& vk_buffer_memory_barriers, const std::vector<VkImageMemoryBarrier>& vk_image_memory_barriers) {
+    horizon_profile();
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    vkCmdPipelineBarrier(commandbuffer, vk_src_pipeline_stage_flags, vk_dst_pipeline_stage_flags, vk_dependency_flags, vk_memory_barriers.size(), vk_memory_barriers.data(), vk_buffer_memory_barriers.size(), vk_buffer_memory_barriers.data(), vk_image_memory_barriers.size(), vk_image_memory_barriers.data());
+}
+
 void context_t::cmd_image_memory_barrier(handle_commandbuffer_t handle_commandbuffer, handle_image_t handle_image, VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout, VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask, VkPipelineStageFlags vk_src_pipeline_stage, VkPipelineStageFlags vk_dst_pipeline_stage) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
@@ -1399,6 +1419,14 @@ void context_t::cmd_copy_buffer(handle_commandbuffer_t handle_commandbuffer, han
     vk_buffer_copy.srcOffset = buffer_copy_info.vk_src_offset;
     vk_buffer_copy.size = buffer_copy_info.vk_size;
     vkCmdCopyBuffer(commandbuffer, src_buffer, dst_buffer, 1, &vk_buffer_copy);
+}
+
+void context_t::cmd_copy_buffer_to_image(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t src_handle_buffer, handle_image_t dst_handle_image, VkImageLayout vk_dst_image_layout, const VkBufferImageCopy& vk_buffer_image_copy) {
+    horizon_profile();
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    internal::buffer_t& src_buffer = utils::assert_and_get_data<internal::buffer_t>(src_handle_buffer, _buffers);
+    internal::image_t& dst_image = utils::assert_and_get_data<internal::image_t>(dst_handle_image, _images);
+    vkCmdCopyBufferToImage(commandbuffer, src_buffer, dst_image, vk_dst_image_layout, 1, &vk_buffer_image_copy);
 }
 
 void context_t::cmd_bind_vertex_buffers(handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding, const std::vector<handle_buffer_t>& handle_buffers, std::vector<VkDeviceSize> vk_offsets) {

@@ -107,12 +107,12 @@ struct config_image_t {
     VkImageType              vk_type;
     VkFormat                 vk_format;
     VkImageUsageFlags        vk_usage;
+    VmaAllocationCreateFlags vma_allocation_create_flags;
     uint32_t                 vk_mips = vk_auto_calculate_mip_levels;
     VkSampleCountFlagBits    vk_sample_count = VK_SAMPLE_COUNT_1_BIT;
     uint32_t                 vk_array_layers = 1;
     VkImageTiling            vk_tiling = VK_IMAGE_TILING_OPTIMAL;
     VkImageLayout            vk_initial_layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    VmaAllocationCreateFlags vma_allocation_create_flags;
     VmaMemoryUsage           vma_memory_usage = VMA_MEMORY_USAGE_AUTO;
 };
 
@@ -428,7 +428,7 @@ public:
     void submit_commandbuffer(handle_commandbuffer_t handle, const std::vector<handle_semaphore_t>& wait_semaphore_handles, const std::vector<VkPipelineStageFlags>& vk_pipeline_stages, const std::vector<handle_semaphore_t>& signal_semaphore_handles, handle_fence_t handle_fence);
     internal::commandbuffer_t& get_commandbuffer(handle_commandbuffer_t handle);
 
-    void cmd_bind_pipeliine(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline);
+    void cmd_bind_pipeline(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline);
     void cmd_bind_descriptor_sets(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline, uint32_t vk_first_set, const std::vector<handle_descriptor_set_t>& handle_descriptor_sets);
     void cmd_push_constants(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_layout_t handle_pipeline_layout, VkShaderStageFlags vk_shader_stages, uint32_t vk_offset, uint32_t vk_size, const void *vk_data);
     void cmd_dispatch(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_group_count_x, uint32_t vk_group_count_y, uint32_t vk_group_count_z);
@@ -437,10 +437,15 @@ public:
     void cmd_end_rendering(handle_commandbuffer_t handle_commandbuffer);
     void cmd_draw(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_vertex_count, uint32_t vk_instance_count, uint32_t vk_first_vertex, uint32_t vk_first_instance);
     void cmd_draw_indexed(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_index_count, uint32_t vk_instance_count, uint32_t vk_first_index, int32_t vk_vertex_offset, uint32_t vk_first_instance);
+    void cmd_blit_image(handle_commandbuffer_t handle_commandbuffer, handle_image_t src_image_handle, VkImageLayout vk_src_image_layout, handle_image_t dst_image_handle, VkImageLayout vk_dst_image_layout, const std::vector<VkImageBlit>& vk_image_blits, VkFilter vk_filter);
+    void cmd_pipeline_barrier(handle_commandbuffer_t handle_commandbuffer, VkPipelineStageFlags vk_src_pipeline_stage_flags, VkPipelineStageFlags vk_dst_pipeline_stage_flags, VkDependencyFlags vk_dependency_flags, const std::vector<VkMemoryBarrier>& vk_memory_barriers, const std::vector<VkBufferMemoryBarrier>& vk_buffer_memory_barriers, const std::vector<VkImageMemoryBarrier>& vk_image_memory_barriers);
     // TODO: add mip levels option to this
     void cmd_image_memory_barrier(handle_commandbuffer_t handle_commandbuffer, handle_image_t handle_image, VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout, VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask, VkPipelineStageFlags vk_src_pipeline_stage, VkPipelineStageFlags vk_dst_pipeline_stage);
     void cmd_buffer_memory_barrier(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t handle_buffer, VkDeviceSize vk_size, VkDeviceSize vk_offset, VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask, VkPipelineStageFlags vk_src_pipeline_stage, VkPipelineStageFlags vk_dst_pipeline_stage);
+    // maybe expose multiple sub regions
     void cmd_copy_buffer(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t src_handle, handle_buffer_t dst_handle, const buffer_copy_info_t& buffer_copy_info);
+    // maybe expose multiple sub regions
+    void cmd_copy_buffer_to_image(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t src_buffer, handle_image_t dst_image, VkImageLayout vk_dst_image_layout, const VkBufferImageCopy& vk_buffer_image_copy);
     void cmd_bind_vertex_buffers(handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding, const std::vector<handle_buffer_t>& handle_buffers, std::vector<VkDeviceSize> vk_offsets);
     void cmd_bind_index_buffer(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t handle_buffer, VkDeviceSize vk_offset, VkIndexType vk_index_type);
 
@@ -482,15 +487,14 @@ private:
 
 #define define_fmt(name)                                                        \
 template<>                                                                      \
-struct fmt::formatter<name> {                                                   \
-    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {  \
-        return ctx.end();                                                       \
+struct std::formatter<name> {                                                   \
+    template <typename parse_context_t>                                         \
+    constexpr auto parse(parse_context_t& ctx) {                                \
+        return ctx.begin();                                                     \
     }                                                                           \
-    template <typename FormatContext>                                           \
-    auto format(const name& input, FormatContext& ctx) -> decltype(ctx.out()) { \
-        return format_to(ctx.out(),                                             \
-            "{}",                                                               \
-            input.val);                                                         \
+    template <typename format_context_t>                                        \
+    auto format(const name& handle, format_context_t& ctx) const {              \
+        return std::format_to(ctx.out(), "{}", handle.val);                     \
     }                                                                           \
 }
 

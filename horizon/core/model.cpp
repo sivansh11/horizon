@@ -1,5 +1,7 @@
 #include "model.hpp"
 
+#include "core/core.hpp"
+
 #include <assimp/Importer.hpp>
 #include <assimp/scene.h>
 #include <assimp/postprocess.h>
@@ -9,6 +11,7 @@
 namespace core {
 
 std::optional<texture_info_t> process_texture(model_loading_info_t& model_loading_info, aiMaterial *material, aiTextureType type, texture_type_t texture_type) {
+    horizon_profile();
     if (material->GetTextureCount(type) == 0) {
         return std::nullopt;
     }
@@ -28,6 +31,7 @@ std::optional<texture_info_t> process_texture(model_loading_info_t& model_loadin
 }
 
 material_description_t process_material(model_loading_info_t& model_loading_info, aiMaterial *material) {
+    horizon_profile();
     material_description_t loaded_material_description;
 
     if (auto texture_info = process_texture(model_loading_info, material, aiTextureType_DIFFUSE, texture_type_t::e_diffuse_map)) {
@@ -55,6 +59,7 @@ material_description_t process_material(model_loading_info_t& model_loading_info
 }
 
 mesh_t process_mesh(model_loading_info_t& model_loading_info, aiMesh *mesh, const aiScene *scene) {
+    horizon_profile();
     mesh_t loaded_mesh;
     loaded_mesh.vertices.reserve(mesh->mNumVertices);
     for (uint32_t i = 0; i < mesh->mNumVertices; i++) {
@@ -100,6 +105,7 @@ mesh_t process_mesh(model_loading_info_t& model_loading_info, aiMesh *mesh, cons
 }
 
 void process_node(model_loading_info_t& model_loading_info, aiNode *node, const aiScene *scene) {
+    horizon_profile();
     for (uint32_t i = 0; i < node->mNumChildren; i++) {
         process_node(model_loading_info, node->mChildren[i], scene);
     }
@@ -109,6 +115,7 @@ void process_node(model_loading_info_t& model_loading_info, aiNode *node, const 
 }
 
 model_t load_model_from_path(const std::filesystem::path& file_path) {
+    horizon_profile();
     Assimp::Importer importer{};
     const aiScene *scene = importer.ReadFile(file_path.string(),
                                              aiProcess_Triangulate          |

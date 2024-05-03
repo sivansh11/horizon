@@ -1,0 +1,32 @@
+#version 450
+#extension GL_EXT_scalar_block_layout : enable
+
+layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+struct triangle_t {
+    vec3 p1, p2, p3;
+};
+
+struct vertex_t {
+    vec3 position;
+    vec3 normal;
+    vec2 uv;
+    vec3 tangent;
+    vec3 bi_tangent;
+};
+
+layout (scalar, set = 0, binding = 0) buffer _1 {
+    vertex_t vertices[];
+};
+
+layout (scalar, set = 0, binding = 1) buffer _2 {
+    uint indices[];
+};
+
+layout (scalar, set = 0, binding = 2) buffer _3 {
+    triangle_t triangles[];
+};
+
+void main() {
+    
+}

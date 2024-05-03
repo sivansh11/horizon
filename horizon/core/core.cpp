@@ -19,7 +19,7 @@ std::string read_file(const std::filesystem::path& filename) {
 
 namespace timer {
 
-static std::unordered_map<std::string_view, duration_t> scope_total_time;
+static frame_function_times scope_total_time;
 
 scope_timer_t::scope_timer_t(timer_end_callback_t timer_end_callback) noexcept {
     _timer_end_callback = timer_end_callback;
@@ -38,9 +38,12 @@ frame_function_timer_t::frame_function_timer_t(std::string_view scope_name) noex
         if (itr != scope_total_time.end()) {
             // found
             itr->second += duration;
+            // itr->second.first += 1;
+            // itr->second.second += duration;
         } else {
             // not found 
             scope_total_time.emplace(std::pair{scope_name, duration});
+            // scope_total_time.emplace(std::pair{scope_name, std::pair<uint32_t, timer::duration_t>{1, duration}});
         }
     }) {}
 
@@ -50,8 +53,19 @@ void clear_frame_function_times() noexcept {
     timer::scope_total_time.clear();
 }
 
-std::unordered_map<std::string_view, timer::duration_t>& get_frame_function_times() {
+frame_function_times& get_frame_function_times() {
     return timer::scope_total_time;
+}
+
+frame_timer_t::frame_timer_t(float target_fps) : _target_fps(target_fps) {
+    _last_time = std::chrono::high_resolution_clock::now();
+}
+
+timer::duration_t frame_timer_t::update() {
+    auto current_time = std::chrono::high_resolution_clock::now();
+    auto delta_time = std::chrono::duration_cast<timer::duration_t>(current_time - _last_time);
+    _last_time = current_time;
+    return delta_time;
 }
 
 } // namespace core

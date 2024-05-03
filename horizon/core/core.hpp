@@ -1,7 +1,7 @@
 #ifndef CORE_CORE_HPP
 #define CORE_CORE_HPP
 
-#include "log.hpp"
+#include "logger.hpp"
 
 #include <memory>
 #include <chrono>
@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <source_location>
 #include <string_view>
+#include <atomic>
 
 namespace core {
 
@@ -52,23 +53,33 @@ struct frame_function_timer_t {
 
 } // namespace timer
 
+using frame_function_times = std::unordered_map<std::string_view, timer::duration_t>;
+
 void clear_frame_function_times() noexcept;
 
-std::unordered_map<std::string_view, timer::duration_t>& get_frame_function_times();
+frame_function_times& get_frame_function_times();
+
+struct frame_timer_t {
+    frame_timer_t(float target_fps);
+
+    timer::duration_t update();
+
+    float _target_fps;
+    std::chrono::_V2::system_clock::time_point _last_time;
+};
 
 } // namespace core
 
 template<>
-struct fmt::formatter<core::timer::duration_t> {
-    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
-        return ctx.end();
+struct std::formatter<core::timer::duration_t> {
+    template <typename parse_context_t>
+    constexpr auto parse(parse_context_t& ctx) {
+        return ctx.begin();
     }
 
-    template <typename FormatContext>
-    auto format(const core::timer::duration_t& input, FormatContext& ctx) -> decltype(ctx.out()) {
-        return format_to(ctx.out(),
-            "{}ms",
-            input.count());
+    template <typename format_context_t>
+    auto format(const core::timer::duration_t& duration, format_context_t& ctx) const {
+        return std::format_to(ctx.out(), "{}ms", duration);
     }
 };
 

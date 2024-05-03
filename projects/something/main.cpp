@@ -96,10 +96,10 @@
 //                             auto [viewport, scissor] = fill_viewport_and_scissor_structs(width, height);
 
 //                             base_renderer.context.cmd_begin_rendering(commandbuffer, {rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {uint32_t(width), uint32_t(height)}});
-//                             // base_renderer.context.cmd_bind_pipeliine(commandbuffer, test_pipeline);
+//                             // base_renderer.context.cmd_bind_pipeline(commandbuffer, test_pipeline);
 //                             // base_renderer.context.cmd_set_viewport_and_scissor(commandbuffer, viewport, scissor);
 //                             // base_renderer.context.cmd_draw(commandbuffer, 3, 1, 0, 0);
-//                             base_renderer.context.cmd_bind_pipeliine(commandbuffer, test_model_pipeline);
+//                             base_renderer.context.cmd_bind_pipeline(commandbuffer, test_model_pipeline);
 //                             base_renderer.context.cmd_set_viewport_and_scissor(commandbuffer, viewport, scissor);
 //                             for (auto& gpu_mesh : gpu_meshes) {
 //                                 base_renderer.context.cmd_bind_vertex_buffers(commandbuffer, 0, { gpu_mesh.vertex_buffer }, {0});
@@ -117,7 +117,7 @@
 //                             auto swapchain_rendering_attachment = base_renderer.swapchain_rendering_attachment({0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
 //                             auto [width, height] = base_renderer.window.dimensions();
 //                             base_renderer.context.cmd_begin_rendering(commandbuffer, {swapchain_rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {640, 420}});
-//                             base_renderer.context.cmd_bind_pipeliine(commandbuffer, swapchain_pipeline);
+//                             base_renderer.context.cmd_bind_pipeline(commandbuffer, swapchain_pipeline);
 //                             base_renderer.context.cmd_bind_descriptor_sets(commandbuffer, swapchain_pipeline, 0, { base_renderer.descriptor_set(swapchain_descriptor_set) });
 //                             auto [viewport, scissor] = fill_viewport_and_scissor_structs(width, height);
 //                             base_renderer.context.cmd_set_viewport_and_scissor(commandbuffer, viewport, scissor);
@@ -148,67 +148,67 @@
 // };
 
 int main() {
-    core::window_t window{ "test", 640, 420 };
-    auto [width, height] = window.dimensions();
+    // core::window_t window{ "test", 640, 420 };
+    // auto [width, height] = window.dimensions();
     
-    renderer_t renderer{ window };
-    auto& context = renderer.base_renderer.context;
+    // renderer_t renderer{ window };
+    // auto& context = renderer.base_renderer.context;
 
-    auto fence = context.create_fence({});
+    // auto fence = context.create_fence({});
 
-    std::vector<gpu_mesh_t> gpu_meshes;
-    auto model = core::load_model_from_path("../../assets/models/teapot.obj");
-    {
-        for (auto mesh : model.meshes) {
-            gpu_mesh_t gpu_mesh{};
+    // std::vector<gpu_mesh_t> gpu_meshes;
+    // auto model = core::load_model_from_path("../../assets/models/teapot.obj");
+    // {
+    //     for (auto mesh : model.meshes) {
+    //         gpu_mesh_t gpu_mesh{};
 
-            gpu_mesh.vertex_count = mesh.vertices.size();
-            gpu_mesh.index_count = mesh.indices.size();
+    //         gpu_mesh.vertex_count = mesh.vertices.size();
+    //         gpu_mesh.index_count = mesh.indices.size();
 
-            gfx::config_buffer_t config_vertex_buffer{};
-            config_vertex_buffer.vk_size = mesh.vertices.size() * sizeof(core::vertex_t);
-            config_vertex_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-            config_vertex_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-            auto staging_vertex_buffer = context.create_buffer(config_vertex_buffer);
-            config_vertex_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-            config_vertex_buffer.vma_allocation_create_flags = {};
-            gpu_mesh.vertex_buffer = context.create_buffer(config_vertex_buffer);
-            std::memcpy(context.map_buffer(staging_vertex_buffer), mesh.vertices.data(), config_vertex_buffer.vk_size);
+    //         gfx::config_buffer_t config_vertex_buffer{};
+    //         config_vertex_buffer.vk_size = mesh.vertices.size() * sizeof(core::vertex_t);
+    //         config_vertex_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    //         config_vertex_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    //         auto staging_vertex_buffer = context.create_buffer(config_vertex_buffer);
+    //         config_vertex_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    //         config_vertex_buffer.vma_allocation_create_flags = {};
+    //         gpu_mesh.vertex_buffer = context.create_buffer(config_vertex_buffer);
+    //         std::memcpy(context.map_buffer(staging_vertex_buffer), mesh.vertices.data(), config_vertex_buffer.vk_size);
 
-            gfx::config_buffer_t config_index_buffer{};
-            config_index_buffer.vk_size = mesh.indices.size() * sizeof(uint32_t);
-            config_index_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
-            config_index_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-            auto staging_index_buffer = context.create_buffer(config_index_buffer);
-            config_index_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
-            config_index_buffer.vma_allocation_create_flags = {};
-            gpu_mesh.index_buffer = context.create_buffer(config_index_buffer);
-            std::memcpy(context.map_buffer(staging_index_buffer), mesh.indices.data(), config_index_buffer.vk_size);
+    //         gfx::config_buffer_t config_index_buffer{};
+    //         config_index_buffer.vk_size = mesh.indices.size() * sizeof(uint32_t);
+    //         config_index_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    //         config_index_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    //         auto staging_index_buffer = context.create_buffer(config_index_buffer);
+    //         config_index_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    //         config_index_buffer.vma_allocation_create_flags = {};
+    //         gpu_mesh.index_buffer = context.create_buffer(config_index_buffer);
+    //         std::memcpy(context.map_buffer(staging_index_buffer), mesh.indices.data(), config_index_buffer.vk_size);
 
-            auto commandbuffer = context.allocate_commandbuffer({.handle_command_pool = renderer.base_renderer.command_pool});
-            context.begin_commandbuffer(commandbuffer, true);
-            context.cmd_copy_buffer(commandbuffer, staging_vertex_buffer, gpu_mesh.vertex_buffer, {.vk_size = config_vertex_buffer.vk_size});
-            context.cmd_copy_buffer(commandbuffer, staging_index_buffer, gpu_mesh.index_buffer, {.vk_size = config_index_buffer.vk_size});
-            context.end_commandbuffer(commandbuffer);
+    //         auto commandbuffer = context.allocate_commandbuffer({.handle_command_pool = renderer.base_renderer.command_pool});
+    //         context.begin_commandbuffer(commandbuffer, true);
+    //         context.cmd_copy_buffer(commandbuffer, staging_vertex_buffer, gpu_mesh.vertex_buffer, {.vk_size = config_vertex_buffer.vk_size});
+    //         context.cmd_copy_buffer(commandbuffer, staging_index_buffer, gpu_mesh.index_buffer, {.vk_size = config_index_buffer.vk_size});
+    //         context.end_commandbuffer(commandbuffer);
 
-            context.reset_fence(fence);
-            context.submit_commandbuffer(commandbuffer, {}, {}, {}, fence);
-            context.wait_fence(fence);
+    //         context.reset_fence(fence);
+    //         context.submit_commandbuffer(commandbuffer, {}, {}, {}, fence);
+    //         context.wait_fence(fence);
 
-            context.destroy_buffer(staging_vertex_buffer);
-            context.destroy_buffer(staging_index_buffer);
+    //         context.destroy_buffer(staging_vertex_buffer);
+    //         context.destroy_buffer(staging_index_buffer);
 
-            gpu_meshes.push_back(gpu_mesh);
-        }   
-    }
+    //         gpu_meshes.push_back(gpu_mesh);
+    //     }   
+    // }
 
-    while (!window.should_close()) {
-        core::window_t::poll_events();  
-        if (glfwGetKey(window.window(), GLFW_KEY_ESCAPE) == GLFW_PRESS) break;
+    // while (!window.should_close()) {
+    //     core::window_t::poll_events();  
+    //     if (glfwGetKey(window.window(), GLFW_KEY_ESCAPE) == GLFW_PRESS) break;
         
-        renderer.render(gpu_meshes);
+    //     renderer.render(gpu_meshes);
 
-    }
+    // }
 
     return 0;
 }

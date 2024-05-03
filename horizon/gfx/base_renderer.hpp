@@ -87,7 +87,6 @@ struct base_renderer_t {
     gfx::handle_image_view_t current_swapchain_image_view();
     gfx::rendering_attachment_t swapchain_rendering_attachment(VkClearValue vk_clear_value, VkImageLayout vk_layout, VkAttachmentLoadOp vk_load_op, VkAttachmentStoreOp vk_store_op);
 
-
     const core::window_t& window;
     gfx::context_t        context;
     gfx::handle_swapchain_t     swapchain;

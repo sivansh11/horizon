@@ -101,7 +101,7 @@ void test_compute() {
     int i = 5;
 
     context.begin_commandbuffer(commandbuffer, true);
-    context.cmd_bind_pipeliine(commandbuffer, pipeline);
+    context.cmd_bind_pipeline(commandbuffer, pipeline);
     context.cmd_bind_descriptor_sets(commandbuffer, pipeline, 0, { descriptor_set });
     context.cmd_push_constants(commandbuffer, pipeline_layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(int), &i);
     context.cmd_dispatch(commandbuffer, 1, 1, 1);
@@ -209,7 +209,7 @@ void test_graphics() {
         color_rendering_attachment.store_op = VK_ATTACHMENT_STORE_OP_STORE;
         color_rendering_attachment.handle_image_view = context.get_swapchain_image_views(swapchain)[*next_image];
         context.cmd_begin_rendering(commandbuffer, {color_rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {640, 420}});
-        context.cmd_bind_pipeliine(commandbuffer, pipeline);
+        context.cmd_bind_pipeline(commandbuffer, pipeline);
         context.cmd_set_viewport_and_scissor(commandbuffer, swapchain_viewport, swapchain_scissor);
         context.cmd_draw(commandbuffer, 6, 1, 0, 0);
         context.cmd_end_rendering(commandbuffer);
