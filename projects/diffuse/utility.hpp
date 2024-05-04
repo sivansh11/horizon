@@ -16,7 +16,11 @@ void create_material_descriptor_set_layout(gfx::context_t& context) {
     gfx::config_descriptor_set_layout_t config_material{};
     config_material.add_layout_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT);
     material_descriptor_set_layout = context.create_descriptor_set_layout(config_material);
-    albedo_sampler = context.create_sampler({});
+    gfx::config_sampler_t config_sampler{};
+    config_sampler.vk_mag_filter = VK_FILTER_LINEAR;
+    config_sampler.vk_min_filter = VK_FILTER_LINEAR;
+    config_sampler.vk_mipmap_mode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    albedo_sampler = context.create_sampler(config_sampler);
 }
 
 void destroy_material_descriptor_set_layout(gfx::context_t& context) {

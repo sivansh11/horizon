@@ -26,12 +26,14 @@ struct object_t {
 };
 
 int main() {
-    core::window_t window{ "diffuse", 640, 420 };
+    core::window_t window{ "diffuse", 1200, 800 };
     gfx::context_t context{ true };
 
+    auto [width, height] = window.dimensions();
+
     gfx::config_image_t config_final_image{};
-    config_final_image.vk_width = 640;
-    config_final_image.vk_height = 420;
+    config_final_image.vk_width = width;
+    config_final_image.vk_height = height;
     config_final_image.vk_depth = 1;
     config_final_image.vk_type = VK_IMAGE_TYPE_2D;
     config_final_image.vk_format = VK_FORMAT_R8G8B8A8_SRGB;
@@ -41,8 +43,8 @@ int main() {
     gfx::handle_image_view_t final_image_view = context.create_image_view({.handle_image = final_image});
 
     gfx::config_image_t config_depth_image{};
-    config_depth_image.vk_width = 640;
-    config_depth_image.vk_height = 420;
+    config_depth_image.vk_width = width;
+    config_depth_image.vk_height = height;
     config_depth_image.vk_depth = 1;
     config_depth_image.vk_type = VK_IMAGE_TYPE_2D;
     config_depth_image.vk_format = VK_FORMAT_D32_SFLOAT;
@@ -76,18 +78,6 @@ int main() {
     gfx::config_pipeline_t diffuse_config_pipeline{};
     diffuse_config_pipeline.handle_pipeline_layout = pipeline_layout;
     diffuse_config_pipeline.add_color_attachment(VK_FORMAT_R8G8B8A8_SRGB, gfx::default_color_blend_attachment())
-                            // VkStructureType                           sType;
-                            // const void*                               pNext;
-                            // VkPipelineDepthStencilStateCreateFlags    flags;
-                            // VkBool32                                  depthTestEnable;
-                            // VkBool32                                  depthWriteEnable;
-                            // VkCompareOp                               depthCompareOp;
-                            // VkBool32                                  depthBoundsTestEnable;
-                            // VkBool32                                  stencilTestEnable;
-                            // VkStencilOpState                          front;
-                            // VkStencilOpState                          back;
-                            // float                                     minDepthBounds;
-                            // float                                     maxDepthBounds;
                            .set_depth_attachment(VK_FORMAT_D32_SFLOAT, VkPipelineDepthStencilStateCreateInfo{
                                 .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
                                 .depthTestEnable = VK_TRUE,
@@ -131,7 +121,7 @@ int main() {
     object->model = {1.f};
     object->inv_model = glm::inverse(object->model);
 
-    auto [viewport, scissor] = gfx::helper::fill_viewport_and_scissor_structs(640, 420);
+    auto [viewport, scissor] = gfx::helper::fill_viewport_and_scissor_structs(width, height);
 
     editor_camera_t editor_camera{ window };
     core::frame_timer_t frame_timer{ 60.f };
@@ -143,6 +133,7 @@ int main() {
 
         auto dt = frame_timer.update();
         editor_camera.update(dt.count());
+        std::cout << dt.count() << '\n';
 
         if (glfwGetKey(window.window(), GLFW_KEY_ESCAPE)) break;
 
@@ -172,7 +163,7 @@ int main() {
 
         context.cmd_image_memory_barrier(commandbuffer, final_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
         context.cmd_image_memory_barrier(commandbuffer, depth_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT);
-        context.cmd_begin_rendering(commandbuffer, { color_rendering_attachment }, depth_rendering_attachment, VkRect2D{VkOffset2D{}, {640, 420}});
+        context.cmd_begin_rendering(commandbuffer, { color_rendering_attachment }, depth_rendering_attachment, VkRect2D{VkOffset2D{}, {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}});
         context.cmd_bind_pipeline(commandbuffer, diffuse_pipeline);
         context.cmd_set_viewport_and_scissor(commandbuffer, viewport, scissor);
         context.cmd_bind_descriptor_sets(commandbuffer, diffuse_pipeline, 0, { renderer.descriptor_set(camera_descriptor_set), object_descriptor_set  });
