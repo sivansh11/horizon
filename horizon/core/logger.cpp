@@ -1,7 +1,9 @@
 #include "logger.hpp"
 
 namespace core {
-    
+
+// TODO: make this thread safe
+
 log_level_t log_t::_log_level = log_level_t::e_trace;
 // https://gist.github.com/JBlond/2fea43a3049b38287e5e9cefc87b2124
 std::string log_t::_log_colors[4] = {

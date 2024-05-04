@@ -112,11 +112,8 @@ base_renderer_t::base_renderer_t(const core::window_t& window, gfx::context_t& c
     gfx::handle_pipeline_layout_t swapchain_pipeline_layout = context.create_pipeline_layout(config_swapchain_pipeline_layout);
 
     const char *vertex_shader_code = R"(
-
         #version 450
-
         layout (location = 0) out vec2 out_uv;
-
         vec2 positions[6] = vec2[](
             vec2(-1, -1),
             vec2(-1,  1),
@@ -125,7 +122,6 @@ base_renderer_t::base_renderer_t(const core::window_t& window, gfx::context_t& c
             vec2( 1,  1),
             vec2( 1, -1)
         );
-
         vec2 uv[6] = vec2[](
             vec2(0, 1),
             vec2(0, 0),
@@ -140,23 +136,17 @@ base_renderer_t::base_renderer_t(const core::window_t& window, gfx::context_t& c
             // vec2(1, 1),
             // vec2(1, 0)
         );
-
         void main() {
             gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
             out_uv = uv[gl_VertexIndex];
         }
-
     )";
 
     const char *fragment_shader_code = R"(
         #version 450
-
         layout (location = 0) in vec2 uv;
-
         layout (location = 0) out vec4 out_color;
-
         layout (set = 0, binding = 0) uniform sampler2D screen;
-
         void main() {
             out_color = texture(screen, uv);
         }
@@ -224,7 +214,7 @@ void base_renderer_t::end() {
     gfx::handle_commandbuffer_t commandbuffer = commandbuffers[current_frame];
     auto rendering_attachment = swapchain_rendering_attachment({0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
     auto [width, height] = window.dimensions();
-    context.cmd_begin_rendering(commandbuffer, {rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {width, height}});
+    context.cmd_begin_rendering(commandbuffer, {rendering_attachment}, std::nullopt, VkRect2D{VkOffset2D{}, {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}});
     context.cmd_bind_pipeline(commandbuffer, swapchain_pipeline);
     context.cmd_bind_descriptor_sets(commandbuffer, swapchain_pipeline, 0, { swapchain_descriptor_set });
     auto [viewport, scissor] = gfx::helper::fill_viewport_and_scissor_structs(width, height);

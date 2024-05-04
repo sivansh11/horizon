@@ -267,61 +267,61 @@ context_t::~context_t() {
     horizon_profile();
     vkDeviceWaitIdle(_vkb_device);
     for (auto& [handle, commandbuffer] : _commandbuffers) {
-        horizon_warn("forgot to clear commandbuffer with handle: {}", handle);
+        horizon_trace("forgot to clear commandbuffer with handle: {}", handle);
         vkFreeCommandBuffers(_vkb_device, utils::assert_and_get_data<internal::command_pool_t>(commandbuffer.config.handle_command_pool, _command_pools), 1, &commandbuffer.vk_commandbuffer);
     }
     for (auto& [handle, command_pool] : _command_pools) {
-        horizon_warn("forgot to clear command pool with handle: {}", handle);
+        horizon_trace("forgot to clear command pool with handle: {}", handle);
         vkDestroyCommandPool(_vkb_device, command_pool, nullptr);
     }
     for (auto& [handle, semaphore] : _semaphores) {
-        horizon_warn("forgot to clear semaphore with handle: {}", handle);
+        horizon_trace("forgot to clear semaphore with handle: {}", handle);
         vkDestroySemaphore(_vkb_device, semaphore, nullptr);
     }
     for (auto& [handle, fence] : _fences) {
-        horizon_warn("forgot to clear fence with handle: {}", handle);
+        horizon_trace("forgot to clear fence with handle: {}", handle);
         vkDestroyFence(_vkb_device, fence, nullptr);
     }
     for (auto& [handle, pipeline_layout] : _pipeline_layouts) {
-        horizon_warn("forgot to clear pipeline layout with handle: {}", handle);
+        horizon_trace("forgot to clear pipeline layout with handle: {}", handle);
         vkDestroyPipelineLayout(_vkb_device, pipeline_layout, nullptr);
     }
     for (auto& [handle, pipeline] : _pipelines) {
-        horizon_warn("forgot to clear pipeline with handle: {}", handle);
+        horizon_trace("forgot to clear pipeline with handle: {}", handle);
         vkDestroyPipeline(_vkb_device, pipeline, nullptr);
     }
     for (auto& [handle, shader] : _shaders) {
-        horizon_warn("forgot to clear shader with handle: {}", handle);
+        horizon_trace("forgot to clear shader with handle: {}", handle);
         vkDestroyShaderModule(_vkb_device, shader, nullptr);
     }
     for (auto& [handle, descriptor_set] : _descriptor_sets) {
-        horizon_warn("forgot to clear descriptor set with handle: {}", handle);
+        horizon_trace("forgot to clear descriptor set with handle: {}", handle);
         vkFreeDescriptorSets(_vkb_device, _vk_descriptor_pool, 1, &descriptor_set.vk_descriptor_set);
     }
     for (auto& [handle, descriptor_set_layout] : _descriptor_set_layouts) {
-        horizon_warn("forgot to clear descriptor set layout with handle: {}", handle);
+        horizon_trace("forgot to clear descriptor set layout with handle: {}", handle);
         vkDestroyDescriptorSetLayout(_vkb_device, descriptor_set_layout, nullptr);
     }
     for (auto& [handle, image_view] : _image_views) {
-        horizon_warn("forgot to clear image view with handle: {}", handle);
+        horizon_trace("forgot to clear image view with handle: {}", handle);
         vkDestroyImageView(_vkb_device, image_view, nullptr);
     }
     for (auto& [handle, image] : _images) if (!image.from_swapchain) {
-        horizon_warn("forgot to clear image with handle: {}", handle);
+        horizon_trace("forgot to clear image with handle: {}", handle);
         // if (image.p_data) unmap_image(handle);
         vmaDestroyImage(_vma_allocator, image, image.vma_allocation);
     }
     for (auto& [handle, sampler] : _samplers) {
-        horizon_warn("forgot to clear sampler with handle: {}", handle);
+        horizon_trace("forgot to clear sampler with handle: {}", handle);
         vkDestroySampler(_vkb_device, sampler, nullptr);
     }
     for (auto& [handle, buffer] : _buffers) {
-        horizon_warn("forgot to clear buffer with handle: {}", handle);
+        horizon_trace("forgot to clear buffer with handle: {}", handle);
         if (buffer.p_data) unmap_buffer(handle);
         vmaDestroyBuffer(_vma_allocator, buffer, buffer.vma_allocation);
     }
     for (auto& [handle, swapchain] : _swapchains) {
-        horizon_warn("forgot to clear swapchain with handle: {}", handle);    
+        horizon_trace("forgot to clear swapchain with handle: {}", handle);    
         vkDestroySwapchainKHR(_vkb_device, swapchain.vk_swapchain, nullptr);
         vkDestroySurfaceKHR(_vkb_instance, swapchain.vk_surface, nullptr);
     }
