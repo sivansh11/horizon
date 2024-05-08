@@ -114,8 +114,8 @@ struct bvh_t {
 private:
 
     struct build_config_t {
-        uint32_t min_primitives = 2;
-        uint32_t max_primitives = 8;
+        uint32_t min_primitives = 1;
+        uint32_t max_primitives = 1;
         float traversal_cost = 1.0f;
         uint32_t bin_count = 16;
     };

@@ -400,6 +400,10 @@ void context_t::create_device() {
     VkPhysicalDeviceDynamicRenderingFeaturesKHR vk_physical_device_dynamic_rendering_features{ .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
     vk_physical_device_dynamic_rendering_features.dynamicRendering = VK_TRUE;
     vkb_physical_device_selector.add_required_extension_features<VkPhysicalDeviceDynamicRenderingFeaturesKHR>(vk_physical_device_dynamic_rendering_features);
+    VkPhysicalDeviceFeatures vk_physical_device_features{
+        .fillModeNonSolid = VK_TRUE,
+    };
+    vkb_physical_device_selector.set_required_features(vk_physical_device_features);
     // vkb_physical_device_selector.prefer_gpu_device_type(vkb::PreferredDeviceType::);
 
     // create temp window to get surface information
@@ -497,44 +501,44 @@ void context_t::create_descriptor_pool() {
     {
         VkDescriptorPoolSize vk_pool_size{};
         vk_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        vk_pool_size.descriptorCount = 1000;
+        vk_pool_size.descriptorCount = 1000000;
         vk_pool_sizes.push_back(vk_pool_size);
     }
     {
         VkDescriptorPoolSize vk_pool_size{};
         vk_pool_size.type = VK_DESCRIPTOR_TYPE_SAMPLER;
-        vk_pool_size.descriptorCount = 1000;
+        vk_pool_size.descriptorCount = 1000000;
         vk_pool_sizes.push_back(vk_pool_size);
     }
     {
         VkDescriptorPoolSize vk_pool_size{};
         vk_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-        vk_pool_size.descriptorCount = 1000;
+        vk_pool_size.descriptorCount = 1000000;
         vk_pool_sizes.push_back(vk_pool_size);
     }
     {
         VkDescriptorPoolSize vk_pool_size{};
         vk_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        vk_pool_size.descriptorCount = 1000;
+        vk_pool_size.descriptorCount = 1000000;
         vk_pool_sizes.push_back(vk_pool_size);
     }
     {
         VkDescriptorPoolSize vk_pool_size{};
         vk_pool_size.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
-        vk_pool_size.descriptorCount = 1000;
+        vk_pool_size.descriptorCount = 1000000;
         vk_pool_sizes.push_back(vk_pool_size);
     }
     {
         VkDescriptorPoolSize vk_pool_size{};
         vk_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-        vk_pool_size.descriptorCount = 1000;
+        vk_pool_size.descriptorCount = 1000000;
         vk_pool_sizes.push_back(vk_pool_size);
     }
     VkDescriptorPoolCreateInfo vk_descriptor_pool_create_info{};
     vk_descriptor_pool_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     vk_descriptor_pool_create_info.poolSizeCount = vk_pool_sizes.size();
     vk_descriptor_pool_create_info.pPoolSizes = vk_pool_sizes.data();
-    vk_descriptor_pool_create_info.maxSets = 1000 * 7;
+    vk_descriptor_pool_create_info.maxSets = 1000000 * 7;
     vk_descriptor_pool_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     VkResult vk_result = vkCreateDescriptorPool(_vkb_device, &vk_descriptor_pool_create_info, nullptr, &_vk_descriptor_pool);
     check(vk_result == VK_SUCCESS, "Failed to create descriptor pool");

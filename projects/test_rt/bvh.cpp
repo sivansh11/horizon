@@ -77,13 +77,7 @@ bool node_t::intersect(const ray_t& ray) const {
     glm::vec3 inverse_direction = ray.inverse_direction();
     glm::vec3 tmin = (bounding_box.min - ray.origin) * inverse_direction;
     glm::vec3 tmax = (bounding_box.max - ray.origin) * inverse_direction;
-
-    glm::vec3 old_tmin = tmin;
-    glm::vec3 old_tmax = tmax;
-    
-    tmin = glm::min(old_tmin, old_tmax);
-    tmax = glm::max(old_tmin, old_tmax);
-
+    std::tie(tmin, tmax) = std::make_pair(glm::min(tmin, tmax), glm::max(tmin, tmax));
     // return intersection_t
     float _tmin = robust_max(tmin[0], robust_max(tmin[1], robust_max(tmin[2], ray.tmin)));
     float _tmax = robust_min(tmax[0], robust_min(tmax[1], robust_min(tmax[2], ray.tmax)));
