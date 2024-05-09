@@ -3,6 +3,7 @@
 
 #include "core/window.hpp"
 #include "context.hpp"
+#include "helper.hpp"
 
 #include <vector>
 
@@ -105,6 +106,30 @@ struct base_renderer_t {
     gfx::handle_pipeline_t swapchain_pipeline;
     gfx::handle_descriptor_set_t swapchain_descriptor_set;
 };
+
+template <typename type_t>
+handle_buffer_t create_and_push_vector(base_renderer_t& renderer, VkBufferUsageFlags vk_buffer_usage_flags, VmaAllocationCreateFlags vma_allocation_create_flags, const std::vector<type_t>& data) {
+    gfx::config_buffer_t config_buffer{};
+    config_buffer.vk_size = data.size() * sizeof(type_t);
+    config_buffer.vk_buffer_usage_flags = vk_buffer_usage_flags | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    config_buffer.vma_allocation_create_flags = vma_allocation_create_flags;
+    handle_buffer_t buffer = renderer.create_buffer(resource_policy_t::e_sparse, config_buffer);
+
+    config_buffer.vk_buffer_usage_flags = 0;
+    config_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    config_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    gfx::handle_buffer_t staging_buffer = renderer.context.create_buffer(config_buffer);
+
+    std::memcpy(renderer.context.map_buffer(staging_buffer), data.data(), config_buffer.vk_size);
+
+    gfx::handle_commandbuffer_t commandbuffer = gfx::helper::start_single_use_commandbuffer(renderer.context, renderer.command_pool);
+    renderer.context.cmd_copy_buffer(commandbuffer, staging_buffer, renderer.buffer(buffer), { .vk_size = config_buffer.vk_size });
+    gfx::helper::end_single_use_commandbuffer(renderer.context, commandbuffer);
+
+    renderer.context.destroy_buffer(staging_buffer);
+
+    return buffer;
+}
 
 } // namespace renderer
 

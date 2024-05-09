@@ -39,9 +39,9 @@ layout (set = 1, binding = 0, scalar) uniform camera_buffer_t {
     mat4 inv_view;
 };
 
-layout (set = 2, binding = 0, scalar) uniform extra_t {
-    vec3 position;
-};
+// layout (set = 2, binding = 0, scalar) uniform extra_t {
+//     vec3 position;
+// };
 
 struct hit_t {
     uint primitive_index;
@@ -149,7 +149,7 @@ ray_t create_ray() {
     ray_t ray;
     ray.tmin = 0;
     ray.tmax = 10000000;
-    ray.origin = position;
+    ray.origin = vec3(inv_view[3][0], inv_view[3][1], inv_view[3][2]);
     ray.direction = dir_world;
     return ray;
 }
@@ -220,12 +220,17 @@ mat4 lookAt(vec3 eye, vec3 center, vec3 up)
     return Result;
 }
 
+float col(uint c) {
+    c = c % 255;
+    return float(c) / 255.f;
+}
+
 void main() {
     ray_t ray = create_ray();
 
     hit_t hit = traverse(ray);
     if (hit.primitive_index != uint(-1)) 
-        out_color = vec4(0, 1, 0, 1);
+        out_color = vec4(col((hit.primitive_index + 1) * 37), col((hit.primitive_index + 1) * 91), col((hit.primitive_index + 1) * 51), 1);
     else
         out_color = vec4(0, 0, 0, 1);
 

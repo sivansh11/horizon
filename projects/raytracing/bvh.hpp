@@ -78,7 +78,7 @@ struct node_t {
 
 struct bvh_t {
 
-    static bvh_t build(const bounding_box_t *aabbs, const glm::vec3 *centers, size_t primitive_count);
+    static bvh_t build(const bounding_box_t *bounding_boxes, const glm::vec3 *centers, size_t primitive_count);
 
     uint32_t depth(uint32_t node_index = 0) const;
 
@@ -115,9 +115,9 @@ private:
 
     struct build_config_t {
         uint32_t min_primitives = 2;
-        uint32_t max_primitives = 8;
+        uint32_t max_primitives = 128;
         float traversal_cost = 10.0f;
-        uint32_t bin_count = 8;
+        uint32_t bin_count = 16;
     };
 
     struct bin_t {

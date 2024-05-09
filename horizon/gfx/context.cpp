@@ -7,7 +7,6 @@
 
 #include <shaderc/shaderc.hpp>
 #include <shaderc/glslc/src/file_includer.h>
-#include <shaderc/libshaderc_util/include/libshaderc_util/file_finder.h>
 
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
@@ -33,6 +32,42 @@ static VkImageAspectFlags get_image_aspect(VkFormat vk_format) {
         return VK_IMAGE_ASPECT_DEPTH_BIT;
     return VK_IMAGE_ASPECT_COLOR_BIT;
 }
+
+class file_includer_t : public shaderc::CompileOptions::IncluderInterface {
+public:
+    struct included_data_t {
+        std::string source_name;
+        std::string content;
+    };
+
+    shaderc_include_result* GetInclude(const char* requested_source, shaderc_include_type type, const char* requesting_source, size_t include_depth) override {
+        horizon_trace("requested source: {}\nrequesting source: {}", requested_source, requesting_source);
+        std::filesystem::path resolved_path = std::string("../../assets/shaders/") + requested_source;
+        horizon_trace("resolved path: {}", resolved_path.string());
+
+        shaderc_include_result *result = new shaderc_include_result;
+
+        included_data_t *included_data = new included_data_t;
+        included_data->source_name = requested_source;
+        included_data->content = core::read_file(resolved_path);
+
+        result->source_name = included_data->source_name.data();
+        result->source_name_length = included_data->source_name.size();
+        result->content = included_data->content.data();
+        result->content_length = included_data->content.size();
+        result->user_data = included_data;
+
+        horizon_trace("got source name: {}", result->source_name);
+
+        return result;
+    }
+
+    void ReleaseInclude(shaderc_include_result* data) override {
+        horizon_trace("releasing source name: {}", data->source_name);
+        delete reinterpret_cast<included_data_t *>(data->user_data);
+        delete data;
+    }
+};
 
 } // namespace utils
 
@@ -266,6 +301,10 @@ context_t::context_t(const bool enable_validation) : _validation(enable_validati
 context_t::~context_t() {
     horizon_profile();
     vkDeviceWaitIdle(_vkb_device);
+    for (auto& [handle, timer] : _timers) {
+        horizon_trace("forgot to clear command pool with handle: {}", handle);
+        vkDestroyQueryPool(_vkb_device, timer, nullptr);
+    }
     for (auto& [handle, commandbuffer] : _commandbuffers) {
         horizon_trace("forgot to clear commandbuffer with handle: {}", handle);
         vkFreeCommandBuffers(_vkb_device, utils::assert_and_get_data<internal::command_pool_t>(commandbuffer.config.handle_command_pool, _command_pools), 1, &commandbuffer.vk_commandbuffer);
@@ -934,6 +973,7 @@ void context_t::destroy_pipeline_layout(handle_pipeline_layout_t handle) {
     vkDestroyPipelineLayout(_vkb_device, pipeline_layout, nullptr);
     _pipeline_layouts.erase(handle);
 }
+
 handle_shader_t context_t::create_shader(const config_shader_t& config) {
     horizon_profile();
 
@@ -955,7 +995,8 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
 
     static shaderc::Compiler shaderc_compiler{};
     static shaderc::CompileOptions shaderc_compile_options{};
-    static shaderc_util::FileFinder file_finder{};
+    // static shaderc_util::FileFinder file_finder{};
+    static utils::file_includer_t file_includer{};
     static bool once = []() {
         #ifndef NDEBUG
         shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_zero);
@@ -963,11 +1004,16 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
         #else
         shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_performance);
         #endif
-        shaderc_compile_options.SetIncluder(std::make_unique<glslc::FileIncluder>(&file_finder));
+        shaderc_compile_options.SetIncluder(std::make_unique<utils::file_includer_t>());
         return true;
     }();
 
     auto preprocess = shaderc_compiler.PreprocessGlsl(config.code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
+    if (preprocess.GetCompilationStatus() != shaderc_compilation_status_success) {
+        horizon_error("{}", preprocess.GetErrorMessage());
+        std::terminate();
+    }
+    
     std::string preprocessed_code = { preprocess.begin(), preprocess.end() };
     
     auto spirv_shader_module = shaderc_compiler.CompileGlslToSpv(preprocessed_code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
@@ -1278,6 +1324,41 @@ void context_t::submit_commandbuffer(handle_commandbuffer_t handle, const std::v
     check(vk_result == VK_SUCCESS, "Failed to submit commandbuffer");
 }
 
+handle_timer_t context_t::create_timer(const config_timer_t& config) {
+    horizon_profile();
+    internal::timer_t timer{ .config = config };
+    VkQueryPoolCreateInfo vk_query_pool_create_info{ .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO };
+    vk_query_pool_create_info.queryCount = 2;
+    vk_query_pool_create_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
+    VkResult vk_result = vkCreateQueryPool(_vkb_device, &vk_query_pool_create_info, nullptr, &timer.vk_query_pool);
+    check(vk_result == VK_SUCCESS, "Failed to create query pool");
+    handle_timer_t handle = utils::create_and_insert_new_handle<handle_timer_t>(_timers, timer);
+    horizon_trace("created timer");
+    return handle;
+}
+
+void context_t::destroy_timer(handle_timer_t handle) {
+    horizon_profile();
+    internal::timer_t& timer = utils::assert_and_get_data<internal::timer_t>(handle, _timers);
+    vkDestroyQueryPool(_vkb_device, timer, nullptr);
+    _timers.erase(handle);
+}
+
+std::optional<float> context_t::timer_get_time(handle_timer_t handle) {
+    horizon_profile();
+    internal::timer_t& timer = utils::assert_and_get_data<internal::timer_t>(handle, _timers);
+    uint64_t time_stamps[2];
+    VkResult vk_result = vkGetQueryPoolResults(_vkb_device, timer, 0, 2, sizeof(uint64_t) * 2, &time_stamps, sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+    if (vk_result == VK_NOT_READY) return std::nullopt;
+    check(vk_result == VK_SUCCESS, "Failed to timer get time");
+    return ((time_stamps[1] - time_stamps[0]) * (_vkb_physical_device.properties.limits.timestampPeriod)) / 1000000.f;
+}
+
+internal::timer_t& context_t::get_timer(handle_timer_t handle) {
+    horizon_profile();
+    return utils::assert_and_get_data<internal::timer_t>(handle, _timers);
+}
+
 void context_t::cmd_bind_pipeline(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
@@ -1448,6 +1529,21 @@ void context_t::cmd_bind_index_buffer(handle_commandbuffer_t handle_commandbuffe
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(handle_buffer, _buffers);
     vkCmdBindIndexBuffer(commandbuffer, buffer, vk_offset, vk_index_type);
+}
+
+void context_t::cmd_begin_timer(handle_commandbuffer_t handle_commandbuffer, handle_timer_t handle, VkPipelineStageFlagBits vk_pipeline_stage_flags) {
+    horizon_profile();
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    internal::timer_t& timer = utils::assert_and_get_data<internal::timer_t>(handle, _timers);
+    vkCmdResetQueryPool(commandbuffer, timer, 0, 2);
+    vkCmdWriteTimestamp(commandbuffer, vk_pipeline_stage_flags, timer, 0);
+}
+
+void context_t::cmd_end_timer(handle_commandbuffer_t handle_commandbuffer, handle_timer_t handle, VkPipelineStageFlagBits vk_pipeline_stage_flags) {
+    horizon_profile();
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    internal::timer_t& timer = utils::assert_and_get_data<internal::timer_t>(handle, _timers);
+    vkCmdWriteTimestamp(commandbuffer, vk_pipeline_stage_flags, timer, 1);
 }
 
 } // namespace gfx

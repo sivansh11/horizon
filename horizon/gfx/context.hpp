@@ -72,6 +72,7 @@ define_handle(handle_fence_t);
 define_handle(handle_semaphore_t);
 define_handle(handle_command_pool_t);
 define_handle(handle_commandbuffer_t);
+define_handle(handle_timer_t);
 
 constexpr VmaMemoryUsage default_vma_memory_usage = VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO;
 struct config_buffer_t {
@@ -212,6 +213,10 @@ struct config_commandbuffer_t {
     handle_command_pool_t handle_command_pool;
 };
 
+struct config_timer_t {
+
+};
+
 namespace internal {
 
 struct queue_t {
@@ -310,6 +315,12 @@ struct commandbuffer_t {
     VkCommandBuffer        vk_commandbuffer;
     config_commandbuffer_t config;
     operator VkCommandBuffer() { return vk_commandbuffer; }
+};
+
+struct timer_t {
+    VkQueryPool         vk_query_pool;
+    config_timer_t      config;
+    operator VkQueryPool() { return vk_query_pool; }
 };
 
 } // namespace internal
@@ -428,6 +439,11 @@ public:
     void submit_commandbuffer(handle_commandbuffer_t handle, const std::vector<handle_semaphore_t>& wait_semaphore_handles, const std::vector<VkPipelineStageFlags>& vk_pipeline_stages, const std::vector<handle_semaphore_t>& signal_semaphore_handles, handle_fence_t handle_fence);
     internal::commandbuffer_t& get_commandbuffer(handle_commandbuffer_t handle);
 
+    handle_timer_t create_timer(const config_timer_t& config);
+    void destroy_timer(handle_timer_t handle);
+    std::optional<float> timer_get_time(handle_timer_t handle);
+    internal::timer_t& get_timer(handle_timer_t handle);
+
     void cmd_bind_pipeline(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline);
     void cmd_bind_descriptor_sets(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline, uint32_t vk_first_set, const std::vector<handle_descriptor_set_t>& handle_descriptor_sets);
     void cmd_push_constants(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_layout_t handle_pipeline_layout, VkShaderStageFlags vk_shader_stages, uint32_t vk_offset, uint32_t vk_size, const void *vk_data);
@@ -448,6 +464,9 @@ public:
     void cmd_copy_buffer_to_image(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t src_buffer, handle_image_t dst_image, VkImageLayout vk_dst_image_layout, const VkBufferImageCopy& vk_buffer_image_copy);
     void cmd_bind_vertex_buffers(handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding, const std::vector<handle_buffer_t>& handle_buffers, std::vector<VkDeviceSize> vk_offsets);
     void cmd_bind_index_buffer(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t handle_buffer, VkDeviceSize vk_offset, VkIndexType vk_index_type);
+    // maybe expose the reset query pool and write time step functions
+    void cmd_begin_timer(handle_commandbuffer_t handle_commandbuffer, handle_timer_t handle, VkPipelineStageFlagBits vk_pipeline_stage_flags = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
+    void cmd_end_timer(handle_commandbuffer_t handle_commandbuffer, handle_timer_t handle, VkPipelineStageFlagBits vk_pipeline_stage_flags = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
     friend struct update_descriptor_set_t;
 
@@ -481,6 +500,7 @@ private:
     std::map<handle_semaphore_t, internal::semaphore_t> _semaphores;
     std::map<handle_command_pool_t, internal::command_pool_t> _command_pools;
     std::map<handle_commandbuffer_t, internal::commandbuffer_t> _commandbuffers;
+    std::map<handle_timer_t, internal::timer_t> _timers;
 };
 
 } // namespace gfx
@@ -512,5 +532,6 @@ define_fmt(gfx::handle_fence_t);
 define_fmt(gfx::handle_semaphore_t);
 define_fmt(gfx::handle_command_pool_t);
 define_fmt(gfx::handle_commandbuffer_t);
+define_fmt(gfx::handle_timer_t);
 
 #endif

@@ -8,5 +8,5 @@ layout (set = 1, binding = 1) uniform color_t {
 
 void main() {
     // out_color = vec4(color, 0.005);
-    out_color = vec4(0.005);
+    out_color = vec4(0.0005);
 }

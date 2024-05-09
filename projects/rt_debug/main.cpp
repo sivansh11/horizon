@@ -108,14 +108,14 @@ int main() {
                                                         .add_layout_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     gfx::handle_descriptor_set_layout_t debug_raytracing_inputs_descriptor_set_layout = context.create_descriptor_set_layout(config_debug_raytracing_inputs_descriptor_set_layout); 
 
-    gfx::config_descriptor_set_layout_t config_extra_descriptor_set_layout{};
-    config_extra_descriptor_set_layout.add_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
-    gfx::handle_descriptor_set_layout_t extra_descriptor_set_layout = context.create_descriptor_set_layout(config_extra_descriptor_set_layout); 
+    // gfx::config_descriptor_set_layout_t config_extra_descriptor_set_layout{};
+    // config_extra_descriptor_set_layout.add_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+    // gfx::handle_descriptor_set_layout_t extra_descriptor_set_layout = context.create_descriptor_set_layout(config_extra_descriptor_set_layout); 
 
     gfx::config_pipeline_layout_t config_debug_raytracing_pipeline_layout{};
     config_debug_raytracing_pipeline_layout.add_descriptor_set_layout(debug_raytracing_inputs_descriptor_set_layout)
-                                           .add_descriptor_set_layout(camera_descriptor_set_layout)
-                                           .add_descriptor_set_layout(extra_descriptor_set_layout);
+                                           .add_descriptor_set_layout(camera_descriptor_set_layout);
+                                        //    .add_descriptor_set_layout(extra_descriptor_set_layout);
     gfx::handle_pipeline_layout_t debug_raytracing_pipeline_layout = context.create_pipeline_layout(config_debug_raytracing_pipeline_layout);
 
     gfx::config_pipeline_t config_debug_raytracing_pipeline{};
@@ -285,7 +285,7 @@ int main() {
         }
     }
 
-    auto rt_model = core::load_model_from_path("../../assets/models/cornell_box.obj");
+    auto rt_model = core::load_model_from_path("../../assets/models/teapot.obj");
     std::vector<triangle_t> triangles;
     {
         for (auto& mesh : rt_model.meshes) {
@@ -360,15 +360,15 @@ int main() {
         .push_buffer_write(2, gfx::buffer_descriptor_info_t{ .handle_buffer = primitive_index_buffer })
         .commit();
 
-    gfx::config_buffer_t config_extra_buffer{};
-    config_extra_buffer.vk_size = sizeof(glm::vec3);
-    config_extra_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
-    config_extra_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-    renderer::handle_buffer_t extra_buffer = renderer.create_buffer(renderer::resource_policy_t::e_every_frame, config_extra_buffer);
-    renderer::handle_descriptor_set_t extra_descriptor_set = renderer.allocate_descriptor_set(renderer::resource_policy_t::e_every_frame, { .handle_descriptor_set_layout = extra_descriptor_set_layout });
-    renderer.update_descriptor_set(extra_descriptor_set)
-        .push_buffer_write(0, { .handle_buffer = extra_buffer })
-        .commit();
+    // gfx::config_buffer_t config_extra_buffer{};
+    // config_extra_buffer.vk_size = sizeof(glm::vec3);
+    // config_extra_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;
+    // config_extra_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    // renderer::handle_buffer_t extra_buffer = renderer.create_buffer(renderer::resource_policy_t::e_every_frame, config_extra_buffer);
+    // renderer::handle_descriptor_set_t extra_descriptor_set = renderer.allocate_descriptor_set(renderer::resource_policy_t::e_every_frame, { .handle_descriptor_set_layout = extra_descriptor_set_layout });
+    // renderer.update_descriptor_set(extra_descriptor_set)
+    //     .push_buffer_write(0, { .handle_buffer = extra_buffer })
+    //     .commit();
 
     gfx::config_buffer_t config_combined_triangle_buffer{};
     config_combined_triangle_buffer.vk_size = sizeof(triangle_t) * triangles.size();
@@ -394,6 +394,7 @@ int main() {
 
         auto dt = frame_timer.update();
         editor_camera.update(dt.count());
+        horizon_info("{}", dt.count());
 
         renderer.begin();
         auto commandbuffer = renderer.current_commandbuffer();
@@ -406,8 +407,8 @@ int main() {
         camera_ubo.inv_view = glm::inverse(camera_ubo.view);
         std::memcpy(context.map_buffer(renderer.buffer(camera_buffer)), &camera_ubo, sizeof(camera_ubo_t));
 
-        glm::vec3 position = editor_camera.position();
-        std::memcpy(context.map_buffer(renderer.buffer(extra_buffer)), &position, sizeof(glm::vec3));
+        // glm::vec3 position = editor_camera.position();
+        // std::memcpy(context.map_buffer(renderer.buffer(extra_buffer)), &position, sizeof(glm::vec3));
 
         {
             gfx::rendering_attachment_t rendering_attachment{};
@@ -423,7 +424,7 @@ int main() {
             // debug raytracing
             context.cmd_bind_pipeline(commandbuffer, debug_raytracing_pipeline);
             context.cmd_set_viewport_and_scissor(commandbuffer, viewport, scissor);
-            context.cmd_bind_descriptor_sets(commandbuffer, debug_raytracing_pipeline, 0, { debug_raytracing_inputs_descriptor_set, renderer.descriptor_set(camera_descriptor_set), renderer.descriptor_set(extra_descriptor_set) });
+            context.cmd_bind_descriptor_sets(commandbuffer, debug_raytracing_pipeline, 0, { debug_raytracing_inputs_descriptor_set, renderer.descriptor_set(camera_descriptor_set) /*, renderer.descriptor_set(extra_descriptor_set) */ });
             context.cmd_draw(commandbuffer, 6, 1, 0, 0);
 
             // debug triangle
