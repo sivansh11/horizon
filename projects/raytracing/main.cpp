@@ -120,7 +120,7 @@ int main() {
                                     .add_shader(context.create_shader(gfx::config_shader_t{ .code = core::read_file("../../assets/shaders/raytracing/glsl.frag").data(), .name = "raytracing fragment", .type = gfx::shader_type_t::e_fragment }));
     gfx::handle_pipeline_t raytracing_pipeline = context.create_graphics_pipeline(config_raytracing_pipeline);
 
-    core::model_t model = core::load_model_from_path("../../assets/models/adam_thing/adamHead.gltf");
+    core::model_t model = core::load_model_from_path("../../assets/models/teapot.obj");
     std::vector<triangle_t> triangles;
     std::vector<bounding_box_t> bounding_boxes;
     std::vector<glm::vec3> centers;
