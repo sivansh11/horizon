@@ -443,7 +443,7 @@ void context_t::create_device() {
         .fillModeNonSolid = VK_TRUE,
     };
     vkb_physical_device_selector.set_required_features(vk_physical_device_features);
-    // vkb_physical_device_selector.prefer_gpu_device_type(vkb::PreferredDeviceType::);
+    vkb_physical_device_selector.prefer_gpu_device_type(vkb::PreferredDeviceType::discrete);
 
     // create temp window to get surface information
     core::window_t temp_window{ "temp", 2, 2 };
