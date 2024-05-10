@@ -55,7 +55,7 @@ hit_t traverse(inout ray_t ray) {
     hit_t hit;
     hit.primitive_index = null_primitive_index;
 
-    uint stack[64];
+    uint stack[32];
 
     uint stack_ptr = 0;
     stack[stack_ptr++] = 0;
