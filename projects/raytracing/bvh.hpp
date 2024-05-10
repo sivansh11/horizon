@@ -19,6 +19,7 @@
 #include <optional>
 #include <fstream>
 #include <iostream>
+#include <filesystem>
 
 
 inline float robust_min(float a, float b);
@@ -79,6 +80,7 @@ struct node_t {
 struct bvh_t {
 
     static bvh_t build(const bounding_box_t *bounding_boxes, const glm::vec3 *centers, size_t primitive_count);
+    static bvh_t load(const std::filesystem::path& path);
 
     uint32_t depth(uint32_t node_index = 0) const;
 
@@ -108,6 +110,8 @@ struct bvh_t {
         return hit;
     }
 
+    void save(const std::filesystem::path& path);
+
     std::vector<node_t> nodes;
     std::vector<uint32_t> primitive_indices;
 
@@ -117,7 +121,7 @@ private:
         uint32_t min_primitives = 2;
         uint32_t max_primitives = 128;
         float traversal_cost = 10.0f;
-        uint32_t bin_count = 16;
+        uint32_t bin_count = 8;
     };
 
     struct bin_t {

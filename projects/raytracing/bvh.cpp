@@ -1,6 +1,10 @@
 #include "bvh.hpp"
 
 
+#include <core/core.hpp>
+#include <cstring>
+
+
 float robust_min(float a, float b) { return a < b ? a : b; }
 float robust_max(float a, float b) { return a > b ? a : b; }
 float safe_inverse(float x) {
@@ -101,9 +105,42 @@ bvh_t bvh_t::build(const bounding_box_t *bounding_boxes, const glm::vec3 *center
     return bvh;
 }
 
+bvh_t bvh_t::load(const std::filesystem::path& path) {
+    bvh_t bvh{};
+
+    core::binary_reader_t binary_reader{ path };
+    size_t nodes_size;
+    binary_reader.read(nodes_size);
+    bvh.nodes.resize(nodes_size);
+    for (auto& node : bvh.nodes) {
+        binary_reader.read(node);
+    }
+    size_t primiitive_indices_size;
+    binary_reader.read(primiitive_indices_size);
+    bvh.primitive_indices.resize(primiitive_indices_size);
+    for (auto& primitive_index : bvh.primitive_indices) {
+        binary_reader.read(primitive_index);
+    }
+
+    return bvh;
+}
+
 uint32_t bvh_t::depth(uint32_t node_index) const {
     auto& node = nodes[node_index];
     return node.is_leaf() ? 1 : 1 + glm::max(depth(node.first_index), depth(node.first_index + 1));
+}
+
+
+void bvh_t::save(const std::filesystem::path& path) {
+    core::binary_writer_t binary_writer{ path };
+    binary_writer.write(nodes.size());
+    for (auto& node : nodes) {
+        binary_writer.write(node);
+    }
+    binary_writer.write(primitive_indices.size());
+    for (auto& primitive_index : primitive_indices) {
+        binary_writer.write(primitive_index);
+    }
 }
 
 

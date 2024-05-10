@@ -154,7 +154,7 @@ glm::vec3 createRay(glm::vec2 px, glm::mat4 PInv, glm::mat4 VInv) {
 int main() {
     log_t::set_log_level(log_level_t::e_info);
 
-    auto model = core::load_model_from_path("../../assets/models/quad/quad.obj");
+    auto model = core::load_model_from_path("../../assets/models/teapot.obj");
     std::vector<triangle_t> triangles;
     {
         for (auto& mesh : model.meshes) {
@@ -235,28 +235,38 @@ int main() {
     //     horizon_info("not hit");
     // }
 
-    auto right = glm::normalize(glm::cross(glm::normalize(dir), glm::normalize(up)));
-    up = glm::cross(right, glm::normalize(dir));
-
     screen_t screen{ 640, 640 };
-    for (size_t y = 0; y < screen._height; y++) for (size_t x = 0; x < screen._width; x++) {
-        auto u = 2.0f * static_cast<float>(x) / static_cast<float>(screen._width) - 1.0f;
-        auto v = 2.0f * static_cast<float>(y) / static_cast<float>(screen._height) - 1.0f;
-        // u: 0.16562498 v: 0.16562498
-        // u = 0.16562498;
-        // v = 0.16562498;
-        ray_t ray;
-        ray.origin = eye;
-        ray.direction = dir + (u * right) + (v * up);
-        ray.tmin = 0;
-        ray.tmax = std::numeric_limits<float>::max();
-        auto hit = bvh.traverse(ray, triangles);
-        // if (hit) 
-        // if (hit) {
-        //     horizon_info("u: {} v: {}", u, v);
-        // }
-        screen.plot(x, y, pixel_t{ static_cast<uint8_t>(hit.primitive_index * 37), static_cast<uint8_t>(hit.primitive_index * 91), static_cast<uint8_t>(hit.primitive_index * 51) });
-        // horizon_info("{}", hit.primitive_index);
+    {
+        core::timer::scope_timer_t scope_timer{[](core::timer::duration_t duration) {
+            std::cout << duration << '\n';
+        }};
+
+        auto right = glm::normalize(glm::cross(glm::normalize(dir), glm::normalize(up)));
+        up = glm::cross(right, glm::normalize(dir));
+
+        for (size_t y = 0; y < screen._height; y++) {
+
+            for (size_t x = 0; x < screen._width; x++) {
+                auto u = 2.0f * static_cast<float>(x) / static_cast<float>(screen._width) - 1.0f;
+                auto v = 2.0f * static_cast<float>(y) / static_cast<float>(screen._height) - 1.0f;
+                // u: 0.16562498 v: 0.16562498
+                // u = 0.16562498;
+                // v = 0.16562498;
+                ray_t ray;
+                ray.origin = eye;
+                ray.direction = dir + (u * right) + (v * up);
+                ray.tmin = 0;
+                ray.tmax = std::numeric_limits<float>::max();
+                auto hit = bvh.traverse(ray, triangles);
+                // if (hit) 
+                // if (hit) {
+                //     horizon_info("u: {} v: {}", u, v);
+                // }
+                screen.plot(x, y, pixel_t{ static_cast<uint8_t>(hit.primitive_index * 37), static_cast<uint8_t>(hit.primitive_index * 91), static_cast<uint8_t>(hit.primitive_index * 51) });
+                // horizon_info("{}", hit.primitive_index);
+            } 
+            std::cout << y << '\n';
+        }
     }
 
     screen.to_disk("test.ppm");

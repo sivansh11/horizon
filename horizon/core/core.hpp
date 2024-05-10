@@ -9,8 +9,30 @@
 #include <functional>
 #include <filesystem>
 #include <source_location>
+#include <fstream>
 #include <string_view>
 #include <atomic>
+
+#ifdef horizon_profile_enable
+#define horizon_profile() core::timer::frame_function_timer_t frame_function_timer{std::source_location::current().function_name()}
+#else
+#define horizon_profile()
+#endif
+
+#define check(truthy, fail_msg...)  \
+do {                                \
+    if (!(truthy)) {                \
+        horizon_error(fail_msg);    \
+        std::terminate();           \
+    }                               \
+} while (false)
+
+#ifndef NDEBUG
+#define horizon_assert(truthy, fail_msg...) \
+check(truthy, fail_msg)
+#else
+#define horizon_assert(truthy, fail_msg...) 
+#endif
 
 namespace core {
 
@@ -29,7 +51,50 @@ constexpr void hash_combine(uint64_t& seed, const type_t& v, const rest_t&... re
     (hash_combine(seed, rest), ...);
 };
 
+struct binary_reader_t {
+    binary_reader_t(const std::filesystem::path& path) : _path(path), _file(path, std::ios::binary) {
+        check(_file.is_open(), "Failed to open file {}", _path.string());
+    }
+    
+    // TODO: add error handling
+    template <typename type_t>
+    void read(type_t& val) {
+        _file.read(reinterpret_cast<char *>(&val), sizeof(type_t));
+    }
+
+    std::filesystem::path   _path;
+    std::ifstream           _file;
+};
+
+struct binary_writer_t {
+    binary_writer_t(const std::filesystem::path& path) : _path(path), _file(path, std::ios::binary) {
+        check(_file.is_open(), "Failed to open file {}", _path.string());
+    }
+
+    ~binary_writer_t() {
+        flush();
+    }
+
+    template <typename type_t>
+    void write(const type_t& val) {
+        const char *data = reinterpret_cast<const char *>(&val);
+        for (size_t i = 0; i < sizeof(type_t); i++) {
+            _buffer.push_back(data[i]);
+        }
+    }
+
+    void flush() {
+        _file.write(_buffer.data(), _buffer.size());
+        _buffer.clear();
+    }
+
+    std::filesystem::path   _path;
+    std::ofstream           _file;
+    std::vector<char>       _buffer;
+};
+
 std::string read_file(const std::filesystem::path& filename);
+void write_file(const std::filesystem::path& filename, const void *data, size_t size);
 
 namespace timer {
 
@@ -82,26 +147,5 @@ struct std::formatter<core::timer::duration_t> {
         return std::format_to(ctx.out(), "{}ms", duration);
     }
 };
-
-#ifdef horizon_profile_enable
-#define horizon_profile() core::timer::frame_function_timer_t frame_function_timer{std::source_location::current().function_name()}
-#else
-#define horizon_profile()
-#endif
-
-#define check(truthy, fail_msg...)  \
-do {                                \
-    if (!(truthy)) {                \
-        horizon_error(fail_msg);    \
-        std::terminate();           \
-    }                               \
-} while (false)
-
-#ifndef NDEBUG
-#define horizon_assert(truthy, fail_msg...) \
-check(truthy, fail_msg)
-#else
-#define horizon_assert(truthy, fail_msg...) 
-#endif
 
 #endif

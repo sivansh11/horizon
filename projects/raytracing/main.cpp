@@ -78,7 +78,7 @@ object_t new_object(gfx::context_t& context, gfx::handle_descriptor_set_layout_t
 int main() {
     core::log_t::set_log_level(core::log_level_t::e_info);
 
-    core::window_t window{ "raytracing", 800, 800 };
+    core::window_t window{ "this_app", 800, 800 };
     gfx::context_t context{ true };
 
     auto [width, height] = window.dimensions();
@@ -120,7 +120,7 @@ int main() {
                                     .add_shader(context.create_shader(gfx::config_shader_t{ .code = core::read_file("../../assets/shaders/raytracing/glsl.frag").data(), .name = "raytracing fragment", .type = gfx::shader_type_t::e_fragment }));
     gfx::handle_pipeline_t raytracing_pipeline = context.create_graphics_pipeline(config_raytracing_pipeline);
 
-    core::model_t model = core::load_model_from_path("../../assets/models/teapot.obj");
+    core::model_t model = core::load_model_from_path("../../assets/models/cornell_box.obj");
     std::vector<triangle_t> triangles;
     std::vector<bounding_box_t> bounding_boxes;
     std::vector<glm::vec3> centers;
@@ -148,9 +148,12 @@ int main() {
     bvh_t bvh = bvh_t::build(bounding_boxes.data(), centers.data(), triangles.size());
     horizon_info("Built blas with {} nodes and depth {}", bvh.nodes.size(), bvh.depth());
 
-    renderer::handle_buffer_t triangles_buffer = renderer::create_and_push_vector(renderer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, {}, triangles);
-    renderer::handle_buffer_t nodes_buffer = renderer::create_and_push_vector(renderer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, {}, bvh.nodes);
-    renderer::handle_buffer_t primitive_indices_buffer = renderer::create_and_push_vector(renderer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, {}, bvh.primitive_indices);
+    // bvh.save("../../assets/models/teapot.bvh");
+    // bvh_t bvh = bvh_t::load("../../assets/models/teapot.bvh");
+
+    renderer::handle_buffer_t triangles_buffer = renderer::create_and_push_vector(renderer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, triangles);
+    renderer::handle_buffer_t nodes_buffer = renderer::create_and_push_vector(renderer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, bvh.nodes);
+    renderer::handle_buffer_t primitive_indices_buffer = renderer::create_and_push_vector(renderer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, bvh.primitive_indices);
 
     auto raytracing_inputs_descriptor_set = renderer.allocate_descriptor_set(renderer::resource_policy_t::e_sparse, { .handle_descriptor_set_layout = raytracing_inputs_descriptor_set_layout });
     renderer.update_descriptor_set(raytracing_inputs_descriptor_set)

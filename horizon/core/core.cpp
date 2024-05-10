@@ -17,6 +17,14 @@ std::string read_file(const std::filesystem::path& filename) {
     return buffer;
 }
 
+void write_file(const std::filesystem::path& filename, const void *data, size_t size) {
+    std::ofstream file(filename, std::ios::binary);
+    check(file.is_open(), "Failed to open file {}", filename.string());
+    file.write(reinterpret_cast<const char *>(data), size);
+    check(!file.bad(), "Failed to write to file {}", filename.string());
+    file.close();
+}
+
 namespace timer {
 
 static frame_function_times scope_total_time;
