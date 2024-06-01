@@ -55,7 +55,7 @@ hit_t stack_traverse(inout ray_t ray) {
     hit_t hit;
     hit.primitive_index = null_primitive_index;
 
-    uint stack[16];
+    uint stack[32];
 
     uint stack_ptr = 0;
     stack[stack_ptr++] = 0;
@@ -82,6 +82,19 @@ const uint from_parent = 0;
 const uint from_sibling = 1;
 const uint from_child = 2;
 
+// uint get_near_child_id(uint node_id) {
+//     return nodes[node_id].first_index;
+// }
+
+// uint get_parent_id(uint node_id) {
+//     return parent_ids[node_id];
+// }
+
+// uint get_sibling_id(uint node_id) {
+//     node_t parent = nodes[get_parent_id(node_id)];
+//     return node_id == parent.first_index ? parent.first_index + 1 : parent.first_index;
+// }
+
 uint get_near_child_id(uint node_id) {
     return nodes[node_id].first_index;
 }
@@ -91,7 +104,7 @@ uint get_parent_id(uint node_id) {
 }
 
 uint get_sibling_id(uint node_id) {
-    node_t parent = nodes[get_parent_id(node_id)];
+    const node_t parent = nodes[get_parent_id(node_id)];
     return node_id == parent.first_index ? parent.first_index + 1 : parent.first_index;
 }
 
@@ -99,9 +112,12 @@ hit_t stackless_traverse(inout ray_t ray) {
     hit_t hit;
     hit.primitive_index = null_primitive_index;
 
-    uint current = get_near_child_id(0);
-
+    const uint from_parent  = 0;
+    const uint from_sibling = 1;
+    const uint from_child   = 2;
+    
     uint state = from_parent;
+    uint current = get_near_child_id(0);
 
     while (true) {
         switch (state) {
@@ -120,16 +136,16 @@ hit_t stackless_traverse(inout ray_t ray) {
 
             case from_sibling:
             {
-                node_t current_node = nodes[current];
+                const node_t current_node = nodes[current];
                 if (!node_intersect(current_node, ray)) {
                     current = get_parent_id(current);
                     state = from_child;
                 } else if (current_node.primitive_count != 0) {
                     for (uint i = 0; i < current_node.primitive_count; i++) {
-                        uint primitive_index = primitive_indices[current_node.first_index + i];
-                        if (triangle_intersect(triangles[primitive_index], ray)) 
-                            hit.primitive_index = primitive_index;
-                    } 
+                        if (triangle_intersect(triangles[primitive_indices[current_node.first_index + i]], ray)) {
+                            hit.primitive_index = primitive_indices[current_node.first_index + i];
+                        }
+                    }
                     current = get_parent_id(current);
                     state = from_child;
                 } else {
@@ -141,17 +157,16 @@ hit_t stackless_traverse(inout ray_t ray) {
 
             case from_parent:
             {
-                if (current == uint(-1)) return hit;
-                node_t current_node = nodes[current];
+                const node_t current_node = nodes[current];
                 if (!node_intersect(current_node, ray)) {
-                    current = get_parent_id(current);
+                    current = get_sibling_id(current);
                     state = from_sibling;
                 } else if (current_node.primitive_count != 0) {
                     for (uint i = 0; i < current_node.primitive_count; i++) {
-                        uint primitive_index = primitive_indices[current_node.first_index + i];
-                        if (triangle_intersect(triangles[primitive_index], ray)) 
-                            hit.primitive_index = primitive_index;
-                    } 
+                        if (triangle_intersect(triangles[primitive_indices[current_node.first_index + i]], ray)) {
+                            hit.primitive_index = primitive_indices[current_node.first_index + i];
+                        }
+                    }
                     current = get_sibling_id(current);
                     state = from_sibling;
                 } else {
@@ -162,12 +177,11 @@ hit_t stackless_traverse(inout ray_t ray) {
             break;
         }
     }
-
     return hit;
 }
 
 hit_t traverse(inout ray_t ray) {
-    return stack_traverse(ray);
+    return stackless_traverse(ray);
 }
 
 ray_t create_ray(in vec2 uv, in mat4 inv_view) {

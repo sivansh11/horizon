@@ -120,9 +120,9 @@ private:
 
     struct build_config_t {
         uint32_t min_primitives = 2;
-        uint32_t max_primitives = 128;
-        float traversal_cost = 10.0f;
-        uint32_t bin_count = 8;
+        uint32_t max_primitives = 32;
+        float traversal_cost = 1.0f;
+        uint32_t bin_count = 16;
     };
 
     struct bin_t {
