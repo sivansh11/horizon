@@ -82,19 +82,6 @@ const uint from_parent = 0;
 const uint from_sibling = 1;
 const uint from_child = 2;
 
-// uint get_near_child_id(uint node_id) {
-//     return nodes[node_id].first_index;
-// }
-
-// uint get_parent_id(uint node_id) {
-//     return parent_ids[node_id];
-// }
-
-// uint get_sibling_id(uint node_id) {
-//     node_t parent = nodes[get_parent_id(node_id)];
-//     return node_id == parent.first_index ? parent.first_index + 1 : parent.first_index;
-// }
-
 uint get_near_child_id(uint node_id) {
     return nodes[node_id].first_index;
 }
