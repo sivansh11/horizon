@@ -101,7 +101,8 @@ int main() {
     gfx::config_descriptor_set_layout_t config_raytracing_inputs_descriptor_set_layout{};
     config_raytracing_inputs_descriptor_set_layout.add_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
                                                   .add_layout_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
-                                                  .add_layout_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
+                                                  .add_layout_binding(2, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT)
+                                                  .add_layout_binding(3, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_FRAGMENT_BIT);
     gfx::handle_descriptor_set_layout_t raytracing_inputs_descriptor_set_layout = context.create_descriptor_set_layout(config_raytracing_inputs_descriptor_set_layout);
 
     gfx::config_descriptor_set_layout_t config_camera_inputs_descriptor_set_layout{};
@@ -139,6 +140,7 @@ int main() {
             triangles.push_back(triangle);
         }
     }
+    
     bounding_boxes.resize(triangles.size());
     centers.resize(triangles.size());
     for (size_t i = 0; i < triangles.size(); i++) {
@@ -154,12 +156,14 @@ int main() {
     renderer::handle_buffer_t triangles_buffer = renderer::create_and_push_vector(renderer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, triangles);
     renderer::handle_buffer_t nodes_buffer = renderer::create_and_push_vector(renderer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, bvh.nodes);
     renderer::handle_buffer_t primitive_indices_buffer = renderer::create_and_push_vector(renderer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, bvh.primitive_indices);
+    renderer::handle_buffer_t parent_id_buffer = renderer::create_and_push_vector(renderer, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT, bvh.parent_ids);
 
     auto raytracing_inputs_descriptor_set = renderer.allocate_descriptor_set(renderer::resource_policy_t::e_sparse, { .handle_descriptor_set_layout = raytracing_inputs_descriptor_set_layout });
     renderer.update_descriptor_set(raytracing_inputs_descriptor_set)
             .push_buffer_write(0, { .handle_buffer = triangles_buffer })
             .push_buffer_write(1, { .handle_buffer = nodes_buffer })
             .push_buffer_write(2, { .handle_buffer = primitive_indices_buffer })
+            .push_buffer_write(3, { .handle_buffer = parent_id_buffer })
             .commit();
 
     gfx::config_buffer_t config_camera_inputs_buffer{};
@@ -216,7 +220,7 @@ int main() {
         context.cmd_end_timer(commandbuffer, timer);
 
         if (auto t = context.timer_get_time(timer)) {
-            horizon_info("{}", *t);
+            horizon_info("{} {}", *t, dt.count());
         } else {
             horizon_info("");
         }

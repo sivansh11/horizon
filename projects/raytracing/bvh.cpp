@@ -99,9 +99,13 @@ bvh_t bvh_t::build(const bounding_box_t *bounding_boxes, const glm::vec3 *center
     bvh.nodes[0].primitive_count = primitive_count;
     bvh.nodes[0].first_index = 0;
 
+    bvh.parent_ids.resize(2 * primitive_count - 1);
+    bvh.parent_ids[0] = static_cast<uint32_t>(-1);
+
     uint32_t node_count = 1;
     build_recursive(bvh, 0, node_count, bounding_boxes, centers);
     bvh.nodes.resize(node_count);
+    bvh.parent_ids.resize(node_count);
     return bvh;
 }
 
@@ -248,6 +252,9 @@ void bvh_t::build_recursive(bvh_t& bvh, uint32_t node_index, uint32_t& node_coun
 
     node.first_index = first_child;
     node.primitive_count = 0;
+
+    bvh.parent_ids[first_child] = node_index;
+    bvh.parent_ids[first_child + 1] = node_index;
 
     build_recursive(bvh, first_child, node_count, aabbs, centers);
     build_recursive(bvh, first_child + 1, node_count, aabbs, centers);

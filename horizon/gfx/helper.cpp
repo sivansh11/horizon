@@ -328,6 +328,19 @@ void cmd_transition_image_layout(context_t& context, handle_commandbuffer_t hand
     context.cmd_pipeline_barrier(handle_commandbuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, {}, {}, { vk_image_memory_barrier });
 }
 
+std::pair<handle_image_t, handle_image_view_t> create_2D_image_and_image_views(context_t& context, uint32_t width, uint32_t height, VkFormat vk_format, VkImageUsageFlags vk_usage) {
+    gfx::config_image_t config_target_image{};
+    config_target_image.vk_width = width;
+    config_target_image.vk_height = height;
+    config_target_image.vk_depth = 1;
+    config_target_image.vk_type = VK_IMAGE_TYPE_2D;
+    config_target_image.vk_format = vk_format;
+    config_target_image.vk_usage = vk_usage | VK_IMAGE_USAGE_SAMPLED_BIT;
+    config_target_image.vk_mips = 1;
+    handle_image_t target_image = context.create_image(config_target_image);
+    gfx::handle_image_view_t target_image_view = context.create_image_view({ .handle_image = target_image });
+    return { target_image, target_image_view };
+}
 
 } // namespace helper
 

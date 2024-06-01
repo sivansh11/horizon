@@ -114,6 +114,7 @@ struct bvh_t {
 
     std::vector<node_t> nodes;
     std::vector<uint32_t> primitive_indices;
+    std::vector<uint32_t> parent_ids;
 
 private:
 

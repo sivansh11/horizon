@@ -16,9 +16,9 @@
 
 #include "bvh.hpp"
 
-std::tuple<std::vector<triangle_t>, std::vector<bvh_t>> create_blas_from_model(const core::model_t& model) {
+// std::tuple<std::vector<triangle_t>, std::vector<bvh_t>> create_blas_from_model(const core::model_t& model) {
     
-}
+// }
 
 struct transform_t {
     glm::vec3 translation{ 0.f, 0.f, 0.f };

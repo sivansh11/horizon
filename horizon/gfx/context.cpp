@@ -689,8 +689,10 @@ void context_t::present_swapchain(handle_swapchain_t handle, uint32_t image_inde
 
     {
         VkResult vk_result = vkQueuePresentKHR(_present_queue.vk_queue, &vk_present_info);
+        if (vk_result == VK_SUBOPTIMAL_KHR) return;
         check(vk_result == VK_SUCCESS, "Failed to present");
     }
+    if (vk_result == VK_SUBOPTIMAL_KHR) return;
     check(vk_result == VK_SUCCESS, "Failed to present");
 }
 
@@ -1077,6 +1079,9 @@ handle_pipeline_t context_t::create_compute_pipeline(const config_pipeline_t& co
 
 handle_pipeline_t context_t::create_graphics_pipeline(const config_pipeline_t& config) {
     horizon_profile();
+
+    check(config.handle_pipeline_layout != null_handle, "pipeline layout is null");
+
     internal::pipeline_t pipeline{ .vk_pipeline_bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS, .config = config };
     
     VkPipelineDynamicStateCreateInfo vk_dynamic_state{ .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO };

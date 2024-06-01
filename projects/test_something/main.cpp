@@ -154,7 +154,7 @@ glm::vec3 createRay(glm::vec2 px, glm::mat4 PInv, glm::mat4 VInv) {
 int main() {
     log_t::set_log_level(log_level_t::e_info);
 
-    auto model = core::load_model_from_path("../../assets/models/teapot.obj");
+    auto model = core::load_model_from_path("../../assets/models/corenl_box.obj");
     std::vector<triangle_t> triangles;
     {
         for (auto& mesh : model.meshes) {
@@ -219,7 +219,7 @@ int main() {
     //     }
     // }
 
-    glm::vec3 eye{ 0, 0, 1 };
+    glm::vec3 eye{ 0, 0, 5 };
     glm::vec3 dir{ 0, 0, -1 };
     glm::vec3 up{ 0, 1, 0 };
 
@@ -246,7 +246,7 @@ int main() {
 
         for (size_t y = 0; y < screen._height; y++) {
 
-            for (size_t x = 0; x < screen._width; x++) {
+            for (size_t x = 0; x < screen._width; x++)  {
                 auto u = 2.0f * static_cast<float>(x) / static_cast<float>(screen._width) - 1.0f;
                 auto v = 2.0f * static_cast<float>(y) / static_cast<float>(screen._height) - 1.0f;
                 // u: 0.16562498 v: 0.16562498

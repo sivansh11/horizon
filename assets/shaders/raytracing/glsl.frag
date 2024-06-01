@@ -20,6 +20,10 @@ layout (set = 0, binding = 2, scalar) readonly buffer primitive_index_buffer_t {
     uint primitive_indices[];
 };
 
+layout (set = 0, binding = 3, scalar) readonly buffer parent_id_buffer_t {
+    uint parent_ids[];
+};
+
 layout (set = 1, binding = 0, scalar) uniform camera_buffer_t {
     mat4 projection;
     mat4 inv_projection;
