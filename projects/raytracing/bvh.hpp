@@ -1,6 +1,8 @@
 #ifndef bvh_hpp
 #define bvh_hpp
 
+#include "core/model.hpp"
+
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 
@@ -55,7 +57,7 @@ struct triangle_t {
 
     bool intersect(ray_t& ray) const;
 
-    glm::vec3 p0, p1, p2;
+    core::vertex_t p0, p1, p2;
 };
 
 struct node_t {

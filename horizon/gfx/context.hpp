@@ -149,6 +149,12 @@ enum class shader_type_t {
     e_compute,
 };
 
+enum class shader_language_t {
+    e_unknown,
+    e_slang,
+    e_glsl,
+};
+
 struct config_pipeline_layout_t {
     config_pipeline_layout_t& add_descriptor_set_layout(handle_descriptor_set_layout_t handle);
     config_pipeline_layout_t& add_push_constant(uint32_t vk_size, VkShaderStageFlagBits vk_shader_stages, uint32_t vk_offset = 0);
@@ -158,9 +164,10 @@ struct config_pipeline_layout_t {
 };
 
 struct config_shader_t {
-    std::string   code;
-    std::string   name;
-    shader_type_t type;
+    std::string         code;
+    std::string         name;
+    shader_type_t       type;
+    shader_language_t   language = shader_language_t::e_slang;
 };
 
 VkPipelineColorBlendAttachmentState default_color_blend_attachment();

@@ -10,11 +10,11 @@
 namespace core {
 
 struct vertex_t {
-    alignas(16) glm::vec3 position{};
-    alignas(16) glm::vec3 normal{};
-    alignas(16) glm::vec2 uv{};
-    alignas(16) glm::vec3 tangent{};
-    alignas(16) glm::vec3 bi_tangent{};
+    glm::vec3 position{};
+    glm::vec3 normal{};
+    glm::vec2 uv{};
+    glm::vec3 tangent{};
+    glm::vec3 bi_tangent{};
 };
 
 enum texture_type_t {

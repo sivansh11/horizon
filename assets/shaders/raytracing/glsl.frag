@@ -42,6 +42,10 @@ void main() {
     ray_t ray = create_ray(uv, inv_view);
 
     hit_t hit = traverse(ray);
+    // if (hit.primitive_index != uint(-1)) {
+    //     vertex_t vertex = vertex_from_barry_coords(triangles[hit.primitive_index], hit.u, hit.v, hit.w);
+    //     out_color = vec4((vertex.normal + 1) * 0.5, 1);
+    // }
     if (hit.primitive_index != uint(-1)) 
         out_color = vec4(col((hit.primitive_index + 1) * 37), col((hit.primitive_index + 1) * 91), col((hit.primitive_index + 1) * 51), 1);
     else

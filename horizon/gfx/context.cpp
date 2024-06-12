@@ -5,6 +5,11 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
+#include <slang.h>
+#include <slang-com-ptr.h>
+#include <slang-gfx.h>
+#include <source/core/slang-basic.h>
+
 #include <shaderc/shaderc.hpp>
 #include <shaderc/glslc/src/file_includer.h>
 
@@ -31,6 +36,12 @@ static VkImageAspectFlags get_image_aspect(VkFormat vk_format) {
     if (vk_depth_formats.contains(vk_format)) 
         return VK_IMAGE_ASPECT_DEPTH_BIT;
     return VK_IMAGE_ASPECT_COLOR_BIT;
+}
+
+inline void diagnose_if_needed(slang::IBlob *diagnostics_blob) {
+    if (diagnostics_blob) {
+        horizon_error("{}", reinterpret_cast<const char *>(diagnostics_blob->getBufferPointer()));
+    }
 }
 
 class file_includer_t : public shaderc::CompileOptions::IncluderInterface {
@@ -979,63 +990,129 @@ void context_t::destroy_pipeline_layout(handle_pipeline_layout_t handle) {
 handle_shader_t context_t::create_shader(const config_shader_t& config) {
     horizon_profile();
 
-    shaderc_shader_kind shaderc_kind;
-    switch (config.type) {
-        case shader_type_t::e_vertex:
-            shaderc_kind = shaderc_vertex_shader;
-            break;
-        case shader_type_t::e_fragment:
-            shaderc_kind = shaderc_fragment_shader;
-            break;
-        case shader_type_t::e_compute:
-            shaderc_kind = shaderc_compute_shader;
-            break;
-        default:
-            horizon_error("unknown shader type");
-            std::terminate();
-    }
-
-    static shaderc::Compiler shaderc_compiler{};
-    static shaderc::CompileOptions shaderc_compile_options{};
-    // static shaderc_util::FileFinder file_finder{};
-    static utils::file_includer_t file_includer{};
-    static bool once = []() {
-        #ifndef NDEBUG
-        shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_zero);
-        shaderc_compile_options.SetGenerateDebugInfo();
-        #else
-        shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_performance);
-        #endif
-        shaderc_compile_options.SetIncluder(std::make_unique<utils::file_includer_t>());
-        return true;
-    }();
-
-    auto preprocess = shaderc_compiler.PreprocessGlsl(config.code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
-    if (preprocess.GetCompilationStatus() != shaderc_compilation_status_success) {
-        horizon_error("{}", preprocess.GetErrorMessage());
-        std::terminate();
-    }
-    
-    std::string preprocessed_code = { preprocess.begin(), preprocess.end() };
-    
-    auto spirv_shader_module = shaderc_compiler.CompileGlslToSpv(preprocessed_code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
-    if (spirv_shader_module.GetCompilationStatus() != shaderc_compilation_status_success) {
-        horizon_error("{}", spirv_shader_module.GetErrorMessage());
-        std::cout << "CODE was: \n";
-        std::stringstream ss{ preprocessed_code };
-        std::string line;
-        uint32_t i = 0;
-        while ( std::getline(ss, line, '\n')) {
-            std::cout << i++ << ": " <<  line << '\n';
-        }
-        std::terminate();
-    }
-    
-    std::vector<uint32_t> spirv_shader_module_code = { spirv_shader_module.begin(), spirv_shader_module.end() };
-
     VkShaderModuleCreateInfo vk_shader_module_create_info{ .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
-    vk_shader_module_create_info.codeSize = spirv_shader_module_code.size() * 4;
-    vk_shader_module_create_info.pCode = spirv_shader_module_code.data();
+
+    if (config.language == shader_language_t::e_slang) {
+        static Slang::ComPtr<slang::IGlobalSession> slangGlobalSession;
+        static Slang::ComPtr<slang::ISession> session;
+        static bool once = []() {
+            check(slang::createGlobalSession(slangGlobalSession.writeRef()) == 0, "failed to create global session");
+
+            slang::SessionDesc sessionDesc = {};
+            slang::TargetDesc targetDesc = {};
+            targetDesc.format = SLANG_SPIRV;
+            targetDesc.profile = slangGlobalSession->findProfile("spirv_1_5");
+            targetDesc.flags = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
+
+            sessionDesc.allowGLSLSyntax = true;
+            sessionDesc.targets = &targetDesc;
+            sessionDesc.targetCount = 1;
+            
+            check(slangGlobalSession->createSession(sessionDesc, session.writeRef()) == 0, "failed to create session");
+            return true;
+        }();
+
+        slang::IModule *slangModule = nullptr;
+        {
+            Slang::ComPtr<slang::IBlob> diagnosticBlob;
+            slangModule = session->loadModuleFromSourceString(config.name.c_str(), "", config.code.c_str(), diagnosticBlob.writeRef());
+            utils::diagnose_if_needed(diagnosticBlob);
+            check(slangModule, "Failed to create module");
+        }
+
+        Slang::ComPtr<slang::IEntryPoint> entryPoint;
+        slangModule->findEntryPointByName("main", entryPoint.writeRef());
+
+        Slang::List<slang::IComponentType*> componentTypes;
+        componentTypes.add(slangModule);
+        componentTypes.add(entryPoint);
+
+        Slang::ComPtr<slang::IComponentType> composedProgram;
+        {
+            Slang::ComPtr<slang::IBlob> diagnosticsBlob;
+            SlangResult result = session->createCompositeComponentType(
+                componentTypes.getBuffer(),
+                componentTypes.getCount(),
+                composedProgram.writeRef(),
+                diagnosticsBlob.writeRef()
+            );
+            utils::diagnose_if_needed(diagnosticsBlob);
+            check(result == 0, "Failed to created composed program or something");
+        }
+
+        Slang::ComPtr<slang::IBlob> spirvCode;
+        {
+            Slang::ComPtr<slang::IBlob> diagnosticsBlob;
+            SlangResult result = composedProgram->getEntryPointCode(
+                0, 0, spirvCode.writeRef(), diagnosticsBlob.writeRef()
+            );
+            utils::diagnose_if_needed(diagnosticsBlob);
+            check(result == 0, "Failed to get spirv code");
+        }
+
+        vk_shader_module_create_info.codeSize = spirvCode->getBufferSize();
+        vk_shader_module_create_info.pCode = static_cast<const uint32_t *>(spirvCode->getBufferPointer());
+    } else if (config.language == shader_language_t::e_glsl) {
+        shaderc_shader_kind shaderc_kind;
+        switch (config.type) {
+            case shader_type_t::e_vertex:
+                shaderc_kind = shaderc_vertex_shader;
+                break;
+            case shader_type_t::e_fragment:
+                shaderc_kind = shaderc_fragment_shader;
+                break;
+            case shader_type_t::e_compute:
+                shaderc_kind = shaderc_compute_shader;
+                break;
+            default:
+                horizon_error("unknown shader type");
+                std::terminate();
+        }
+
+        static shaderc::Compiler shaderc_compiler{};
+        static shaderc::CompileOptions shaderc_compile_options{};
+        // static shaderc_util::FileFinder file_finder{};
+        static utils::file_includer_t file_includer{};
+        static bool once = []() {
+            // #ifndef NDEBUG
+            shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_zero);
+            shaderc_compile_options.SetGenerateDebugInfo();
+            // #else
+            // shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_performance);
+            // #endif
+            shaderc_compile_options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
+            shaderc_compile_options.SetTargetSpirv(shaderc_spirv_version_1_6);
+            shaderc_compile_options.SetIncluder(std::make_unique<utils::file_includer_t>());
+            return true;
+        }();
+
+        auto preprocess = shaderc_compiler.PreprocessGlsl(config.code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
+        if (preprocess.GetCompilationStatus() != shaderc_compilation_status_success) {
+            horizon_error("{}", preprocess.GetErrorMessage());
+            std::terminate();
+        }
+        
+        std::string preprocessed_code = { preprocess.begin(), preprocess.end() };
+        
+        auto spirv_shader_module = shaderc_compiler.CompileGlslToSpv(preprocessed_code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
+        if (spirv_shader_module.GetCompilationStatus() != shaderc_compilation_status_success) {
+            horizon_error("{}", spirv_shader_module.GetErrorMessage());
+            std::cout << "CODE was: \n";
+            std::stringstream ss{ preprocessed_code };
+            std::string line;
+            uint32_t i = 0;
+            while ( std::getline(ss, line, '\n')) {
+                std::cout << i++ << ": " <<  line << '\n';
+            }
+            std::terminate();
+        }
+        
+        std::vector<uint32_t> spirv_shader_module_code = { spirv_shader_module.begin(), spirv_shader_module.end() };
+        vk_shader_module_create_info.codeSize = spirv_shader_module_code.size() * 4;
+        vk_shader_module_create_info.pCode = spirv_shader_module_code.data();
+    } else {
+        check(false, "unknown shader language");
+    }
 
     internal::shader_t shader{ .config = config };
     VkResult vk_result = vkCreateShaderModule(_vkb_device, &vk_shader_module_create_info, nullptr, &shader.vk_shader);

@@ -27,13 +27,21 @@ bool node_intersect(in node_t node, in ray_t ray) {
     return _tmin <= _tmax;
 }
 
+struct triangle_intersect_t {
+    bool intersect;
+    float t;
+    float u, v, w;
+};
+
 // should probably return the uvw of the triangle also
-bool triangle_intersect(in triangle_t triangle, inout ray_t ray) {
-    vec3 e1 = triangle.p0 - triangle.p1;
-    vec3 e2 = triangle.p2 - triangle.p0;
+triangle_intersect_t triangle_intersect(in triangle_t triangle, inout ray_t ray) {
+    triangle_intersect_t ret_intersect;
+
+    vec3 e1 = triangle.p0.position - triangle.p1.position;
+    vec3 e2 = triangle.p2.position - triangle.p0.position;
     vec3 n = cross(e1, e2);
 
-    vec3 c = triangle.p0 - ray.origin;
+    vec3 c = triangle.p0.position - ray.origin;
     vec3 r = cross(ray.direction, c);
     float inverse_det = 1.0f / dot(n, ray.direction);
 
@@ -44,11 +52,42 @@ bool triangle_intersect(in triangle_t triangle, inout ray_t ray) {
     if (u >= 0 && v >= 0 && w >= 0) {
         float t = dot(n, c) * inverse_det;
         if (t >= ray.tmin && t <= ray.tmax) {
-            ray.tmax = t;
-            return true;
+            // ray.tmax = t;
+            ret_intersect.t = t;
+            ret_intersect.u = u;
+            ret_intersect.v = v;
+            ret_intersect.w = w;
+            ret_intersect.intersect = true;
+            return ret_intersect;
         }
     }
-    return false;
+    ret_intersect.intersect = false;
+    return ret_intersect;
+}
+
+vertex_t vertex_from_barry_coords(triangle_t triangle, float u, float v, float w) {
+    vertex_t vertex;
+    vertex.position = triangle.p0.position * u + triangle.p1.position * v + triangle.p2.position * w;
+    vertex.normal = triangle.p0.normal * u + triangle.p1.normal * v + triangle.p2.normal * w;
+    vertex.uv = triangle.p0.uv * u + triangle.p1.uv * v + triangle.p2.uv * w;
+    vertex.tangent = triangle.p0.tangent * u + triangle.p1.tangent * v + triangle.p2.tangent * w;
+    vertex.bi_tangent = triangle.p0.bi_tangent * u + triangle.p1.bi_tangent * v + triangle.p2.bi_tangent * w;
+    return vertex;
+}
+
+void intesect_leaf_node(in node_t node, inout hit_t hit, inout ray_t ray) {
+    for (uint i = 0; i < node.primitive_count; i++) {
+        uint primitive_index = primitive_indices[node.first_index + i];
+        triangle_intersect_t intersect = triangle_intersect(triangles[primitive_index], ray);
+        if (intersect.intersect) {
+            ray.tmax = intersect.t;
+            hit.primitive_index = primitive_index;
+            hit.t = intersect.t;
+            hit.u = intersect.u;
+            hit.v = intersect.v;
+            hit.w = intersect.w;
+        } 
+    } 
 }
 
 hit_t stack_traverse(inout ray_t ray) {
@@ -65,11 +104,7 @@ hit_t stack_traverse(inout ray_t ray) {
         if (!node_intersect(node, ray)) continue;
 
         if (node.primitive_count != 0) {
-            for (uint i = 0; i < node.primitive_count; i++) {
-                uint primitive_index = primitive_indices[node.first_index + i];
-                if (triangle_intersect(triangles[primitive_index], ray)) 
-                    hit.primitive_index = primitive_index;
-            } 
+            intesect_leaf_node(node, hit, ray);
         } else {
             stack[stack_ptr++] = node.first_index;
             stack[stack_ptr++] = node.first_index + 1;
@@ -82,6 +117,7 @@ const uint from_parent = 0;
 const uint from_sibling = 1;
 const uint from_child = 2;
 
+// atm this is just randomly returning the left child, but in theory, this could be a bit faster if there was a fast way to sort both the childs and return the near child first
 uint get_near_child_id(uint node_id) {
     return nodes[node_id].first_index;
 }
@@ -128,11 +164,7 @@ hit_t stackless_traverse(inout ray_t ray) {
                     current = get_parent_id(current);
                     state = from_child;
                 } else if (current_node.primitive_count != 0) {
-                    for (uint i = 0; i < current_node.primitive_count; i++) {
-                        if (triangle_intersect(triangles[primitive_indices[current_node.first_index + i]], ray)) {
-                            hit.primitive_index = primitive_indices[current_node.first_index + i];
-                        }
-                    }
+                    intesect_leaf_node(current_node, hit, ray);
                     current = get_parent_id(current);
                     state = from_child;
                 } else {
@@ -149,11 +181,7 @@ hit_t stackless_traverse(inout ray_t ray) {
                     current = get_sibling_id(current);
                     state = from_sibling;
                 } else if (current_node.primitive_count != 0) {
-                    for (uint i = 0; i < current_node.primitive_count; i++) {
-                        if (triangle_intersect(triangles[primitive_indices[current_node.first_index + i]], ray)) {
-                            hit.primitive_index = primitive_indices[current_node.first_index + i];
-                        }
-                    }
+                    intesect_leaf_node(current_node, hit, ray);
                     current = get_sibling_id(current);
                     state = from_sibling;
                 } else {
@@ -169,6 +197,7 @@ hit_t stackless_traverse(inout ray_t ray) {
 
 hit_t traverse(inout ray_t ray) {
     return stackless_traverse(ray);
+    // return stack_traverse(ray);
 }
 
 ray_t create_ray(in vec2 uv, in mat4 inv_view) {

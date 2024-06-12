@@ -28,3 +28,6 @@
 [submodule "deps/assimp"]
 	path = deps/assimp
 	url = https://github.com/assimp/assimp.git
+[submodule "deps/slang"]
+	path = deps/slang
+	url = https://github.com/shader-slang/slang.git

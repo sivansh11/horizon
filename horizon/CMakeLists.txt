@@ -39,6 +39,9 @@ target_include_directories(horizon
     PUBLIC shaderc
     PUBLIC glslc
     PUBLIC shaderc_util
+    PUBLIC slang
+    PUBLIC core
+    PUBLIC gfx
 )
 
 target_link_libraries(horizon
@@ -55,6 +58,11 @@ target_link_libraries(horizon
     shaderc_util
     VulkanMemoryAllocator
     assimp
+    slang
+    core
+    gfx
+    gfx-util
+    platform
     # EnTT
     # screen_capture_lite_static
     # imgui

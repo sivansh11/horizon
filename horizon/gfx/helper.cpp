@@ -81,10 +81,98 @@ VkImageAspectFlags image_aspect_from_format(VkFormat vk_format) {
 }
 
 handle_image_t load_image_from_path(context_t& context, handle_command_pool_t handle_command_pool, const std::filesystem::path& path, VkFormat vk_format) {
+
+    if (path.extension().string() == ".ppm") {
+        auto get_words_from_line = [](const std::string& line) {
+            std::vector<std::string> words;
+            std::istringstream iss(line);
+            for (std::string word; iss >> word;) {
+                words.push_back(word);
+            }
+            return words;
+        };
+
+        std::string ppm_file = core::read_file(path);
+        std::stringstream ss{ ppm_file };
+        std::string line;
+        uint32_t i = 0;
+
+        uint32_t width, height;
+
+        struct pixel_t {
+            uint8_t r;
+            uint8_t g;
+            uint8_t b;
+            uint8_t a;
+        };
+        std::vector<pixel_t> pixels;
+
+        while (std::getline(ss, line, '\n')) {
+            if (i == 0) {
+                i++;
+                continue;
+            }
+
+            if (i == 1) {
+                auto words = get_words_from_line(line);
+                width = std::stol(words[0]);
+                height = std::stol(words[1]);
+                i++;
+                continue;
+            }
+
+            if (i == 2) {
+                i++;
+                continue;
+            }
+
+            auto words = get_words_from_line(line);
+            pixel_t pixel = { static_cast<uint8_t>(std::stoi(words[0])), static_cast<uint8_t>(std::stoi(words[1])), static_cast<uint8_t>(std::stoi(words[2])), 255 };
+            pixels.push_back(pixel);
+            i++;
+        }
+
+        VkDeviceSize vk_image_size = width * height * 4;
+        handle_buffer_t staging_buffer = create_staging_buffer(context, vk_image_size);
+
+        std::memcpy(context.map_buffer(staging_buffer), pixels.data(), vk_image_size);
+
+        config_image_t config_image{};
+        config_image.vk_width = width;
+        config_image.vk_height = height;
+        config_image.vk_depth = 1;
+        config_image.vk_type = VK_IMAGE_TYPE_2D;
+        config_image.vk_format = vk_format;
+        config_image.vk_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        handle_image_t image = context.create_image(config_image);
+
+        handle_commandbuffer_t commandbuffer = start_single_use_commandbuffer(context, handle_command_pool);
+        cmd_transition_image_layout(context, commandbuffer, image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        context.cmd_copy_buffer_to_image(commandbuffer, staging_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VkBufferImageCopy{
+            .bufferOffset = 0,
+            .bufferRowLength = 0,
+            .bufferImageHeight = 0,
+            .imageSubresource = {
+                .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+                .mipLevel = 0,
+                .baseArrayLayer = 0,
+                .layerCount = 1,
+            },
+            .imageOffset = {0, 0, 0},
+            .imageExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1}
+        });
+        cmd_generate_image_mip_maps(context, commandbuffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_FILTER_LINEAR);
+        end_single_use_commandbuffer(context, commandbuffer);
+
+        context.destroy_buffer(staging_buffer);
+
+        return image;
+    }
+
     int width, height, channels;
     stbi_set_flip_vertically_on_load(true);
     stbi_uc *pixels = stbi_load(path.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
-    check(pixels, "Failed to load image");
+    check(pixels, "{}", stbi_failure_reason());
 
     VkDeviceSize vk_image_size = width * height * 4;
     handle_buffer_t staging_buffer = create_staging_buffer(context, vk_image_size);

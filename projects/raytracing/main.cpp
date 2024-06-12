@@ -121,7 +121,7 @@ int main() {
                                     .add_shader(context.create_shader(gfx::config_shader_t{ .code = core::read_file("../../assets/shaders/raytracing/glsl.frag").data(), .name = "raytracing fragment", .type = gfx::shader_type_t::e_fragment }));
     gfx::handle_pipeline_t raytracing_pipeline = context.create_graphics_pipeline(config_raytracing_pipeline);
 
-    core::model_t model = core::load_model_from_path("../../assets/models/teapot.obj");
+    core::model_t model = core::load_model_from_path("../../../my_raytracing_article/assets/models/lapin.obj");
     std::vector<triangle_t> triangles;
     std::vector<bounding_box_t> bounding_boxes;
     std::vector<glm::vec3> centers;
@@ -133,19 +133,19 @@ int main() {
             core::vertex_t v2 = mesh.vertices[mesh.indices[i + 2]];
 
             triangle_t triangle;
-            triangle.p0 = v0.position;
-            triangle.p1 = v1.position;
-            triangle.p2 = v2.position;
+            triangle.p0 = v0;
+            triangle.p1 = v1;
+            triangle.p2 = v2;
 
             triangles.push_back(triangle);
         }
     }
-    
+
     bounding_boxes.resize(triangles.size());
     centers.resize(triangles.size());
     for (size_t i = 0; i < triangles.size(); i++) {
-        bounding_boxes[i] = bounding_box_t{}.extend(triangles[i].p0).extend(triangles[i].p1).extend(triangles[i].p2);
-        centers[i] = (triangles[i].p0 + triangles[i].p1 + triangles[i].p2) / 3.0f;
+        bounding_boxes[i] = bounding_box_t{}.extend(triangles[i].p0.position).extend(triangles[i].p1.position).extend(triangles[i].p2.position);
+        centers[i] = (triangles[i].p0.position + triangles[i].p1.position + triangles[i].p2.position) / 3.0f;
     }
     bvh_t bvh = bvh_t::build(bounding_boxes.data(), centers.data(), triangles.size());
     horizon_info("Built blas with {} nodes and depth {}", bvh.nodes.size(), bvh.depth());

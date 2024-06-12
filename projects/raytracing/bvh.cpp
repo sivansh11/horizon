@@ -54,11 +54,11 @@ glm::vec3 ray_t::inverse_direction() const {
 
 
 bool triangle_t::intersect(ray_t& ray) const {
-    glm::vec3 e1 = p0 - p1;
-    glm::vec3 e2 = p2 - p0;
+    glm::vec3 e1 = p0.position - p1.position;
+    glm::vec3 e2 = p2.position - p0.position;
     glm::vec3 n = glm::cross(e1, e2);
 
-    glm::vec3 c = p0 - ray.origin;
+    glm::vec3 c = p0.position - ray.origin;
     glm::vec3 r = glm::cross(ray.direction, c);
     float inverse_det = 1.0f / glm::dot(n, ray.direction);
 
