@@ -123,8 +123,8 @@ int main() {
     }
 
     horizon::bvh_t::build_options_t build_options{
-        .primitive_intersection_cost = 1.1f,
-        .node_intersection_cost = 1.f,
+        .primitive_intersection_cost = 1.f,
+        .node_intersection_cost = 0.1f,
         .min_primitive_count = 1,
         .max_primitive_count = std::numeric_limits<uint32_t>::max(),
         .add_node_intersection_cost_in_leaf_traversal = false,
