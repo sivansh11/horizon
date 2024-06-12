@@ -164,7 +164,8 @@ struct config_pipeline_layout_t {
 };
 
 struct config_shader_t {
-    std::string         code;
+    std::string         code_or_path;
+    bool                is_code = false;
     std::string         name;
     shader_type_t       type;
     shader_language_t   language = shader_language_t::e_slang;
@@ -245,6 +246,7 @@ struct buffer_t {
     VmaAllocation   vma_allocation;
     config_buffer_t config;
     void           *p_data = nullptr;
+    VkDeviceAddress vk_device_address;
     operator VkBuffer() { return vk_buffer; }
 };
 
@@ -389,6 +391,7 @@ public:
     void destroy_buffer(handle_buffer_t handle);
     void *map_buffer(handle_buffer_t handle);
     void unmap_buffer(handle_buffer_t handle);
+    VkDeviceAddress get_buffer_device_address(handle_buffer_t handle);
     internal::buffer_t& get_buffer(handle_buffer_t handle);
 
     handle_sampler_t create_sampler(const config_sampler_t& config);

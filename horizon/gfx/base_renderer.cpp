@@ -152,8 +152,8 @@ base_renderer_t::base_renderer_t(const core::window_t& window, gfx::context_t& c
         }
     )";
 
-    gfx::handle_shader_t vertex_shader = context.create_shader(gfx::config_shader_t{.code = vertex_shader_code, .name = "swapchain vertex shader", .type = gfx::shader_type_t::e_vertex });
-    gfx::handle_shader_t fragment_shader = context.create_shader(gfx::config_shader_t{.code = fragment_shader_code, .name = "swapchain fragment shader", .type = gfx::shader_type_t::e_fragment });
+    gfx::handle_shader_t vertex_shader = context.create_shader(gfx::config_shader_t{.code_or_path = vertex_shader_code, .is_code = true, .name = "swapchain vertex shader", .type = gfx::shader_type_t::e_vertex, .language = gfx::shader_language_t::e_glsl });
+    gfx::handle_shader_t fragment_shader = context.create_shader(gfx::config_shader_t{.code_or_path = fragment_shader_code, .is_code = true, .name = "swapchain fragment shader", .type = gfx::shader_type_t::e_fragment, .language = gfx::shader_language_t::e_glsl });
 
     gfx::config_pipeline_t config_swapchain_pipeline{};
     config_swapchain_pipeline.handle_pipeline_layout = swapchain_pipeline_layout;

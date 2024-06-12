@@ -51,8 +51,8 @@ int main(int argc, char ** argv) {
     config_pipeline_layout.add_descriptor_set_layout(descriptor_set_layout);
     gfx::handle_pipeline_layout_t pipeline_layout = context.create_pipeline_layout(config_pipeline_layout);
 
-    gfx::handle_shader_t vertex_shader = context.create_shader(gfx::config_shader_t{.code = core::read_file("../../assets/shaders/ppm_viewer/glsl.vert").data(), .name = "ppm_viewer vertex shader", .type = gfx::shader_type_t::e_vertex });
-    gfx::handle_shader_t fragment_shader = context.create_shader(gfx::config_shader_t{.code = core::read_file("../../assets/shaders/ppm_viewer/glsl.frag").data(), .name = "ppm_viewer fragment shader", .type = gfx::shader_type_t::e_fragment });
+    gfx::handle_shader_t vertex_shader = context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/ppm_viewer/vert.slang", .name = "ppm_viewer vertex shader", .type = gfx::shader_type_t::e_vertex, .language = gfx::shader_language_t::e_slang });
+    gfx::handle_shader_t fragment_shader = context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/ppm_viewer/frag.slang", .name = "ppm_viewer fragment shader", .type = gfx::shader_type_t::e_fragment, .language = gfx::shader_language_t::e_slang });
 
     gfx::config_pipeline_t config_pipeline{};
     config_pipeline.handle_pipeline_layout = pipeline_layout;

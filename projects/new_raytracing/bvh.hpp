@@ -4,10 +4,14 @@
 #ifndef ALGEBRA_HPP
 #define ALGEBRA_HPP
 
+#include "core.hpp"
+
 #include <glm/glm.hpp>
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
+
+#include <filesystem>
 
 namespace horizon {
 
@@ -85,10 +89,13 @@ struct bvh_t {
 
         bvh.p_nodes = new node_t[2 * primitive_count - 1];
         bvh.p_primitive_indices = new uint32_t[primitive_count];
+        bvh.p_parent_ids = new uint32_t[2 * primitive_count - 1];
 
         bvh.p_nodes[0] = node_t{};
         bvh.p_nodes[0].primitive_count = primitive_count;
         bvh.p_nodes[0].first_index = 0;
+
+        bvh.p_parent_ids[0] = static_cast<uint32_t>(-1);
 
         for (uint32_t i = 0; i < primitive_count; i++) bvh.p_primitive_indices[i] = i;
 
@@ -179,7 +186,7 @@ struct bvh_t {
         float best_cost = infinity;
 
         constexpr bool use_uniform_sampling = true;
-        constexpr uint32_t samples = 1000;
+        constexpr uint32_t samples = 25;
 
         for (uint32_t axis = 0; axis < 3; axis++) {
             if (use_uniform_sampling) {
@@ -263,6 +270,9 @@ struct bvh_t {
         p_nodes[right_node_id] = node_t{};
         p_nodes[right_node_id].first_index = left;
         p_nodes[right_node_id].primitive_count = node.primitive_count - left_count;
+        
+        p_parent_ids[right_node_id] = node_id;
+        p_parent_ids[left_node_id] = node_id;
 
         node.first_index = left_node_id;
         node.primitive_count = 0;
@@ -285,7 +295,7 @@ struct bvh_t {
         // check if tri count is less than what I want (force not split)
         // check if tri count is greater than what I want to be the max (force split)
         // check if split cost is greater than non split cost
-        if (node.primitive_count < build_options.min_primitive_count) return;
+        if (node.primitive_count <= build_options.min_primitive_count) return;
         if (node.primitive_count > build_options.max_primitive_count) {
             force_split_node(node_id, node_count, p_aabbs, p_centers, build_options);
             return;
@@ -337,8 +347,46 @@ struct bvh_t {
         return node_traversal_cost(0, build_options);
     }
 
+    void to_disk(std::filesystem::path path) {
+        core::binary_writer_t binary_writer{ path };
+        binary_writer.write(node_count);
+        for (uint32_t i = 0; i < node_count; i++) {
+            binary_writer.write(p_nodes[i]);
+        }
+        binary_writer.write(primitive_count);
+        for (uint32_t i = 0; i < primitive_count; i++) {
+            binary_writer.write(p_primitive_indices[i]);
+        }
+        for (uint32_t i = 0; i < node_count; i++) {
+            binary_writer.write(p_parent_ids[i]);
+        }
+    }
+
+    static bvh_t load(std::filesystem::path path) {
+        bvh_t bvh{};
+
+        core::binary_reader_t binary_reader{ path };
+        binary_reader.read(bvh.node_count);
+        bvh.p_nodes = new node_t[bvh.node_count];
+        for (uint32_t i = 0; i < bvh.node_count; i++) {
+            binary_reader.read(bvh.p_nodes[i]);
+        }
+        binary_reader.read(bvh.primitive_count);
+        bvh.p_primitive_indices = new uint32_t[bvh.primitive_count];
+        for (uint32_t i = 0; i < bvh.primitive_count; i++) {
+            binary_reader.read(bvh.p_primitive_indices[i]);
+        }
+        bvh.p_parent_ids = new uint32_t[bvh.node_count];
+        for (uint32_t i = 0; i < bvh.node_count; i++) {
+            binary_reader.read(bvh.p_parent_ids[i]);
+        }
+
+        return bvh;
+    }
+
     node_t *p_nodes{ nullptr };
     uint32_t *p_primitive_indices{ nullptr };
+    uint32_t *p_parent_ids{ nullptr };
     uint32_t node_count;
     uint32_t primitive_count;
 };

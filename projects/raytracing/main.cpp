@@ -117,11 +117,11 @@ int main() {
     gfx::config_pipeline_t config_raytracing_pipeline{};
     config_raytracing_pipeline.handle_pipeline_layout = raytracing_pipeline_layout;
     config_raytracing_pipeline.add_color_attachment(VK_FORMAT_R8G8B8A8_SRGB, gfx::default_color_blend_attachment())
-                                    .add_shader(context.create_shader(gfx::config_shader_t{ .code = core::read_file("../../assets/shaders/raytracing/glsl.vert").data(), .name = "raytracing vertex", .type = gfx::shader_type_t::e_vertex }))
-                                    .add_shader(context.create_shader(gfx::config_shader_t{ .code = core::read_file("../../assets/shaders/raytracing/glsl.frag").data(), .name = "raytracing fragment", .type = gfx::shader_type_t::e_fragment }));
+                                    .add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/raytracing/glsl.vert", .name = "raytracing vertex", .type = gfx::shader_type_t::e_vertex, .language = gfx::shader_language_t::e_glsl }))
+                                    .add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/raytracing/glsl.frag", .name = "raytracing fragment", .type = gfx::shader_type_t::e_fragment, .language = gfx::shader_language_t::e_glsl }));
     gfx::handle_pipeline_t raytracing_pipeline = context.create_graphics_pipeline(config_raytracing_pipeline);
 
-    core::model_t model = core::load_model_from_path("../../../my_raytracing_article/assets/models/lapin.obj");
+    core::model_t model = core::load_model_from_path("../../../my_raytracing_article/assets/models/teapot.obj");
     std::vector<triangle_t> triangles;
     std::vector<bounding_box_t> bounding_boxes;
     std::vector<glm::vec3> centers;

@@ -533,7 +533,7 @@ void context_t::create_allocator() {
         .vkGetDeviceImageMemoryRequirements = vkGetDeviceImageMemoryRequirements,
     };
     VmaAllocatorCreateInfo vma_allocator_create_info{
-        .flags = {},
+        .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
         .physicalDevice = _vkb_physical_device,
         .device = _vkb_device,
         .pVulkanFunctions = &vma_vulkan_functions,
@@ -713,7 +713,7 @@ handle_buffer_t context_t::create_buffer(const config_buffer_t& config) {
 
     VkBufferCreateInfo vk_buffer_create_info{ .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
     vk_buffer_create_info.size = config.vk_size;
-    vk_buffer_create_info.usage = config.vk_buffer_usage_flags;
+    vk_buffer_create_info.usage = config.vk_buffer_usage_flags | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
 
     VmaAllocationCreateInfo vma_allocation_create_info{};
     vma_allocation_create_info.usage = config.vma_memory_usage;
@@ -721,6 +721,10 @@ handle_buffer_t context_t::create_buffer(const config_buffer_t& config) {
 
     VkResult vk_result = vmaCreateBuffer(_vma_allocator, &vk_buffer_create_info, &vma_allocation_create_info, &buffer.vk_buffer, &buffer.vma_allocation, nullptr);
     check(vk_result == VK_SUCCESS, "Failed to create buffer");
+
+    VkBufferDeviceAddressInfo vk_buffer_device_address_info{ .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO };
+    vk_buffer_device_address_info.buffer = buffer;
+    buffer.vk_device_address = vkGetBufferDeviceAddress(_vkb_device, &vk_buffer_device_address_info);
 
     handle_buffer_t handle = utils::create_and_insert_new_handle<handle_buffer_t>(_buffers, buffer);
     horizon_trace("created buffer");
@@ -749,6 +753,12 @@ void context_t::unmap_buffer(handle_buffer_t handle) {
     if (!buffer.p_data) return;
     vmaUnmapMemory(_vma_allocator, buffer.vma_allocation);
     buffer.p_data = nullptr;
+}
+
+VkDeviceAddress context_t::get_buffer_device_address(handle_buffer_t handle) {
+    horizon_profile();
+    internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(handle, _buffers);
+    return buffer.vk_device_address;
 }
 
 internal::buffer_t& context_t::get_buffer(handle_buffer_t handle) {
@@ -991,43 +1001,106 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
     horizon_profile();
 
     VkShaderModuleCreateInfo vk_shader_module_create_info{ .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
+    std::vector<uint32_t> spirv_shader_module_code{};
+    static shaderc::Compiler shaderc_compiler{};
+    static shaderc::CompileOptions shaderc_compile_options{};
+    // static shaderc_util::FileFinder file_finder{};
+    static utils::file_includer_t file_includer{};
+    static bool once_shaderc = []() {
+        // #ifndef NDEBUG
+        shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_zero);
+        shaderc_compile_options.SetGenerateDebugInfo();
+        // #else
+        // shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_performance);
+        // #endif
+        shaderc_compile_options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
+        shaderc_compile_options.SetTargetSpirv(shaderc_spirv_version_1_6);
+        shaderc_compile_options.SetIncluder(std::make_unique<utils::file_includer_t>());
+        return true;
+    }();
+    Slang::ComPtr<slang::IBlob> spirvCode;
+    Slang::ComPtr<slang::IComponentType> composedProgram;
+    Slang::List<slang::IComponentType*> componentTypes;
+    Slang::ComPtr<slang::IEntryPoint> entryPoint;
+    slang::IModule *slangModule = nullptr;
+    static Slang::ComPtr<slang::IGlobalSession> slangGlobalSession;
+    static Slang::ComPtr<slang::ISession> session;
+    static std::vector<slang::CompilerOptionEntry> compiler_options;
+    static bool once_slang = []() {
+        check(slang::createGlobalSession(slangGlobalSession.writeRef()) == 0, "failed to create global session");
 
-    if (config.language == shader_language_t::e_slang) {
-        static Slang::ComPtr<slang::IGlobalSession> slangGlobalSession;
-        static Slang::ComPtr<slang::ISession> session;
-        static bool once = []() {
-            check(slang::createGlobalSession(slangGlobalSession.writeRef()) == 0, "failed to create global session");
+        slang::SessionDesc sessionDesc = {};
+        slang::TargetDesc targetDesc = {};
+        targetDesc.format = SLANG_SPIRV;
+        targetDesc.profile = slangGlobalSession->findProfile("spirv_1_5");
+        targetDesc.flags = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
 
-            slang::SessionDesc sessionDesc = {};
-            slang::TargetDesc targetDesc = {};
-            targetDesc.format = SLANG_SPIRV;
-            targetDesc.profile = slangGlobalSession->findProfile("spirv_1_5");
-            targetDesc.flags = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
+        sessionDesc.allowGLSLSyntax = true;
+        sessionDesc.targets = &targetDesc;
+        sessionDesc.targetCount = 1;
+        slang::CompilerOptionValue compiler_value;
+        compiler_value.intValue0 = 1;
+        slang::CompilerOptionEntry compiler_option = {
+            .name = slang::CompilerOptionName::EmitSpirvDirectly,
+            .value = compiler_value,
+        };
+        compiler_options.push_back(compiler_option);
+        compiler_option.name = slang::CompilerOptionName::DebugInformation;
+        compiler_value.intValue0 = SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_STANDARD;
+        compiler_option.value = compiler_value;
+        compiler_options.push_back(compiler_option);
 
-            sessionDesc.allowGLSLSyntax = true;
-            sessionDesc.targets = &targetDesc;
-            sessionDesc.targetCount = 1;
-            
-            check(slangGlobalSession->createSession(sessionDesc, session.writeRef()) == 0, "failed to create session");
-            return true;
-        }();
+        sessionDesc.compilerOptionEntryCount = compiler_options.size();
+        sessionDesc.compilerOptionEntries = compiler_options.data();
+        
+        check(slangGlobalSession->createSession(sessionDesc, session.writeRef()) == 0, "failed to create session");
+        return true;
+    }();
 
-        slang::IModule *slangModule = nullptr;
+    std::string code = config.is_code ? config.code_or_path : core::read_file(config.code_or_path);
+    std::string path = config.is_code ? "" : config.code_or_path;
+    
+    if (config.language == shader_language_t::e_slang) {  
+        // SlangCompileRequest *slangRequest;
+        // session->createCompileRequest(&slangRequest);
+        // spSetDebugInfoLevel(slangRequest, SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL);
+        // spSetDebugInfoFormat(slangRequest, SlangDebugInfoFormat::SLANG_DEBUG_INFO_FORMAT_DEFAULT);
+        // int translationUnitIndex = spAddTranslationUnit(slangRequest, SLANG_SOURCE_LANGUAGE_SLANG, nullptr);
+        // spAddTranslationUnitSourceString(slangRequest, translationUnitIndex, path.c_str(), code.c_str());
+        // const SlangResult compileRes = spCompile(slangRequest);
+        // if(auto diagnostics = spGetDiagnosticOutput(slangRequest)) {
+        //     horizon_error("{}", diagnostics);
+        // }
+        // if(SLANG_FAILED(compileRes)) {
+        //     spDestroyCompileRequest(slangRequest);
+        //     throw std::runtime_error("");
+        // }
         {
             Slang::ComPtr<slang::IBlob> diagnosticBlob;
-            slangModule = session->loadModuleFromSourceString(config.name.c_str(), "", config.code.c_str(), diagnosticBlob.writeRef());
+            slangModule = session->loadModuleFromSourceString(config.name.c_str(), path.c_str(), code.c_str(), diagnosticBlob.writeRef());
             utils::diagnose_if_needed(diagnosticBlob);
             check(slangModule, "Failed to create module");
         }
+        
+        switch (config.type) {
+            case shader_type_t::e_vertex:
+                slangModule->findEntryPointByName("vertexMain", entryPoint.writeRef());
+                break;
+            case shader_type_t::e_fragment:
+                slangModule->findEntryPointByName("fragmentMain", entryPoint.writeRef());
+                break;
+            case shader_type_t::e_compute:
+                slangModule->findEntryPointByName("computeMain", entryPoint.writeRef());
+                break;
+            default:
+                horizon_error("unknown shader type");
+                std::terminate();
+        }
+        check(entryPoint, "failed to find entrypoint");
 
-        Slang::ComPtr<slang::IEntryPoint> entryPoint;
-        slangModule->findEntryPointByName("main", entryPoint.writeRef());
-
-        Slang::List<slang::IComponentType*> componentTypes;
         componentTypes.add(slangModule);
         componentTypes.add(entryPoint);
 
-        Slang::ComPtr<slang::IComponentType> composedProgram;
         {
             Slang::ComPtr<slang::IBlob> diagnosticsBlob;
             SlangResult result = session->createCompositeComponentType(
@@ -1040,7 +1113,6 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
             check(result == 0, "Failed to created composed program or something");
         }
 
-        Slang::ComPtr<slang::IBlob> spirvCode;
         {
             Slang::ComPtr<slang::IBlob> diagnosticsBlob;
             SlangResult result = composedProgram->getEntryPointCode(
@@ -1052,6 +1124,7 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
 
         vk_shader_module_create_info.codeSize = spirvCode->getBufferSize();
         vk_shader_module_create_info.pCode = static_cast<const uint32_t *>(spirvCode->getBufferPointer());
+
     } else if (config.language == shader_language_t::e_glsl) {
         shaderc_shader_kind shaderc_kind;
         switch (config.type) {
@@ -1069,24 +1142,7 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
                 std::terminate();
         }
 
-        static shaderc::Compiler shaderc_compiler{};
-        static shaderc::CompileOptions shaderc_compile_options{};
-        // static shaderc_util::FileFinder file_finder{};
-        static utils::file_includer_t file_includer{};
-        static bool once = []() {
-            // #ifndef NDEBUG
-            shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_zero);
-            shaderc_compile_options.SetGenerateDebugInfo();
-            // #else
-            // shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_performance);
-            // #endif
-            shaderc_compile_options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
-            shaderc_compile_options.SetTargetSpirv(shaderc_spirv_version_1_6);
-            shaderc_compile_options.SetIncluder(std::make_unique<utils::file_includer_t>());
-            return true;
-        }();
-
-        auto preprocess = shaderc_compiler.PreprocessGlsl(config.code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
+        auto preprocess = shaderc_compiler.PreprocessGlsl(code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
         if (preprocess.GetCompilationStatus() != shaderc_compilation_status_success) {
             horizon_error("{}", preprocess.GetErrorMessage());
             std::terminate();
@@ -1107,7 +1163,7 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
             std::terminate();
         }
         
-        std::vector<uint32_t> spirv_shader_module_code = { spirv_shader_module.begin(), spirv_shader_module.end() };
+        spirv_shader_module_code = { spirv_shader_module.begin(), spirv_shader_module.end() };
         vk_shader_module_create_info.codeSize = spirv_shader_module_code.size() * 4;
         vk_shader_module_create_info.pCode = spirv_shader_module_code.data();
     } else {
@@ -1197,7 +1253,24 @@ handle_pipeline_t context_t::create_graphics_pipeline(const config_pipeline_t& c
         internal::shader_t& shader = utils::assert_and_get_data<internal::shader_t>(handle_shader, _shaders);
 
         VkPipelineShaderStageCreateInfo vk_pipeline_shader_stage_create_info{ .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO };
-        vk_pipeline_shader_stage_create_info.pName = "main";
+        if (shader.config.language == shader_language_t::e_glsl) {
+            vk_pipeline_shader_stage_create_info.pName = "main";
+        } else if (shader.config.language == shader_language_t::e_slang) {
+            switch (shader.config.type) {
+                case shader_type_t::e_vertex:
+                vk_pipeline_shader_stage_create_info.pName = "main";
+                    break;
+                case shader_type_t::e_fragment:
+                vk_pipeline_shader_stage_create_info.pName = "main";
+                    break;
+                case shader_type_t::e_compute:
+                vk_pipeline_shader_stage_create_info.pName = "main";
+                    break;
+                default:
+                    horizon_error("unknown shader type");
+                    std::terminate();
+            }
+        }
         switch (shader.config.type) {
             case shader_type_t::e_fragment:
                 vk_pipeline_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
