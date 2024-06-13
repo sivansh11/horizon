@@ -62,6 +62,10 @@ gfx::handle_buffer_t create_and_push_n_bits_to_dedicated_memory_buffer(gfx::cont
     return buffer;
 }
 
+// std::pair<std::vector<horizon::triangle_t>, horizon::bvh_t> load_bbk_model_and_bvh(const std::filesystem::path& path) {
+//     size_t index_count = 
+// }
+
 int main() {
     core::log_t::set_log_level(core::log_level_t::e_info);
     
@@ -100,7 +104,7 @@ int main() {
                                     .add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/raytracing/frag.slang", .name = "raytracing fragment", .type = gfx::shader_type_t::e_fragment }));
     gfx::handle_pipeline_t rt_pipeline = context.create_graphics_pipeline(config_rt_pipeline);
 
-    std::string model_path = "../../assets/models/sponza_bbk/SponzaMerged/SponzaMerged.obj";
+    std::string model_path = "../../assets/models/dragon.obj";
     auto model = core::load_model_from_path(model_path);
     std::vector<horizon::triangle_t> tris;
     std::vector<horizon::aabb_t> aabbs;
@@ -141,6 +145,7 @@ int main() {
 
     horizon_info("bvh depth: {} node count: {}", bvh.depth(), bvh.node_count);
     uint32_t max = 0;
+    uint32_t min = std::numeric_limits<uint32_t>::max();
     float average = 0;
     uint32_t leaf_node_count = 0;
     for (uint32_t i = 0; i < bvh.node_count; i++) {
@@ -149,12 +154,24 @@ int main() {
             if (node.primitive_count > max) {
                 max = node.primitive_count;
             }
+            if (node.primitive_count < min) {
+                min = node.primitive_count;
+            }
             average += node.primitive_count;
             leaf_node_count++;
         }
     }
 
-    horizon_info("max triangles per leaf: {} average triangles per leaf: {} leaf node count: {}", max, average / float(leaf_node_count), leaf_node_count);
+    // horizon_info("max triangles per leaf: {} average triangles per leaf: {} leaf node count: {}", max, average / float(leaf_node_count), leaf_node_count);
+
+    horizon_info("\e[0;97mprimitive count: {}", tris.size());
+    horizon_info("\e[0;97mnode count: {}", bvh.node_count);
+    horizon_info("\e[0;97mdepth: {}", bvh.depth());
+    horizon_info("\e[0;97mglobal sah cost: {}", bvh.node_traversal_cost(build_options));
+    horizon_info("\e[0;97mleaf count: {}", leaf_node_count);
+    horizon_info("\e[0;97mmax tris per leaf: {}", max);
+    horizon_info("\e[0;97mmin tris per leaf: {}", min);
+    horizon_info("\e[0;97maverage tris per leaf: {}", average / float(leaf_node_count));
     
 
     gfx::handle_buffer_t bvh_nodes = create_and_push_n_bits_to_dedicated_memory_buffer(context, renderer.command_pool, bvh.p_nodes, bvh.node_count * sizeof(horizon::node_t));

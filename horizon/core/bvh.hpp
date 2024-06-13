@@ -192,7 +192,7 @@ struct bvh_t {
         float best_cost = infinity;
 
         constexpr bool use_uniform_sampling = true;
-        constexpr uint32_t samples = 25;
+        constexpr uint32_t samples = 100;
 
         for (uint32_t axis = 0; axis < 3; axis++) {
             if (use_uniform_sampling) {

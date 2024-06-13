@@ -1052,6 +1052,7 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
 
         sessionDesc.compilerOptionEntryCount = compiler_options.size();
         sessionDesc.compilerOptionEntries = compiler_options.data();
+        // sessionDesc.defaultMatrixLayoutMode = SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR;
         
         check(slangGlobalSession->createSession(sessionDesc, session.writeRef()) == 0, "failed to create session");
         return true;

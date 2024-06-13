@@ -123,8 +123,6 @@ struct hit_t {
     float t;
     uint32_t node_intersect_count = 0;
     uint32_t primitive_intersect_count = 0;
-    uint32_t loops = 0;
-    uint32_t passed = 0;
 };
 
 void intersect_leaf_node(in const node_t *node, inout hit_t hit, bvh_t *bvh, inout ray_t ray, triangle_t *triangles) {
@@ -149,7 +147,6 @@ hit_t stack_traverse_ordered(bvh_t *bvh, inout ray_t ray, triangle_t *triangles)
     stack[stack_top++] = 0;
 
     while (stack_top != 0) {
-        hit.loops++;
         node_t *node = &bvh->p_nodes[stack[--stack_top]];
 
         if (node.is_leaf()) {
@@ -190,9 +187,6 @@ hit_t stack_traverse_ordered_optimised(bvh_t *bvh, inout ray_t ray, triangle_t *
     uint32_t current = 0;
 
     while (true) {
-        hit.loops++;
-        if (hit.loops > 200) return hit;
-
         node_t *node = &bvh->p_nodes[current];
 
         if (node.is_leaf()) {
@@ -233,6 +227,8 @@ hit_t stack_traverse_ordered_optimised_further(bvh_t *bvh, inout ray_t ray, tria
     hit_t hit;
     {
         node_t *root = &bvh->p_nodes[0];
+        hit.node_intersect_count++;
+        if (!node_intersect(*root, ray).did_intersect()) return hit;
         if (root->is_leaf()) {
             intersect_leaf_node(root, hit, bvh, ray, triangles);
             return hit;
@@ -246,6 +242,7 @@ hit_t stack_traverse_ordered_optimised_further(bvh_t *bvh, inout ray_t ray, tria
 
     node_t *left_node = &bvh->p_nodes[1];
     node_t *right_node = &bvh->p_nodes[2];
+    hit.node_intersect_count += 2;
     node_intersection_t left = node_intersect(*left_node, ray);
     node_intersection_t right = node_intersect(*right_node, ray);
 
@@ -271,9 +268,6 @@ hit_t stack_traverse_ordered_optimised_further(bvh_t *bvh, inout ray_t ray, tria
     }
 
     while (true) {
-        hit.loops++;
-        if (hit.loops > 200) return hit;
-
         node_t *node = &bvh->p_nodes[current];
 
         hit.node_intersect_count += 2;
@@ -333,7 +327,6 @@ hit_t stack_traverse_unordered(bvh_t *bvh, inout ray_t ray, triangle_t *triangle
     stack[stack_top++] = 0;
 
     while (stack_top != 0) {
-        hit.loops++;
         node_t *node = &bvh->p_nodes[stack[--stack_top]];
 
         hit.node_intersect_count++;
@@ -375,7 +368,6 @@ hit_t stackless_traverse(bvh_t *bvh, inout ray_t ray, triangle_t *triangles) {
     uint32_t current_id = get_near_child_id(0, bvh->p_nodes);
 
     while (true) {
-        hit.loops++;
         if (state == from_child)
         {
             if (current_id == 0) return hit;
@@ -445,6 +437,10 @@ float4 operator *(float4x4 mat, float4 vec) {
     return mul(mat, vec);
 }
 
+float4 operator *(float4 vec, float4x4 mat) {
+    return mul(vec, mat);
+}
+
 extension float3 {
     __init(float4 v) {
         this.x = v.x;
@@ -458,38 +454,43 @@ ray_t create_ray(in float2 uv, in float4x4 inv_projection, in float4x4 inv_view)
     // float2 px_nds = uv;
     float3 point_nds = float3(px_nds, -1);
     float4 point_ndsh = float4(point_nds, 1);
-    float4 dir_eye = inv_projection * point_ndsh;
+    float4 dir_eye = point_ndsh * inv_projection;
     dir_eye.w = 0;
-    float3 dir_world = float3(inv_view * dir_eye);
+    float3 dir_world = float3(dir_eye * inv_view);
     float3 eye = { inv_view[3][0], inv_view[3][1], inv_view[3][2] };
     ray_t ray = ray_t::create(eye, dir_world);
     return ray;
+}
+
+float3 lerp_f3(float3 start, float3 end, float t) {
+    return start + (end - start) * t;
 }
 
 [shader("fragment")]
 pixel_t fragmentMain(per_fragment_t per_fragment) : SV_Target {
     pixel_t p;
 
-    float3 eye = { 1, .5, 0 };
-    float3 dir = { -1, 0, 0 };
-    float3 up = { 0, 1, 0 };
-
-    // float3 eye = { 0, 2.5, 5 };
-    // float3 dir = { 0, 0, -1 };
+    // float3 eye = { 1, .5, 0 };
+    // float3 dir = { -1, 0, 0 };
     // float3 up = { 0, 1, 0 };
 
-    float3 right = normalize(cross(normalize(dir), up));
-    up = cross(right, normalize(dir));
+    // // float3 eye = { 0, 2.5, 5 };
+    // // float3 dir = { 0, 0, -1 };
+    // // float3 up = { 0, 1, 0 };
 
-    float r = per_fragment.uv.x;
-    float g = per_fragment.uv.y;
+    // float3 right = normalize(cross(normalize(dir), up));
+    // up = cross(right, normalize(dir));
 
-    float u = -(r * 2.f - 1.f);
-    float v = g * 2.f - 1.f;
+    // float r = per_fragment.uv.x;
+    // float g = per_fragment.uv.y;
 
-    float3 ray_dir = dir + (u * right) + (v * up);
-    ray_t ray = ray_t::create(eye, ray_dir);
-    // ray_t ray = create_ray(per_fragment.uv, uniform.inverse_projection, uniform.inverse_view);
+    // float u = -(r * 2.f - 1.f);
+    // float v = g * 2.f - 1.f;
+
+    // float3 ray_dir = dir + (u * right) + (v * up);
+    // ray_t ray = ray_t::create(eye, ray_dir);
+    
+    ray_t ray = create_ray(per_fragment.uv, uniform.inverse_projection, uniform.inverse_view);
 
     // hit_t hit = stackless_traverse(uniform.bvh, ray, uniform.triangles);
     // hit_t hit = stack_traverse_ordered(uniform.bvh, ray, uniform.triangles);
@@ -499,19 +500,24 @@ pixel_t fragmentMain(per_fragment_t per_fragment) : SV_Target {
 
     float4 color = { 0 };
     if (hit.did_intersect()) {
-        color = float4(((((hit.primitive_id + 1) * 5678) % 255)) / 255.f, ((((hit.primitive_id + 1) * 543) % 255)) / 255.f, ((((hit.primitive_id + 1) * 567) % 255)) / 255.f, 1);
-        // color = float4(hit.t / 10.f, hit.t / 10.f, hit.t / 10.f, 1);
-        // color.x += hit.node_intersect_count / 100.f;
-        // color.y += hit.primitive_intersect_count / 50.f;
-        // color.z += hit.loops / 1.f;
-        // color.x = hit.loops / 1.f;
-    } else {
-        // color.x = hit.loops;
-    }
+        // color = float4(((((hit.primitive_id + 1) * 5678) % 255)) / 255.f, ((((hit.primitive_id + 1) * 543) % 255)) / 255.f, ((((hit.primitive_id + 1) * 567) % 255)) / 255.f, 1);
 
-    // if (hit.passed == 1) {
-    //     color.x = 1;
-    // }
+        float t = hit.node_intersect_count / 200.f;
+        if (t > 1) {
+            color.xyz = { 1, 1, 1 };
+        } else {
+            color.xyz = lerp_f3( { 0.5, 0.5, 0 }, { 1, 0, 0 }, t);
+        }
+
+        // float t = hit.primitive_intersect_count / 50.f;
+        // if (t > 1) {
+        //     color.xyz = { 1, 1, 1 };
+        // } else {
+        //     color.xyz = lerp_f3( { 0.5, 0.5, 0 }, { 1, 0, 0 }, t);
+        // }
+
+    } 
+
     color.w = 1;
     p.color = color;
 

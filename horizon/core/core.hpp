@@ -55,6 +55,10 @@ struct binary_reader_t {
     binary_reader_t(const std::filesystem::path& path) : _path(path), _file(path, std::ios::binary) {
         check(_file.is_open(), "Failed to open file {}", _path.string());
     }
+
+    size_t file_size() {
+        return std::filesystem::file_size(_path);
+    }
     
     // TODO: add error handling
     template <typename type_t>
