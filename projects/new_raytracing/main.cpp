@@ -2,13 +2,13 @@
 #include "core/window.hpp"
 #include "core/random.hpp"
 #include "core/model.hpp"
+#include "core/bvh.hpp"
 
 #include "gfx/context.hpp"
 #include "gfx/helper.hpp"
 #include "gfx/base_renderer.hpp"
 
 #include "utility.hpp"
-#include "bvh.hpp"
 
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
@@ -138,7 +138,7 @@ int main() {
         std::cout << "built bvh with " << bvh.node_count << " nodes.\n";
         bvh.to_disk(model_path + ".bvh");
     }
-    
+
     horizon_info("bvh depth: {} node count: {}", bvh.depth(), bvh.node_count);
     uint32_t max = 0;
     float average = 0;
