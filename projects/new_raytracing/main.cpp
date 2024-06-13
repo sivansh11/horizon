@@ -123,8 +123,8 @@ int main() {
     }
 
     horizon::bvh_t::build_options_t build_options{
-        .primitive_intersection_cost = 1.f,
-        .node_intersection_cost = 0.1f,
+        .primitive_intersection_cost = 1.1f,
+        .node_intersection_cost = 1.f,
         .min_primitive_count = 1,
         .max_primitive_count = std::numeric_limits<uint32_t>::max(),
         .add_node_intersection_cost_in_leaf_traversal = false,
@@ -252,7 +252,7 @@ int main() {
 
         static uint frame_count = 0;
         frame_count++;
-        if (frame_count == 100) {
+        if (frame_count > 0) {
             frame_count = 0;
             if (auto t = context.timer_get_time(timer)) {
                 horizon_info("{} {}", *t, dt.count());
