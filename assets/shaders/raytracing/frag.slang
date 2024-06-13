@@ -470,7 +470,7 @@ ray_t create_ray(in float2 uv, in float4x4 inv_projection, in float4x4 inv_view)
 pixel_t fragmentMain(per_fragment_t per_fragment) : SV_Target {
     pixel_t p;
 
-    float3 eye = { 1, 2.5, 0 };
+    float3 eye = { 1, .5, 0 };
     float3 dir = { -1, 0, 0 };
     float3 up = { 0, 1, 0 };
 

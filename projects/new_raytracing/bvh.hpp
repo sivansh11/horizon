@@ -182,6 +182,12 @@ struct bvh_t {
     std::pair<split_data_t, float> find_best_split(uint32_t node_id, const aabb_t *p_aabbs, const vec3 *p_centers, build_options_t build_options) {
         node_t& node = p_nodes[node_id];
         
+        aabb_t split_bounds{};
+        for (uint32_t i = 0; i < node.primitive_count; i++) {
+            const uint32_t primitive_id = p_primitive_indices[node.first_index + i];
+            split_bounds.grow(p_centers[primitive_id]);
+        }
+
         split_data_t best_split{};
         float best_cost = infinity;
 
@@ -190,12 +196,12 @@ struct bvh_t {
 
         for (uint32_t axis = 0; axis < 3; axis++) {
             if (use_uniform_sampling) {
-                const float scale = (node.max[axis] - node.min[axis]) / float(samples);
+                const float scale = (split_bounds.max[axis] - split_bounds.min[axis]) / float(samples);
                 if (scale == 0.f) continue;
                 for (uint32_t i = 0; i < samples; i++) {
                     split_data_t candidate_split{};
                     candidate_split.axis = axis;
-                    candidate_split.position = node.min[axis] + (i * scale);
+                    candidate_split.position = split_bounds.min[axis] + (i * scale);
 
                     debug_data_t debug_data;
                     float cost = get_split_cost(node_id, candidate_split, p_aabbs, p_centers, build_options, debug_data);

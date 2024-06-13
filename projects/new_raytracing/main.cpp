@@ -138,7 +138,7 @@ int main() {
         std::cout << "built bvh with " << bvh.node_count << " nodes.\n";
         bvh.to_disk(model_path + ".bvh");
     }
-
+    
     horizon_info("bvh depth: {} node count: {}", bvh.depth(), bvh.node_count);
     uint32_t max = 0;
     float average = 0;
