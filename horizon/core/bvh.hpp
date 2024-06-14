@@ -425,9 +425,9 @@ struct bvh_t {
 
     node_t *p_nodes{ nullptr };
     uint32_t *p_primitive_indices{ nullptr };
-    uint32_t *p_parent_ids{ nullptr };
     uint32_t node_count;
     uint32_t primitive_count;
+    uint32_t *p_parent_ids{ nullptr };
 };
 
 } // namespace horizon

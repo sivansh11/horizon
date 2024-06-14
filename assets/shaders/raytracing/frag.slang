@@ -7,9 +7,9 @@ struct pixel_t {
 struct node_t {
     bool is_leaf() { return primitive_count != 0; }
     float3 min;
-    uint32_t primitive_count;
-    float3 max;
     uint32_t first_index;
+    float3 max;
+    uint32_t primitive_count;
 };
 
 struct bvh_t {
@@ -53,6 +53,18 @@ struct ray_t {
         return ray;
     }
 
+    static ray_t create(in float2 uv, in float4x4 inv_projection, in float4x4 inv_view) {
+        float2 px_nds = uv * 2.f - 1.f;
+        float3 point_nds = float3(px_nds, -1);
+        float4 point_ndsh = float4(point_nds, 1);
+        float4 dir_eye = point_ndsh * inv_projection;
+        dir_eye.w = 0;
+        float3 dir_world = float3(dir_eye * inv_view);
+        float3 eye = { inv_view[3][0], inv_view[3][1], inv_view[3][2] };
+        ray_t ray = ray_t::create(eye, dir_world);
+        return ray;
+    }
+
     float3 origin, direction, inverse_direction;
     float tmin, tmax;
 };
@@ -88,7 +100,7 @@ triangle_intersection_t triangle_intersect(triangle_t triangle, ray_t ray) {
     }
     triangle_intersection_t intersection;
     intersection.intersection = false;
-    intersection.t = 100000000;
+    intersection.t = 10000000;
     return intersection;
 }
 
@@ -449,19 +461,6 @@ extension float3 {
     }
 };
 
-ray_t create_ray(in float2 uv, in float4x4 inv_projection, in float4x4 inv_view) {
-    float2 px_nds = uv * 2.f - 1.f;
-    // float2 px_nds = uv;
-    float3 point_nds = float3(px_nds, -1);
-    float4 point_ndsh = float4(point_nds, 1);
-    float4 dir_eye = point_ndsh * inv_projection;
-    dir_eye.w = 0;
-    float3 dir_world = float3(dir_eye * inv_view);
-    float3 eye = { inv_view[3][0], inv_view[3][1], inv_view[3][2] };
-    ray_t ray = ray_t::create(eye, dir_world);
-    return ray;
-}
-
 float3 lerp_f3(float3 start, float3 end, float t) {
     return start + (end - start) * t;
 }
@@ -489,14 +488,14 @@ pixel_t fragmentMain(per_fragment_t per_fragment) : SV_Target {
 
     // float3 ray_dir = dir + (u * right) + (v * up);
     // ray_t ray = ray_t::create(eye, ray_dir);
-    
-    ray_t ray = create_ray(per_fragment.uv, uniform.inverse_projection, uniform.inverse_view);
+
+    ray_t ray = ray_t::create(per_fragment.uv, uniform.inverse_projection, uniform.inverse_view);
 
     // hit_t hit = stackless_traverse(uniform.bvh, ray, uniform.triangles);
+    // hit_t hit = stack_traverse_unordered(uniform.bvh, ray, uniform.triangles);
     // hit_t hit = stack_traverse_ordered(uniform.bvh, ray, uniform.triangles);
     hit_t hit = stack_traverse_ordered_optimised(uniform.bvh, ray, uniform.triangles);
     // hit_t hit = stack_traverse_ordered_optimised_further(uniform.bvh, ray, uniform.triangles);
-    // hit_t hit = stack_traverse_unordered(uniform.bvh, ray, uniform.triangles);
 
     float4 color = { 0 };
     if (hit.did_intersect()) {
@@ -506,14 +505,14 @@ pixel_t fragmentMain(per_fragment_t per_fragment) : SV_Target {
         if (t > 1) {
             color.xyz = { 1, 1, 1 };
         } else {
-            color.xyz = lerp_f3( { 0.5, 0.5, 0 }, { 1, 0, 0 }, t);
+            color.xyz = lerp_f3( { 0, 1, 0 }, { 1, 0, 0 }, t);
         }
 
-        // float t = hit.primitive_intersect_count / 50.f;
+        // float t = hit.primitive_intersect_count / 20.f;
         // if (t > 1) {
         //     color.xyz = { 1, 1, 1 };
         // } else {
-        //     color.xyz = lerp_f3( { 0.5, 0.5, 0 }, { 1, 0, 0 }, t);
+        //     color.xyz = lerp_f3( { 0, 1, 0 }, { 1, 0, 0 }, t);
         // }
 
     } 
