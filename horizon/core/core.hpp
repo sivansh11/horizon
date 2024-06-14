@@ -56,6 +56,10 @@ struct binary_reader_t {
         check(_file.is_open(), "Failed to open file {}", _path.string());
     }
 
+    ~binary_reader_t() {
+        _file.close();
+    }
+
     size_t file_size() {
         return std::filesystem::file_size(_path);
     }
@@ -77,6 +81,7 @@ struct binary_writer_t {
 
     ~binary_writer_t() {
         flush();
+        _file.close();
     }
 
     template <typename type_t>

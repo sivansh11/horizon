@@ -62,9 +62,183 @@ gfx::handle_buffer_t create_and_push_n_bits_to_dedicated_memory_buffer(gfx::cont
     return buffer;
 }
 
-// std::pair<std::vector<horizon::triangle_t>, horizon::bvh_t> load_bbk_model_and_bvh(const std::filesystem::path& path) {
-//     size_t index_count = 
-// }
+std::pair<std::vector<horizon::triangle_t>, horizon::bvh_t> load_bbk_model_and_bvh() {
+    core::binary_reader_t vertex_reader{ "../../assets/models/bbk_sponza_and_bvh/sah-samples-25/MergedSponza (1)/MergedSponza.vertices" };
+    struct vertex_t {
+        horizon::vec3 positon;
+    };
+    size_t vertex_list_size = vertex_reader.file_size() / sizeof(vertex_t);
+    std::vector<vertex_t> vertex_list;
+    for (uint32_t i = 0; i < vertex_list_size; i++) {
+        vertex_t vertex;
+        vertex_reader.read(vertex);
+        vertex_list.push_back(vertex);
+    }
+    horizon_info("{}", vertex_list_size);
+
+    core::binary_reader_t tri_indices_reader{ "../../assets/models/bbk_sponza_and_bvh/sah-samples-25/MergedSponza (1)/MergedSponza.triIndices" };
+    struct tri_indices_t {
+        uint32_t i0, i1, i2;
+    };
+    size_t tri_indices_list_size = tri_indices_reader.file_size() / sizeof(tri_indices_t);
+    std::vector<tri_indices_t> tri_indices_list;
+    for (uint32_t i = 0; i < tri_indices_list_size; i++) {
+        tri_indices_t tri_indices;
+        tri_indices_reader.read(tri_indices);
+        tri_indices_list.push_back(tri_indices);
+    }
+    horizon_info("{}", tri_indices_list_size);
+    
+    auto transform = glm::scale(glm::mat4{1.f}, glm::vec3{0.01, 0.01, 0.01});
+
+    core::binary_reader_t node_reader{ "../../assets/models/bbk_sponza_and_bvh/sah-samples-25/MergedSponza (1)/MergedSponza.nodes" };
+    size_t node_list_size = node_reader.file_size() / sizeof(horizon::node_t);
+    std::vector<horizon::node_t> node_list;
+    for (uint32_t i = 0; i < node_list_size; i++) {
+        horizon::node_t node;
+        node_reader.read(node);
+        node.min = transform * glm::vec4(node.min, 1);
+        node.max = transform * glm::vec4(node.max, 1);
+        node_list.push_back(node);
+    }
+    horizon_info("{}", node_list_size);
+
+    std::vector<horizon::triangle_t> tris{};
+    for (auto& tri_indices : tri_indices_list) {
+        horizon::triangle_t tri {
+            transform * glm::vec4(vertex_list[tri_indices.i0].positon, 1),
+            transform * glm::vec4(vertex_list[tri_indices.i1].positon, 1),
+            transform * glm::vec4(vertex_list[tri_indices.i2].positon, 1),
+        };
+        tris.push_back(tri);
+    }
+
+    horizon::bvh_t bvh{};
+    bvh.primitive_count = tris.size();
+    bvh.p_primitive_indices = new uint32_t[bvh.primitive_count];
+    for (uint32_t i = 0; i < bvh.primitive_count; i++) bvh.p_primitive_indices[i] = i;
+    bvh.node_count = node_list.size();
+    bvh.p_nodes = new horizon::node_t[bvh.node_count];
+    for (uint32_t i = 0; i < bvh.node_count; i++) {
+        bvh.p_nodes[i] = node_list[i];
+    }
+    bvh.p_parent_ids = new uint32_t[bvh.node_count];
+
+    return { tris, bvh };
+}
+
+void save_model_for_bbk(std::string path, const horizon::bvh_t& bvh, const core::model_t& model) {
+    core::binary_writer_t writer{ path + ".compressed_triangle_and_bvh" };
+
+    struct vertex_t {
+        glm::vec3 position;
+    };
+    std::vector<vertex_t> vertex_list;
+    for (auto& mesh : model.meshes) {
+        for (uint32_t i = 0; i < mesh.vertices.size(); i++) {
+            vertex_t vertex = { mesh.vertices[i].position };
+            vertex_list.push_back(vertex);
+        }
+    }
+    uint32_t vertex_count = vertex_list.size();
+    writer.write(vertex_count);
+    // horizon_info("{}", vertex_count);
+    for (auto& vertex : vertex_list) {
+        writer.write(vertex);
+        // horizon_info("{}", glm::to_string(vertex.position));
+    }
+
+    std::vector<uint32_t> indices;
+    uint32_t offset = 0;
+    for (auto& mesh : model.meshes) {
+        for (uint32_t i = 0; i < mesh.indices.size(); i++) {
+            indices.push_back(offset + mesh.indices[i]);
+        }
+        offset += mesh.vertices.size();
+    }
+    uint32_t index_count = indices.size();
+    writer.write(index_count);
+    // horizon_info("{}", index_count);
+    for (auto& index : indices) {
+        writer.write(index);
+        // horizon_info("{}", index);
+    }
+
+    uint32_t node_count = bvh.node_count;
+    writer.write(node_count);
+    // horizon_info("{}", node_count);
+    for (uint32_t i = 0; i < node_count; i++) {
+        writer.write(bvh.p_nodes[i]);
+        // horizon_info("{} {} {} {}", glm::to_string(bvh.p_nodes[i].min), bvh.p_nodes[i].first_index, glm::to_string(bvh.p_nodes[i].max), bvh.p_nodes[i].primitive_count);
+    }
+
+    uint32_t primitive_indices_count = bvh.primitive_count;
+    writer.write(primitive_indices_count);
+    // horizon_info("{}", primitive_indices_count);
+    for (uint32_t i = 0; i < primitive_indices_count; i++) {
+        writer.write(bvh.p_primitive_indices[i]);
+        // horizon_info("{}", bvh.p_primitive_indices[i]);
+    }
+}
+
+std::pair<std::vector<horizon::triangle_t>, horizon::bvh_t> load_my_model() {
+    core::binary_reader_t reader{ "../../assets/models/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf.compressed_triangle_and_bvh" };
+
+    horizon::bvh_t bvh;
+
+    struct vertex_t {
+        glm::vec3 position;
+    };
+    std::vector<vertex_t> vertex_list{};
+    uint32_t vertex_count;
+    reader.read(vertex_count);
+    horizon_info("{}", vertex_count);
+    for (uint32_t i = 0; i < vertex_count; i++) {
+        vertex_t vertex;
+        reader.read(vertex);
+        horizon_info("{}", glm::to_string(vertex.position));
+        vertex_list.push_back(vertex);
+    }
+
+    std::vector<uint32_t> index_list{};
+    uint32_t index_count;
+    reader.read(index_count);
+    horizon_info("{}", index_count);
+    for (uint32_t i = 0; i < index_count; i++) {
+        uint32_t index;
+        reader.read(index);
+        horizon_info("{}", index);
+        index_list.push_back(index);
+    }
+
+    reader.read(bvh.node_count);
+    horizon_info("{}", bvh.node_count);
+    bvh.p_nodes = new horizon::node_t[bvh.node_count];
+    for (uint32_t i = 0; i < bvh.node_count; i++) {
+        reader.read(bvh.p_nodes[i]);
+        horizon_info("{} {} {} {}", glm::to_string(bvh.p_nodes[i].min), bvh.p_nodes[i].first_index, glm::to_string(bvh.p_nodes[i].max), bvh.p_nodes[i].primitive_count);
+    }
+
+    reader.read(bvh.primitive_count);
+    horizon_info("{}", bvh.primitive_count);
+    bvh.p_primitive_indices = new uint32_t[bvh.primitive_count];
+    for (uint32_t i = 0; i < bvh.primitive_count; i++) {
+        reader.read(bvh.p_primitive_indices[i]);
+        horizon_info("{}", bvh.p_primitive_indices[i]);
+    }
+
+    std::vector<horizon::triangle_t> tris;
+    for (uint32_t i = 0; i < index_list.size(); i+=3) {
+        horizon::triangle_t tri {
+            vertex_list[index_list[i + 0]].position,
+            vertex_list[index_list[i + 1]].position,
+            vertex_list[index_list[i + 2]].position,
+        };
+        tris.push_back(tri);
+    }
+
+    return { tris, bvh };
+}
 
 int main() {
     core::log_t::set_log_level(core::log_level_t::e_info);
@@ -104,7 +278,16 @@ int main() {
                                     .add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/raytracing/frag.slang", .name = "raytracing fragment", .type = gfx::shader_type_t::e_fragment }));
     gfx::handle_pipeline_t rt_pipeline = context.create_graphics_pipeline(config_rt_pipeline);
 
-    std::string model_path = "../../assets/models/dragon.obj";
+
+    horizon::bvh_t::build_options_t build_options{
+        .primitive_intersection_cost = 1.1f,
+        .node_intersection_cost = 1.f,
+        .min_primitive_count = 1,
+        .max_primitive_count = std::numeric_limits<uint32_t>::max(),
+        .add_node_intersection_cost_in_leaf_traversal = false,
+    };
+    
+    std::string model_path = "../../assets/models/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf";
     auto model = core::load_model_from_path(model_path);
     std::vector<horizon::triangle_t> tris;
     std::vector<horizon::aabb_t> aabbs;
@@ -125,25 +308,23 @@ int main() {
             centers.push_back(center);
         }
     }
-
-    horizon::bvh_t::build_options_t build_options{
-        .primitive_intersection_cost = 1.1f,
-        .node_intersection_cost = 1.f,
-        .min_primitive_count = 1,
-        .max_primitive_count = std::numeric_limits<uint32_t>::max(),
-        .add_node_intersection_cost_in_leaf_traversal = false,
-    };
     horizon::bvh_t bvh;
-    if (std::filesystem::exists(model_path + ".bvh")) {
+    if (std::filesystem::exists(model_path + ".bvh") && false) {
         horizon_warn("found cached bvh, loading that instead");
         bvh = horizon::bvh_t::load(model_path + ".bvh");
     } else {
         bvh = horizon::bvh_t::construct(aabbs.data(), centers.data(), tris.size(), build_options);
-        std::cout << "built bvh with " << bvh.node_count << " nodes.\n";
+        horizon_info("BUILD BVH FROM SCRATCH");
         bvh.to_disk(model_path + ".bvh");
     }
+    save_model_for_bbk(model_path, bvh, model);
 
-    horizon_info("bvh depth: {} node count: {}", bvh.depth(), bvh.node_count);
+    // auto [tris, bvh] = load_bbk_model_and_bvh();
+
+    // auto [tris, bvh] = load_my_model();
+    // bvh.p_parent_ids = new uint32_t[bvh.primitive_count];
+
+    // horizon_info("bvh depth: {} node count: {}", bvh.depth(), bvh.node_count);
     uint32_t max = 0;
     uint32_t min = std::numeric_limits<uint32_t>::max();
     float average = 0;
@@ -218,6 +399,11 @@ int main() {
         core::clear_frame_function_times();
         core::window_t::poll_events();
         if (glfwGetKey(window.window(), GLFW_KEY_ESCAPE)) break;
+        if (glfwGetKey(window.window(), GLFW_KEY_RIGHT_SHIFT)) {
+            camera.camera_speed_multiplyer = 100;
+        } else {
+            camera.camera_speed_multiplyer = 1;   
+        }
         if (glfwGetKey(window.window(), GLFW_KEY_R)) {
             context.wait_idle();
             context.destroy_pipeline(rt_pipeline);

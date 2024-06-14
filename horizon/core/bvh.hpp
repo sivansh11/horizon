@@ -5,6 +5,7 @@
 #define ALGEBRA_HPP
 
 #include "core.hpp"
+#include "core/model.hpp"
 
 #include <glm/glm.hpp>
 
@@ -64,9 +65,9 @@ struct node_t {
     bool is_leaf() const { return primitive_count != 0; }
 
     vec3        min{ infinity };
-    uint32_t    primitive_count = 0;
-    vec3        max{ -infinity };
     uint32_t    first_index = 0;  // first index to a primitive or a child node
+    vec3        max{ -infinity };
+    uint32_t    primitive_count = 0;
 };
 
 struct bvh_t {
@@ -192,13 +193,13 @@ struct bvh_t {
         float best_cost = infinity;
 
         constexpr bool use_uniform_sampling = true;
-        constexpr uint32_t samples = 100;
+        constexpr uint32_t samples = 8;
 
         for (uint32_t axis = 0; axis < 3; axis++) {
             if (use_uniform_sampling) {
-                const float scale = (split_bounds.max[axis] - split_bounds.min[axis]) / float(samples);
+                const float scale = (split_bounds.max[axis] - split_bounds.min[axis]) / float(samples + 1);
                 if (scale == 0.f) continue;
-                for (uint32_t i = 0; i < samples; i++) {
+                for (uint32_t i = 0; i <= samples; i++) {
                     split_data_t candidate_split{};
                     candidate_split.axis = axis;
                     candidate_split.position = split_bounds.min[axis] + (i * scale);
@@ -249,10 +250,38 @@ struct bvh_t {
     void split_node(uint32_t node_id, uint32_t& node_count, split_data_t split_data, const aabb_t *p_aabbs, const vec3 *p_centers, build_options_t build_options) {
         node_t& node = p_nodes[node_id];
 
+        std::vector<uint32_t> primitive_indices{};
+        primitive_indices.resize(node.primitive_count);
+
+        uint32_t start = 0;
+        uint32_t end = node.primitive_count - 1;
+
+        // for (uint32_t i = 0; i < node.primitive_count; i++) {
+        //     const uint32_t primitive_id = p_primitive_indices[node.first_index + i];
+        //     primitive_indices[i] = primitive_id;
+        // }
+
+        // uint32_t left_count = 0;
+        // uint32_t right_count = 0;
+        // for (uint32_t i = 0; i < node.primitive_count; i++) {
+        //     const uint32_t primitive_id = p_primitive_indices[node.first_index + i];
+        //     if (p_centers[primitive_id][split_data.axis] < split_data.position) {
+        //         primitive_indices[start++] = primitive_id;
+        //         left_count++;
+        //     } else {
+        //         primitive_indices[end--] = primitive_id;
+        //         right_count++;
+        //     }
+        // }
+
+        // for (uint32_t i = 0; i < node.primitive_count; i++) {
+        //     p_primitive_indices[node.first_index + i] = primitive_indices[i];
+        // }
+
         uint32_t left  = node.first_index;
         uint32_t right = left + node.primitive_count - 1;
 
-        while (left < right) {
+        while (left <= right) {
             if (p_centers[p_primitive_indices[left]][split_data.axis] < split_data.position) {
                 left++;
             } else {
@@ -262,6 +291,7 @@ struct bvh_t {
         }
         
         uint32_t left_count = left - node.first_index;
+        
         if (left_count == 0 || left_count == node.primitive_count) {
             return;
         }
@@ -274,8 +304,11 @@ struct bvh_t {
         p_nodes[left_node_id].primitive_count = left_count;
 
         p_nodes[right_node_id] = node_t{};
+        // p_nodes[right_node_id].first_index = node.first_index + left_count;
+        // p_nodes[right_node_id].primitive_count = node.primitive_count - left_count;
         p_nodes[right_node_id].first_index = left;
         p_nodes[right_node_id].primitive_count = node.primitive_count - left_count;
+
         
         p_parent_ids[right_node_id] = node_id;
         p_parent_ids[left_node_id] = node_id;
