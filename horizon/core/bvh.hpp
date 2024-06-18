@@ -69,6 +69,19 @@ struct bvh_t {
         const bool add_node_intersection_cost_in_leaf_traversal = false;
     };
 
+    void single_node_fix() {
+        p_nodes[1] = p_nodes[0];
+
+        p_nodes[0].primitive_count = 0;
+        p_nodes[0].first_index = 1;
+
+        p_nodes[2] = node_t{};
+        p_nodes[2].min = glm::vec3{ infinity };
+        p_nodes[2].max = glm::vec3{ infinity };
+        p_nodes[2].primitive_count = 0;
+        p_nodes[2].first_index = 0;
+    }
+
     static bvh_t construct(const aabb_t *p_aabbs, const vec3 *p_centers, uint32_t primitive_count, build_options_t build_options) {
         bvh_t bvh{};
 
@@ -89,6 +102,11 @@ struct bvh_t {
         uint32_t node_count = 1;
         bvh.update_node_bounds(0, p_aabbs, p_centers);
         bvh.try_split_node(0, node_count, p_aabbs, p_centers, build_options);
+
+        // if (node_count == 1) {
+        //     bvh.single_node_fix();
+        //     node_count += 2;
+        // }
 
         bvh.node_count = node_count;
 

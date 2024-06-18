@@ -228,7 +228,7 @@ node_intersection_t node_intersect(node_t node, ray_t ray) {
     return node_intersection;
 }
 
-void intersect_leaf_node(in const node_t *node, inout hit_t hit, bvh_t *bvh, inout ray_t ray, sphere_t *spheres) {
+void intersect_leaf_node(in const node_t node, inout hit_t hit, bvh_t *bvh, inout ray_t ray, sphere_t *spheres) {
     for (uint32_t i = 0; i < node.primitive_count; i++) {
         const uint32_t primitive_id = bvh.p_primitive_indices[node.first_index + i];
         hit.primitive_intersect_count++;
@@ -241,7 +241,7 @@ void intersect_leaf_node(in const node_t *node, inout hit_t hit, bvh_t *bvh, ino
     }
 }
 
-void intersect_leaf_node(in const node_t *node, inout hit_t hit, bvh_t *bvh, inout ray_t ray, triangle_t *triangles) {
+void intersect_leaf_node(in const node_t node, inout hit_t hit, bvh_t *bvh, inout ray_t ray, triangle_t *triangles) {
     for (uint32_t i = 0; i < node.primitive_count; i++) {
         const uint32_t primitive_id = bvh.p_primitive_indices[node.first_index + i];
         hit.primitive_intersect_count++;
@@ -274,7 +274,7 @@ hit_t stack_traverse_ordered_optimised(bvh_t *bvh, inout ray_t ray, triangle_t *
         node_t *node = &bvh->p_nodes[current];
 
         if (node.is_leaf()) {
-            intersect_leaf_node(node, hit, bvh, ray, triangles);
+            intersect_leaf_node(*node, hit, bvh, ray, triangles);
             if (stack_top == 0) return hit;
             current = stack[groupIndex][--stack_top];
         } else {
@@ -302,6 +302,84 @@ hit_t stack_traverse_ordered_optimised(bvh_t *bvh, inout ray_t ray, triangle_t *
                     if (stack_top == 0) return hit;
                     current = stack[groupIndex][--stack_top];
                 }
+            }
+        }
+    }
+    return hit;
+}
+
+hit_t stack_traverse_ordered_optimised_further(bvh_t *bvh, inout ray_t ray, triangle_t *triangles, uint groupIndex) {
+    hit_t hit;
+    // uint32_t stack[stack_size];
+    uint32_t stack_top = 0;
+
+    node_t root = bvh->p_nodes[0];
+    if (!node_intersect(root, ray).did_intersect()) return hit;
+
+    if (root.is_leaf()) {
+        intersect_leaf_node(root, hit, bvh, ray, triangles);
+        return hit;
+    }
+
+    uint current = 1;
+
+    uint count = 0;
+    while (true) {
+
+        node_t left = bvh->p_nodes[current];
+        node_t right = bvh->p_nodes[current + 1];
+
+        hit.node_intersect_count += 2;
+        node_intersection_t left_intersection = node_intersect(left, ray);
+        node_intersection_t right_intersection = node_intersect(right, ray);
+
+        uint32_t start = 0;
+        uint32_t end = 0;
+        if (left_intersection.did_intersect() && left.is_leaf()) {
+            if (right_intersection.did_intersect() && right.is_leaf()) {
+                start = left.first_index;
+                end = right.first_index + right.primitive_count;
+            } else {
+                start = left.first_index;
+                end = left.first_index + left.primitive_count;
+            }
+        } else if (right_intersection.did_intersect() && right.is_leaf()) {
+            start = right.first_index;
+            end = right.first_index + right.primitive_count;
+        }
+        for (uint32_t primitive_id = start; primitive_id < end; primitive_id++) {
+            const uint final_id = bvh.p_primitive_indices[primitive_id];
+            hit.primitive_intersect_count++;
+            triangle_intersection_t intersection = triangle_intersect(triangles[final_id], ray);
+            if (intersection.did_intersect()) {
+                ray.tmax = intersection.t;
+                hit.primitive_id = final_id;
+                hit.t = intersection.t;
+                hit.u = intersection.u;
+                hit.v = intersection.v;
+                hit.w = intersection.w;
+            }
+        }
+
+        if (left_intersection.did_intersect() && !left.is_leaf()) {
+            if (right_intersection.did_intersect() && !right.is_leaf()) {
+                if (stack_top >= stack_size) return hit;
+                if (left_intersection.tmin <= right_intersection.tmin) {
+                    current = left.first_index;                         // traverse left first
+                    stack[groupIndex][stack_top++] = right.first_index; // traverse rigth later
+                } else {
+                    current = right.first_index;                       // traverse right first
+                    stack[groupIndex][stack_top++] = left.first_index; // traverse left later
+                }
+            } else {
+                current = left.first_index;
+            }
+        } else {
+            if (right_intersection.did_intersect() && !right.is_leaf()) {
+                current = right.first_index;
+            } else {
+                if (stack_top == 0) return hit;
+                current = stack[groupIndex][--stack_top];
             }
         }
     }
@@ -513,7 +591,8 @@ float3 ray_color(ray_t ray, inout uint seed, triangle_t *p_triangles, uint32_t t
     float3 throughput = { 1, 1, 1 };
 
     for (uint32_t bounce = 0; bounce < bounce_count; bounce++) {
-        hit_t hit = stack_traverse_ordered_optimised(uni.p_bvh, ray, p_triangles, groupIndex);
+        hit_t hit = stack_traverse_ordered_optimised_further(uni.p_bvh, ray, p_triangles, groupIndex);
+        // hit_t hit = stack_traverse_ordered_optimised(uni.p_bvh, ray, p_triangles, groupIndex);
         // hit_t hit = traverse_no_bvh(ray, p_triangles, triangle_count);
 
         if (!hit.did_intersect()) {
