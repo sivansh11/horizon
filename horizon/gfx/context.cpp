@@ -1080,7 +1080,7 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
 
         sessionDesc.compilerOptionEntryCount = compiler_options.size();
         sessionDesc.compilerOptionEntries = compiler_options.data();
-        sessionDesc.defaultMatrixLayoutMode = SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR;
+        // sessionDesc.defaultMatrixLayoutMode = SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR;
 
         const char *search_paths[] = { "../../assets/shaders/includes" };
         sessionDesc.searchPaths = search_paths;
