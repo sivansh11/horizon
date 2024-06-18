@@ -61,6 +61,7 @@ material_description_t process_material(model_loading_info_t& model_loading_info
 mesh_t process_mesh(model_loading_info_t& model_loading_info, aiMesh *mesh, const aiScene *scene) {
     horizon_profile();
     mesh_t loaded_mesh;
+    loaded_mesh.name = mesh->mName.C_Str();
     loaded_mesh.vertices.reserve(mesh->mNumVertices);
     for (uint32_t i = 0; i < mesh->mNumVertices; i++) {
         vertex_t vertex{};

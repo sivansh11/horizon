@@ -161,8 +161,8 @@ int main() {
     predepth_config_pipeline.add_vertex_input_attribute_description(0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(core::vertex_t, uv));
     predepth_config_pipeline.add_vertex_input_attribute_description(0, 3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(core::vertex_t, tangent));
     predepth_config_pipeline.add_vertex_input_attribute_description(0, 4, VK_FORMAT_R32G32B32_SFLOAT, offsetof(core::vertex_t, bi_tangent));
-    predepth_config_pipeline.add_shader(context.create_shader(gfx::config_shader_t{ .code = core::read_file("../../assets/shaders/predepth/glsl.vert").data(), .name = "predepth vertex", .type = gfx::shader_type_t::e_vertex}));
-    predepth_config_pipeline.add_shader(context.create_shader(gfx::config_shader_t{ .code = core::read_file("../../assets/shaders/predepth/glsl.frag").data(), .name = "predepth fragment", .type = gfx::shader_type_t::e_fragment}));
+    predepth_config_pipeline.add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/predepth/glsl.vert", .is_code = false, .name = "predepth vertex", .type = gfx::shader_type_t::e_vertex, .language = gfx::shader_language_t::e_glsl }));
+    predepth_config_pipeline.add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/predepth/glsl.frag", .is_code = false, .name = "predepth fragment", .type = gfx::shader_type_t::e_fragment, .language = gfx::shader_language_t::e_glsl }));
     gfx::handle_pipeline_t predepth_pipeline = context.create_graphics_pipeline(predepth_config_pipeline);
 
     renderer::handle_descriptor_set_t camera_descriptor_set = renderer.allocate_descriptor_set(renderer::resource_policy_t::e_every_frame, { .handle_descriptor_set_layout = camera_descriptor_set_layout });

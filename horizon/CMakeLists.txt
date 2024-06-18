@@ -28,7 +28,8 @@ target_compile_definitions(horizon PUBLIC
 include_directories(horizon
     Vulkan::Headers
     ../deps
-    ../deps/imgui
+    ../deps/imgui_cmake
+    ../deps/imgui_cmake/imgui
     .
 )
 
@@ -42,6 +43,7 @@ target_include_directories(horizon
     PUBLIC slang
     PUBLIC core
     PUBLIC gfx
+    PUBLIC imgui_cmake
 )
 
 target_link_libraries(horizon
@@ -60,9 +62,10 @@ target_link_libraries(horizon
     assimp
     slang
     core
-    gfx
-    gfx-util
-    platform
+    # gfx
+    # gfx-util
+    # platform
+    imgui_cmake
     # EnTT
     # screen_capture_lite_static
     # imgui

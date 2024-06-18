@@ -1,65 +1,50 @@
-#ifndef BVH_HPP
-#define BVH_HPP
-
-#ifndef ALGEBRA_HPP
-#define ALGEBRA_HPP
+#ifndef CORE_BVH_HPP
+#define CORE_BVH_HPP
 
 #include "core.hpp"
 #include "core/model.hpp"
-
-#include <glm/glm.hpp>
-
-#define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/string_cast.hpp>
+#include "core/algebra.hpp"
 
 #include <filesystem>
 
-namespace horizon {
+namespace core {
 
-using namespace glm;
+// const float infinity = std::numeric_limits<float>::max();
 
-} // namespace horizon
+// struct triangle_t {
+//     vec3 center() { return (v0.position + v1.position + v2.position) / 3.f; }
+//     vertex_t v0{}, v1{}, v2{};
+// };
 
-#endif
+// struct aabb_t {
+//     aabb_t& grow(const vec3& point) {
+//         min = glm::min(min, point);
+//         max = glm::max(max, point);
+//         return *this;
+//     }
 
-namespace horizon {
+//     aabb_t& grow(const aabb_t& aabb) {
+//         min = glm::min(min, aabb.min);
+//         max = glm::max(max, aabb.max);
+//         return *this;
+//     }
 
-const float infinity = std::numeric_limits<float>::max();
+//     aabb_t& grow(const triangle_t& triangle) {
+//         grow(triangle.v0.position).grow(triangle.v1.position).grow(triangle.v2.position);
+//         return *this;
+//     }
 
-struct triangle_t {
-    vec3 center() { return (v0 + v1 + v2) / 3.f; }
-    vec3 v0{ 0 }, v1{ 0 }, v2{ 0 };
-};
+//     float half_area() const {
+//         vec3 e = max - min;
+//         return e.x * e.y + e.y * e.z + e.z * e.x;
+//     }
 
-struct aabb_t {
-    aabb_t& grow(const vec3& point) {
-        min = glm::min(min, point);
-        max = glm::max(max, point);
-        return *this;
-    }
+//     vec3 center() const {
+//         return (max + min) / 2.f;
+//     }
 
-    aabb_t& grow(const aabb_t& aabb) {
-        min = glm::min(min, aabb.min);
-        max = glm::max(max, aabb.max);
-        return *this;
-    }
-
-    aabb_t& grow(const triangle_t& triangle) {
-        grow(triangle.v0).grow(triangle.v1).grow(triangle.v2);
-        return *this;
-    }
-
-    float half_area() const {
-        vec3 e = max - min;
-        return e.x * e.y + e.y * e.z + e.z * e.x;
-    }
-
-    vec3 center() const {
-        return (max + min) / 2.f;
-    }
-
-    vec3 min{ infinity }, max{ -infinity };
-};
+//     vec3 min{ infinity }, max{ -infinity };
+// };
 
 struct node_t {
     bool is_leaf() const { return primitive_count != 0; }
@@ -80,7 +65,8 @@ struct bvh_t {
         const float node_intersection_cost = 1.f;
         const uint32_t min_primitive_count = 1;
         const uint32_t max_primitive_count = std::numeric_limits<uint32_t>::max();
-        const bool add_node_intersection_cost_in_leaf_traversal = true;
+        const uint32_t sah_samples = 8;
+        const bool add_node_intersection_cost_in_leaf_traversal = false;
     };
 
     static bvh_t construct(const aabb_t *p_aabbs, const vec3 *p_centers, uint32_t primitive_count, build_options_t build_options) {
@@ -193,13 +179,12 @@ struct bvh_t {
         float best_cost = infinity;
 
         constexpr bool use_uniform_sampling = true;
-        constexpr uint32_t samples = 8;
 
         for (uint32_t axis = 0; axis < 3; axis++) {
             if (use_uniform_sampling) {
-                const float scale = (split_bounds.max[axis] - split_bounds.min[axis]) / float(samples + 1);
+                const float scale = (split_bounds.max[axis] - split_bounds.min[axis]) / float(build_options.sah_samples + 1);
                 if (scale == 0.f) continue;
-                for (uint32_t i = 0; i <= samples; i++) {
+                for (uint32_t i = 0; i <= build_options.sah_samples; i++) {
                     split_data_t candidate_split{};
                     candidate_split.axis = axis;
                     candidate_split.position = split_bounds.min[axis] + (i * scale);
@@ -250,11 +235,11 @@ struct bvh_t {
     void split_node(uint32_t node_id, uint32_t& node_count, split_data_t split_data, const aabb_t *p_aabbs, const vec3 *p_centers, build_options_t build_options) {
         node_t& node = p_nodes[node_id];
 
-        std::vector<uint32_t> primitive_indices{};
-        primitive_indices.resize(node.primitive_count);
+        // std::vector<uint32_t> primitive_indices{};
+        // primitive_indices.resize(node.primitive_count);
 
-        uint32_t start = 0;
-        uint32_t end = node.primitive_count - 1;
+        // uint32_t start = 0;
+        // uint32_t end = node.primitive_count - 1;
 
         // for (uint32_t i = 0; i < node.primitive_count; i++) {
         //     const uint32_t primitive_id = p_primitive_indices[node.first_index + i];
@@ -387,7 +372,7 @@ struct bvh_t {
     }
 
     void to_disk(std::filesystem::path path) {
-        core::binary_writer_t binary_writer{ path };
+        binary_writer_t binary_writer{ path };
         binary_writer.write(node_count);
         for (uint32_t i = 0; i < node_count; i++) {
             binary_writer.write(p_nodes[i]);
@@ -404,7 +389,7 @@ struct bvh_t {
     static bvh_t load(std::filesystem::path path) {
         bvh_t bvh{};
 
-        core::binary_reader_t binary_reader{ path };
+        binary_reader_t binary_reader{ path };
         binary_reader.read(bvh.node_count);
         bvh.p_nodes = new node_t[bvh.node_count];
         for (uint32_t i = 0; i < bvh.node_count; i++) {
@@ -430,6 +415,6 @@ struct bvh_t {
     uint32_t *p_parent_ids{ nullptr };
 };
 
-} // namespace horizon
+} // namespace core
 
 #endif

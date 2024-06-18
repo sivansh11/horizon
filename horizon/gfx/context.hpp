@@ -39,7 +39,6 @@ inline data_t& assert_and_get_data(handle_t handle, map_t& map) {
 } // namespace utils
 
 using handle_t = uint64_t;
-constexpr handle_t null_handle = 0;
 
 #define define_handle(name) \
 struct name { \
@@ -57,6 +56,8 @@ struct name { \
 }
 
 namespace gfx {
+
+constexpr handle_t null_handle = 0;
 
 define_handle(handle_swapchain_t);
 define_handle(handle_buffer_t);
@@ -479,6 +480,13 @@ public:
     void cmd_end_timer(handle_commandbuffer_t handle_commandbuffer, handle_timer_t handle, VkPipelineStageFlagBits vk_pipeline_stage_flags = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
     friend struct update_descriptor_set_t;
+
+    vkb::Instance& instance();
+    vkb::PhysicalDevice& physical_device();
+    vkb::Device& device();
+    internal::queue_t& graphics_queue();
+    internal::queue_t& present_queue();
+    VkDescriptorPool& descriptor_pool();
 
 private:
     void create_instance();

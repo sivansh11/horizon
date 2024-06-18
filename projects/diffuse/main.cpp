@@ -59,7 +59,7 @@ int main() {
 
     create_material_descriptor_set_layout(context);
 
-    auto gpu_meshes = load_model_from_path(context, renderer.command_pool, "../../assets/models/Sponza/glTF/Sponza.gltf");
+    auto gpu_meshes = load_model_from_path(context, renderer.command_pool, "../../assets/models/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf");
 
     gfx::config_descriptor_set_layout_t camera_config_descriptor_set_layout{};
     camera_config_descriptor_set_layout.add_layout_binding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS);
@@ -92,8 +92,8 @@ int main() {
                            .add_vertex_input_attribute_description(0, 2, VK_FORMAT_R32G32_SFLOAT, offsetof(core::vertex_t, uv))
                            .add_vertex_input_attribute_description(0, 3, VK_FORMAT_R32G32B32_SFLOAT, offsetof(core::vertex_t, tangent))
                            .add_vertex_input_attribute_description(0, 4, VK_FORMAT_R32G32B32_SFLOAT, offsetof(core::vertex_t, bi_tangent))
-                           .add_shader(context.create_shader(gfx::config_shader_t{ .code = core::read_file("../../assets/shaders/diffuse_only/glsl.vert").data(), .name = "diffuse only vertex", .type = gfx::shader_type_t::e_vertex}))
-                           .add_shader(context.create_shader(gfx::config_shader_t{ .code = core::read_file("../../assets/shaders/diffuse_only/glsl.frag").data(), .name = "diffuse only fragment", .type = gfx::shader_type_t::e_fragment}));
+                           .add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/diffuse_only/glsl.vert", .is_code = false, .name = "diffuse only vertex", .type = gfx::shader_type_t::e_vertex, .language = gfx::shader_language_t::e_glsl }))
+                           .add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/diffuse_only/glsl.frag", .is_code = false, .name = "diffuse only fragment", .type = gfx::shader_type_t::e_fragment, .language = gfx::shader_language_t::e_glsl }));
     auto diffuse_pipeline = context.create_graphics_pipeline(diffuse_config_pipeline);
     
     gfx::config_buffer_t config_camera_buffer{};

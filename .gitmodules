@@ -31,3 +31,6 @@
 [submodule "deps/slang"]
 	path = deps/slang
 	url = https://github.com/shader-slang/slang.git
+[submodule "deps/imgui_cmake/imgui"]
+	path = deps/imgui_cmake/imgui
+	url = https://github.com/ocornut/imgui.git

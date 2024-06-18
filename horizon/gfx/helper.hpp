@@ -3,6 +3,18 @@
 
 #include "context.hpp"
 
+// #define IMGUI_IMPL_VULKAN_HAS_DYNAMIC_RENDERING
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_vulkan.h>
+
+namespace renderer {
+
+class base_renderer_t;
+
+} // namespace renderer
+
+
 namespace gfx {
 
 namespace helper {
@@ -30,6 +42,12 @@ void cmd_generate_image_mip_maps(context_t& context, handle_commandbuffer_t hand
 void cmd_transition_image_layout(context_t& context, handle_commandbuffer_t handle_commandbuffer, handle_image_t handle, VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout, uint32_t base_mip_level = 0, uint32_t level_count = vk_auto_mips);
 
 std::pair<handle_image_t, handle_image_view_t> create_2D_image_and_image_views(context_t& context, uint32_t width, uint32_t height, VkFormat vk_format, VkImageUsageFlags vk_usage);
+
+// TODO: take target image format
+void imgui_init(core::window_t& window, renderer::base_renderer_t& renderer, VkFormat vk_color_format);
+void imgui_shutdown();
+void imgui_newframe();
+void imgui_endframe(renderer::base_renderer_t& renderer, gfx::handle_commandbuffer_t commandbuffer);
 
 } // namespace helper
 

@@ -82,7 +82,6 @@ void update_descriptor_set_t::commit() {
             }
             update_descriptor_set.commit();
         }
-        // TODO: add images
     }
 }
 
@@ -123,18 +122,18 @@ base_renderer_t::base_renderer_t(const core::window_t& window, gfx::context_t& c
             vec2( 1, -1)
         );
         vec2 uv[6] = vec2[](
-            vec2(0, 1),
-            vec2(0, 0),
-            vec2(1, 0),
-            vec2(0, 1),
-            vec2(1, 0),
-            vec2(1, 1)
-            // vec2(0, 0),
             // vec2(0, 1),
-            // vec2(1, 1),
             // vec2(0, 0),
-            // vec2(1, 1),
-            // vec2(1, 0)
+            // vec2(1, 0),
+            // vec2(0, 1),
+            // vec2(1, 0),
+            // vec2(1, 1)
+            vec2(0, 0),
+            vec2(0, 1),
+            vec2(1, 1),
+            vec2(0, 0),
+            vec2(1, 1),
+            vec2(1, 0)
         );
         void main() {
             gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
@@ -193,7 +192,7 @@ void base_renderer_t::begin(bool transition_swapchain_image) {
     gfx::handle_semaphore_t image_available_semaphore = image_available_semaphores[current_frame];
     gfx::handle_semaphore_t render_finished_semaphore = render_finished_semaphores[current_frame];
     context.wait_fence(in_flight_fence);
-    auto swapchain_image = context.get_swapchain_next_image_index(swapchain, image_available_semaphore, null_handle);
+    auto swapchain_image = context.get_swapchain_next_image_index(swapchain, image_available_semaphore, gfx::null_handle);
     check(swapchain_image, "Failed to get next image");
     next_image = *swapchain_image;
     context.reset_fence(in_flight_fence);

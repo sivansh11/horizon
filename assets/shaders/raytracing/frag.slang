@@ -15,18 +15,44 @@ struct node_t {
 struct bvh_t {
     node_t *p_nodes;
     uint32_t *p_primitive_indices;
-    uint32_t *p_parent_ids;
     uint32_t node_count;
     uint32_t primitive_count;
+    uint32_t *p_parent_ids;
+};
+
+struct vertex_t {
+    float3 position;
+    float3 normal;
+    float2 uv;
+    float3 tangent;
+    float3 bi_tangent;
 };
 
 struct triangle_t {
-    float3 v0, v1, v2;
+    vertex_t from_barry(float u, float v, float w) {
+        vertex_t vertex;
+        vertex.position   = u * v0.position   + v * v1.position   + w * v2.position;
+        vertex.normal     = u * v0.normal     + v * v1.normal     + w * v2.normal;
+        vertex.uv         = u * v0.uv         + v * v1.uv         + w * v2.uv;
+        vertex.tangent    = u * v0.tangent    + v * v1.tangent    + w * v2.tangent;
+        vertex.bi_tangent = u * v0.bi_tangent + v * v1.bi_tangent + w * v2.bi_tangent;
+        return vertex;
+    }
+
+    vertex_t v0, v1, v2;
+};
+
+struct blas_instance_t {
+    bvh_t *bvh;
+    triangle_t *triangles;
+    float4x4 inverse_transform;
 };
 
 struct uniform_t {
     bvh_t *bvh;
     triangle_t *triangles;
+    // blas_instance_t *blas_instances;
+    // uint32_t blas_instace_count;
     float4x4 inverse_projection;
     float4x4 inverse_view;
 };
@@ -42,13 +68,14 @@ float safe_inverse(float x) {
     return 1.f / x;
 }
 
+static const float infinity = 10000000;
 struct ray_t {
     static ray_t create(float3 origin, float3 direction) {
         ray_t ray;
         ray.origin = origin;
         ray.direction = direction;
         ray.tmin = 0;
-        ray.tmax = 10000000;
+        ray.tmax = infinity;
         ray.inverse_direction = { safe_inverse(direction.x), safe_inverse(direction.y), safe_inverse(direction.z) };
         return ray;
     }
@@ -57,10 +84,10 @@ struct ray_t {
         float2 px_nds = uv * 2.f - 1.f;
         float3 point_nds = float3(px_nds, -1);
         float4 point_ndsh = float4(point_nds, 1);
-        float4 dir_eye = point_ndsh * inv_projection;
+        float4 dir_eye = inv_projection * point_ndsh;
         dir_eye.w = 0;
-        float3 dir_world = float3(dir_eye * inv_view);
-        float3 eye = { inv_view[3][0], inv_view[3][1], inv_view[3][2] };
+        float3 dir_world = float3(inv_view * dir_eye);
+        float3 eye = { inv_view[0][3], inv_view[1][3], inv_view[2][3] };
         ray_t ray = ray_t::create(eye, dir_world);
         return ray;
     }
@@ -73,14 +100,15 @@ struct triangle_intersection_t {
     bool did_intersect() { return intersection; }
     bool intersection;
     float t;
+    float u, v, w;
 };
 
 triangle_intersection_t triangle_intersect(triangle_t triangle, ray_t ray) {
-    float3 e1 = triangle.v0 - triangle.v1;
-    float3 e2 = triangle.v2 - triangle.v0;
+    float3 e1 = triangle.v0.position - triangle.v1.position;
+    float3 e2 = triangle.v2.position - triangle.v0.position;
     float3 n = cross(e1, e2);
 
-    float3 c = triangle.v0 - ray.origin;
+    float3 c = triangle.v0.position - ray.origin;
     float3 r = cross(ray.direction, c);
     float inverse_det = 1.0f / dot(n, ray.direction);
 
@@ -95,12 +123,15 @@ triangle_intersection_t triangle_intersect(triangle_t triangle, ray_t ray) {
             triangle_intersection_t intersection;
             intersection.intersection = true;
             intersection.t = t;
+            intersection.u = u;
+            intersection.v = v;
+            intersection.w = w;
             return intersection;
         }
     }
     triangle_intersection_t intersection;
     intersection.intersection = false;
-    intersection.t = 10000000;
+    intersection.t = infinity;
     return intersection;
 }
 
@@ -132,7 +163,8 @@ static const uint32_t null_primitive_id = uint32_t(-1);
 struct hit_t {
     bool did_intersect() { return primitive_id != null_primitive_id; }
     uint32_t primitive_id = null_primitive_id;
-    float t;
+    float t = infinity;
+    float u, v, w;
     uint32_t node_intersect_count = 0;
     uint32_t primitive_intersect_count = 0;
 };
@@ -146,6 +178,9 @@ void intersect_leaf_node(in const node_t *node, inout hit_t hit, bvh_t *bvh, ino
             ray.tmax = intersection.t;
             hit.primitive_id = primitive_id;
             hit.t = intersection.t;
+            hit.u = intersection.u;
+            hit.v = intersection.v;
+            hit.w = intersection.w;
         }
     }
 }
@@ -401,12 +436,16 @@ hit_t stackless_traverse(bvh_t *bvh, inout ray_t ray, triangle_t *triangles) {
                 state = from_child;
             } else if (current_node.is_leaf()) {
                 for (uint32_t i = 0; i < current_node.primitive_count; i++) {
-                    const uint32_t primitive_id = bvh->p_primitive_indices[current_node.first_index + i];
+                    const uint32_t primitive_id = bvh.p_primitive_indices[current_node.first_index + i];
                     hit.primitive_intersect_count++;
                     triangle_intersection_t intersection = triangle_intersect(triangles[primitive_id], ray);
                     if (intersection.did_intersect()) {
                         ray.tmax = intersection.t;
                         hit.primitive_id = primitive_id;
+                        hit.t = intersection.t;
+                        hit.u = intersection.u;
+                        hit.v = intersection.v;
+                        hit.w = intersection.w;
                     }
                 }
                 current_id = get_parent_id(current_id, bvh->p_parent_ids);
@@ -426,12 +465,16 @@ hit_t stackless_traverse(bvh_t *bvh, inout ray_t ray, triangle_t *triangles) {
                 state = from_sibling;
             } else if (current_node.is_leaf()) {
                 for (uint32_t i = 0; i < current_node.primitive_count; i++) {
-                    const uint32_t primitive_id = bvh->p_primitive_indices[current_node.first_index + i];
+                    const uint32_t primitive_id = bvh.p_primitive_indices[current_node.first_index + i];
                     hit.primitive_intersect_count++;
                     triangle_intersection_t intersection = triangle_intersect(triangles[primitive_id], ray);
                     if (intersection.did_intersect()) {
                         ray.tmax = intersection.t;
                         hit.primitive_id = primitive_id;
+                        hit.t = intersection.t;
+                        hit.u = intersection.u;
+                        hit.v = intersection.v;
+                        hit.w = intersection.w;
                     }
                 }
                 current_id = get_sibling_id(current_id, bvh->p_nodes, bvh->p_parent_ids);
@@ -465,6 +508,42 @@ float3 lerp_f3(float3 start, float3 end, float t) {
     return start + (end - start) * t;
 }
 
+uint pcg_hash(uint seed) {
+    uint state = seed * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+// Used to advance the PCG state.
+uint rand_pcg(inout uint rng_state) {
+    uint state = rng_state;
+    rng_state = rng_state * 747796405u + 2891336453u;
+    uint word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+    return (word >> 22u) ^ word;
+}
+
+float uintBitsToFloat(uint v) {
+    return float(v & 0x7FFFFFFF) / 2.0f + float(v >> 31) * 2147483648.0f;
+}
+
+// Advances the prng state and returns the corresponding random float.
+float rand(inout uint state) {
+    uint x = rand_pcg(state);
+    state = x;
+    return float(x) * reinterpret<float>(0x2f800004u);
+}
+
+float3 rand_float3(inout uint seed) {
+    return { rand(seed), rand(seed), rand(seed) };
+}
+
+float3 rand_float3_in_unit_sphere(inout uint seed) {
+    while (true) {
+        float3 r = rand_float3(seed) * 2.f - 1.f;
+        if (length(r) < 1) return r;
+    }
+}
+
 [shader("fragment")]
 pixel_t fragmentMain(per_fragment_t per_fragment) : SV_Target {
     pixel_t p;
@@ -480,45 +559,51 @@ pixel_t fragmentMain(per_fragment_t per_fragment) : SV_Target {
     // float3 right = normalize(cross(normalize(dir), up));
     // up = cross(right, normalize(dir));
 
-    // float r = per_fragment.uv.x;
-    // float g = per_fragment.uv.y;
+    float r = per_fragment.uv.x;
+    float g = per_fragment.uv.y;
 
-    // float u = -(r * 2.f - 1.f);
-    // float v = g * 2.f - 1.f;
+    float u = r;
+    float v = 1 - g;
 
     // float3 ray_dir = dir + (u * right) + (v * up);
     // ray_t ray = ray_t::create(eye, ray_dir);
 
-    ray_t ray = ray_t::create(per_fragment.uv, uniform.inverse_projection, uniform.inverse_view);
+    ray_t ray = ray_t::create({u, v}, uniform.inverse_projection, uniform.inverse_view);
 
-    // hit_t hit = stackless_traverse(uniform.bvh, ray, uniform.triangles);
-    // hit_t hit = stack_traverse_unordered(uniform.bvh, ray, uniform.triangles);
-    // hit_t hit = stack_traverse_ordered(uniform.bvh, ray, uniform.triangles);
     hit_t hit = stack_traverse_ordered_optimised(uniform.bvh, ray, uniform.triangles);
-    // hit_t hit = stack_traverse_ordered_optimised_further(uniform.bvh, ray, uniform.triangles);
 
-    float4 color = { 0 };
+    p.color = { 0, 0, 0, 1 };
     if (hit.did_intersect()) {
-        // color = float4(((((hit.primitive_id + 1) * 5678) % 255)) / 255.f, ((((hit.primitive_id + 1) * 543) % 255)) / 255.f, ((((hit.primitive_id + 1) * 567) % 255)) / 255.f, 1);
+        // p.color = float4(((((hit.primitive_id + 1) * 5678) % 255)) / 255.f, ((((hit.primitive_id + 1) * 543) % 255)) / 255.f, ((((hit.primitive_id + 1) * 567) % 255)) / 255.f, 1);
 
         float t = hit.node_intersect_count / 200.f;
         if (t > 1) {
-            color.xyz = { 1, 1, 1 };
+            p.color.xyz = { 1, 1, 1 };
         } else {
-            color.xyz = lerp_f3( { 0, 1, 0 }, { 1, 0, 0 }, t);
+            p.color.xyz = lerp_f3( { 0, 1, 0 }, { 1, 0, 0 }, t);
         }
+    }
 
-        // float t = hit.primitive_intersect_count / 20.f;
-        // if (t > 1) {
-        //     color.xyz = { 1, 1, 1 };
-        // } else {
-        //     color.xyz = lerp_f3( { 0, 1, 0 }, { 1, 0, 0 }, t);
-        // }
+    // ray_t ray = ray_t::create(per_fragment.uv, uniform.inverse_projection, uniform.inverse_view);
 
-    } 
+    // uint pixel_index = uint(uint(per_fragment.uv.x * 3456) + uint(per_fragment.uv.y * 4567) * 10000000);
+    // uint seed = pcg_hash(pixel_index);
 
-    color.w = 1;
-    p.color = color;
+    // float3 throughput = { 1 };
+    // float3 color = { 0 };
+    // for (uint32_t bounce = 0; bounce < 5; bounce++) {
+    //     hit_t hit = stack_traverse_ordered_optimised(uniform.bvh, ray, uniform.triangles);
+    //     if (hit.did_intersect()) {
+    //         vertex_t vertex = uniform.triangles[hit.primitive_id].from_barry(hit.u, hit.v, hit.w);
+    //         float3 normal = vertex.normal;
+    //         ray = ray.create(ray.origin + hit.t * ray.direction + normal * 0.0001f, normalize(normal + rand_float3_in_unit_sphere(seed)));
+    //     } else {
+    //         p.color.xyz += { 1, 1, 1 };
+    //         break;
+    //     }
+    // }
+
+    // p.color.xyz = { per_fragment.uv.x, per_fragment.uv.y, 0 };
 
     return p;
 }

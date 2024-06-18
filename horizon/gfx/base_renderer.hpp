@@ -35,7 +35,7 @@ struct descriptor_set_t {
 struct base_renderer_t;
 
 struct buffer_descriptor_info_t {
-    handle_buffer_t handle_buffer = null_handle;
+    handle_buffer_t handle_buffer = gfx::null_handle;
     VkDeviceSize    vk_offset = 0;
     VkDeviceSize    vk_range = VK_WHOLE_SIZE;
 };
@@ -63,7 +63,7 @@ struct update_descriptor_set_t {
     void commit();
 
     base_renderer_t& renderer;
-    handle_descriptor_set_t handle = null_handle;
+    handle_descriptor_set_t handle = gfx::null_handle;
     std::vector<descriptor_info_t> infos;
 };
 

@@ -454,6 +454,11 @@ void context_t::create_device() {
         .fillModeNonSolid = VK_TRUE,
     };
     vkb_physical_device_selector.set_required_features(vk_physical_device_features);
+    VkPhysicalDeviceVulkan11Features vk_physical_device_vulkan_11_features{
+        .variablePointersStorageBuffer = VK_TRUE,
+        .variablePointers = VK_TRUE,
+    };
+    vkb_physical_device_selector.set_required_features_11(vk_physical_device_vulkan_11_features);
     vkb_physical_device_selector.prefer_gpu_device_type(vkb::PreferredDeviceType::discrete);
 
     // create temp window to get surface information
@@ -709,6 +714,7 @@ void context_t::present_swapchain(handle_swapchain_t handle, uint32_t image_inde
 
 handle_buffer_t context_t::create_buffer(const config_buffer_t& config) {
     horizon_profile();
+    assert(config.vk_size != 0);
     internal::buffer_t buffer{ .config = config };
 
     VkBufferCreateInfo vk_buffer_create_info{ .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
@@ -1024,41 +1030,8 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
     Slang::ComPtr<slang::IEntryPoint> entryPoint;
     slang::IModule *slangModule = nullptr;
     static Slang::ComPtr<slang::IGlobalSession> slangGlobalSession;
-    static Slang::ComPtr<slang::ISession> session;
-    static std::vector<slang::CompilerOptionEntry> compiler_options;
     static bool once_slang = []() {
-        check(slang::createGlobalSession(slangGlobalSession.writeRef()) == 0, "failed to create global session");
-
-        slang::SessionDesc sessionDesc = {};
-        slang::TargetDesc targetDesc = {};
-        targetDesc.format = SLANG_SPIRV;
-        targetDesc.profile = slangGlobalSession->findProfile("spirv_1_5");
-        targetDesc.flags = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
-
-        sessionDesc.allowGLSLSyntax = true;
-        sessionDesc.targets = &targetDesc;
-        sessionDesc.targetCount = 1;
-        slang::CompilerOptionValue compiler_value;
-        compiler_value.intValue0 = 1;
-        slang::CompilerOptionEntry compiler_option = {
-            .name = slang::CompilerOptionName::EmitSpirvDirectly,
-            .value = compiler_value,
-        };
-        compiler_options.push_back(compiler_option);
-        compiler_option.name = slang::CompilerOptionName::DebugInformation;
-        compiler_value.intValue0 = SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_STANDARD;
-        compiler_option.value = compiler_value;
-        compiler_options.push_back(compiler_option);
-
-        sessionDesc.compilerOptionEntryCount = compiler_options.size();
-        sessionDesc.compilerOptionEntries = compiler_options.data();
-        // sessionDesc.defaultMatrixLayoutMode = SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR;
-
-        const char *search_paths[] = { "../../assets/shaders/includes" };
-        sessionDesc.searchPaths = search_paths;
-        sessionDesc.searchPathCount = 1;
-        
-        check(slangGlobalSession->createSession(sessionDesc, session.writeRef()) == 0, "failed to create session");
+        check(slang::createGlobalSession(slangGlobalSession.writeRef()) == 0, "failed to create global session");        
         return true;
     }();
 
@@ -1066,6 +1039,54 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
     std::string path = config.is_code ? "" : config.code_or_path;
     
     if (config.language == shader_language_t::e_slang) {  
+        static std::vector<slang::CompilerOptionEntry> compiler_options;
+        Slang::ComPtr<slang::ISession> session;
+        slang::SessionDesc sessionDesc = {};
+        slang::TargetDesc targetDesc = {};
+        targetDesc.format = SLANG_SPIRV;
+        targetDesc.profile = slangGlobalSession->findProfile("spirv_1_5");
+        targetDesc.flags = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
+        targetDesc.forceGLSLScalarBufferLayout = true;
+
+        slang::CompilerOptionValue compiler_value{};
+        slang::CompilerOptionEntry compiler_option{};
+
+        compiler_value.intValue0 = 1;
+        compiler_value.kind = slang::CompilerOptionValueKind::Int;
+        compiler_option = {
+            .name = slang::CompilerOptionName::EmitSpirvDirectly,
+            .value = compiler_value,
+        };
+        compiler_options.push_back(compiler_option);
+
+        compiler_option.name = slang::CompilerOptionName::DebugInformation;
+        compiler_value.intValue0 = SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_STANDARD;
+        compiler_option.value = compiler_value;
+        compiler_options.push_back(compiler_option);
+
+        compiler_option.name = slang::CompilerOptionName::GLSLForceScalarLayout;
+        compiler_value.kind = slang::CompilerOptionValueKind::Int;
+        compiler_value.intValue0 = 1;
+        compiler_option.value = compiler_value;
+        compiler_options.push_back(compiler_option);
+
+        // targetDesc.compilerOptionEntries = compiler_options.data();
+        // targetDesc.compilerOptionEntryCount = compiler_options.size();
+
+
+        sessionDesc.allowGLSLSyntax = true;
+        sessionDesc.targets = &targetDesc;
+        sessionDesc.targetCount = 1;
+
+        sessionDesc.compilerOptionEntryCount = compiler_options.size();
+        sessionDesc.compilerOptionEntries = compiler_options.data();
+        sessionDesc.defaultMatrixLayoutMode = SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR;
+
+        const char *search_paths[] = { "../../assets/shaders/includes" };
+        sessionDesc.searchPaths = search_paths;
+        sessionDesc.searchPathCount = 1;
+        check(slangGlobalSession->createSession(sessionDesc, session.writeRef()) == 0, "failed to create session");
+
         // SlangCompileRequest *slangRequest;
         // session->createCompileRequest(&slangRequest);
         // spSetDebugInfoLevel(slangRequest, SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL);
@@ -1484,6 +1505,11 @@ void context_t::submit_commandbuffer(handle_commandbuffer_t handle, const std::v
     check(vk_result == VK_SUCCESS, "Failed to submit commandbuffer");
 }
 
+internal::commandbuffer_t& context_t::get_commandbuffer(handle_commandbuffer_t handle) {
+    horizon_profile();
+    return utils::assert_and_get_data<internal::commandbuffer_t>(handle, _commandbuffers);
+}
+
 handle_timer_t context_t::create_timer(const config_timer_t& config) {
     horizon_profile();
     internal::timer_t timer{ .config = config };
@@ -1705,5 +1731,30 @@ void context_t::cmd_end_timer(handle_commandbuffer_t handle_commandbuffer, handl
     internal::timer_t& timer = utils::assert_and_get_data<internal::timer_t>(handle, _timers);
     vkCmdWriteTimestamp(commandbuffer, vk_pipeline_stage_flags, timer, 1);
 }
+
+vkb::Instance& context_t::instance() {
+    return _vkb_instance;
+}
+
+vkb::PhysicalDevice& context_t::physical_device() {
+    return _vkb_physical_device;
+}
+
+vkb::Device& context_t::device() {
+    return _vkb_device;
+}
+
+internal::queue_t& context_t::graphics_queue() {
+    return _graphics_queue;
+}
+
+internal::queue_t& context_t::present_queue() {
+    return _present_queue;
+}
+
+VkDescriptorPool& context_t::descriptor_pool() {
+    return _vk_descriptor_pool;
+}
+
 
 } // namespace gfx
