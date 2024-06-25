@@ -450,6 +450,14 @@ void context_t::create_device() {
     VkPhysicalDeviceDynamicRenderingFeaturesKHR vk_physical_device_dynamic_rendering_features{ .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
     vk_physical_device_dynamic_rendering_features.dynamicRendering = VK_TRUE;
     vkb_physical_device_selector.add_required_extension_features<VkPhysicalDeviceDynamicRenderingFeaturesKHR>(vk_physical_device_dynamic_rendering_features);
+    VkPhysicalDeviceDescriptorIndexingFeatures vk_physical_device_descriptor_indexing_features{ .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES };
+    vk_physical_device_descriptor_indexing_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    vk_physical_device_descriptor_indexing_features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
+    vk_physical_device_descriptor_indexing_features.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
+    vk_physical_device_descriptor_indexing_features.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
+    vk_physical_device_descriptor_indexing_features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
+    vk_physical_device_descriptor_indexing_features.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
+    vkb_physical_device_selector.add_required_extension_features(vk_physical_device_descriptor_indexing_features);
     VkPhysicalDeviceFeatures vk_physical_device_features{
         .fillModeNonSolid = VK_TRUE,
     };

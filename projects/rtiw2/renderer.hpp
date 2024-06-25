@@ -117,9 +117,9 @@ class raytracer_pass_t {
         glm::mat4        inverse_view;
         uint32_t         width; 
         uint32_t         height;
-        uint32_t         triangle_count;
+        uint32_t         blas_instance_count;
         uint32_t         samples;
-        VkDeviceAddress  p_triangles;
+        VkDeviceAddress  p_blas_instances;
         VkDeviceAddress  p_materials;
         VkDeviceAddress  p_bvh;
     };
@@ -183,7 +183,7 @@ public:
             .commit();
     }
 
-    void update_uniform(glm::mat4 inverse_projection, glm::mat4 inverse_view, uint32_t  width, uint32_t  height, uint32_t  triangle_count, uint32_t samples, VkDeviceAddress p_triangles, VkDeviceAddress p_materials, VkDeviceAddress  p_bvh) {
+    void update_uniform(glm::mat4 inverse_projection, glm::mat4 inverse_view, uint32_t  width, uint32_t  height, uint32_t  blas_instance_count, uint32_t samples, VkDeviceAddress p_blas_instances, VkDeviceAddress p_materials, VkDeviceAddress  p_bvh) {
         target_width = width;
         target_height = height;
 
@@ -193,9 +193,9 @@ public:
         p_uniform->inverse_view = inverse_view;
         p_uniform->width = width;
         p_uniform->height = height;
-        p_uniform->triangle_count = triangle_count;
+        p_uniform->blas_instance_count = blas_instance_count;
         p_uniform->samples = samples;
-        p_uniform->p_triangles = p_triangles;
+        p_uniform->p_blas_instances = p_blas_instances;
         p_uniform->p_materials = p_materials;
         p_uniform->p_bvh = p_bvh;
     }

@@ -433,6 +433,32 @@ struct bvh_t {
     uint32_t *p_parent_ids{ nullptr };
 };
 
+template <typename primitive_t>
+struct blas_instance_t {
+
+    blas_instance_t(bvh_t *bvh, primitive_t *primitives, const mat4& transform) 
+      : bvh(bvh), primitives(primitives) {
+        
+        node_t& root = bvh->p_nodes[0];
+
+        for (uint32_t i = 0; i < 8; i++) {
+            vec3 pos = {
+                i & 1 ? root.max.x : root.min.x,
+                i & 2 ? root.max.y : root.min.y,
+                i & 4 ? root.max.z : root.min.z,
+            };
+            pos = transform * vec4(pos, 1.f);
+            aabb.grow(pos);
+        }
+        inverse_transform = inverse(transpose(transform));
+    }
+
+    bvh_t *bvh;
+    primitive_t *primitives;
+    aabb_t aabb{};
+    mat4 inverse_transform;
+};
+
 } // namespace core
 
 #endif
