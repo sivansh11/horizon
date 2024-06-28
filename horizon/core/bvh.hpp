@@ -55,6 +55,11 @@ struct node_t {
     uint32_t    primitive_count = 0;
 };
 
+struct bin_t {
+    aabb_t aabb{};
+    uint32_t primitive_count = 0;
+};
+
 struct bvh_t {
     
     // TODO: find better values for these
@@ -65,7 +70,7 @@ struct bvh_t {
         const float node_intersection_cost = 1.f;
         const uint32_t min_primitive_count = 1;
         const uint32_t max_primitive_count = std::numeric_limits<uint32_t>::max();
-        const uint32_t sah_samples = 8;
+        const uint32_t samples = 8;
         const bool add_node_intersection_cost_in_leaf_traversal = false;
     };
 
@@ -148,6 +153,21 @@ struct bvh_t {
             return (build_options.primitive_intersection_cost * primitive_count);
     }
 
+    float approximate_internal_node_traversal_cost(uint32_t left_count, uint32_t right_count, float left_area, float right_area, float aabb_area, build_options_t build_options) const {
+        float left_cost, right_cost;
+        if (build_options.add_node_intersection_cost_in_leaf_traversal) {
+            left_cost  = left_count  ? ((leaf_node_traversal_cost(left_count, build_options)  - build_options.node_intersection_cost) * (left_area  / aabb_area)) + build_options.node_intersection_cost : infinity;
+            right_cost = right_count ? ((leaf_node_traversal_cost(right_count, build_options) - build_options.node_intersection_cost) * (right_area / aabb_area)) + build_options.node_intersection_cost : infinity;
+        } else {
+            left_cost  = left_count  ? leaf_node_traversal_cost(left_count, build_options)  * (left_area  / aabb_area) : infinity;
+            right_cost = right_count ? leaf_node_traversal_cost(right_count, build_options) * (right_area / aabb_area) : infinity;
+        }
+        if (left_cost == infinity || right_cost == infinity) {
+            return infinity;
+        }
+        return left_cost + right_cost + build_options.node_intersection_cost;
+    }
+
     float get_split_cost(uint32_t node_id, split_data_t split_data, const aabb_t *p_aabbs, const vec3 *p_centers, build_options_t build_options, debug_data_t& debug_data) {
         const node_t& node = p_nodes[node_id];
         const aabb_t aabb{ node.min, node.max };
@@ -164,70 +184,110 @@ struct bvh_t {
                 right_count++;
             }
         }
-        float left_cost;
-        float right_cost;
-        // if split is unsuccessful (ie, cannot partition), split cost is infinity
-        if (build_options.add_node_intersection_cost_in_leaf_traversal) {
-            left_cost  = left_count  ? ((leaf_node_traversal_cost(left_count, build_options)  - build_options.node_intersection_cost) * (left_aabb.half_area()  / aabb.half_area())) + build_options.node_intersection_cost : infinity;
-            right_cost = right_count ? ((leaf_node_traversal_cost(right_count, build_options) - build_options.node_intersection_cost) * (right_aabb.half_area() / aabb.half_area())) + build_options.node_intersection_cost : infinity;
-        } else {
-            left_cost  = left_count  ? leaf_node_traversal_cost(left_count, build_options)  * (left_aabb.half_area()  / aabb.half_area()) : infinity;
-            right_cost = right_count ? leaf_node_traversal_cost(right_count, build_options) * (right_aabb.half_area() / aabb.half_area()) : infinity;
-        }
-        if (left_cost == infinity || right_cost == infinity) {
-            return infinity;
-        }
         debug_data.left_aabb = left_aabb;
         debug_data.right_aabb = right_aabb;
         debug_data.left_count = left_count;
         debug_data.right_count = right_count;
-        return left_cost + right_cost + build_options.node_intersection_cost;
+        return approximate_internal_node_traversal_cost(left_count, right_count, left_aabb.half_area(), right_aabb.half_area(), aabb.half_area(), build_options);
     }
 
     std::pair<split_data_t, float> find_best_split(uint32_t node_id, const aabb_t *p_aabbs, const vec3 *p_centers, build_options_t build_options) {
         node_t& node = p_nodes[node_id];
-        
-        aabb_t split_bounds{};
-        for (uint32_t i = 0; i < node.primitive_count; i++) {
-            const uint32_t primitive_id = p_primitive_indices[node.first_index + i];
-            split_bounds.grow(p_centers[primitive_id]);
-        }
 
         split_data_t best_split{};
         float best_cost = infinity;
 
+        constexpr bool use_binned_sah = true;
         constexpr bool use_uniform_sampling = true;
 
-        for (uint32_t axis = 0; axis < 3; axis++) {
-            if (use_uniform_sampling) {
-                const float scale = (split_bounds.max[axis] - split_bounds.min[axis]) / float(build_options.sah_samples + 1);
-                if (scale == 0.f) continue;
-                for (uint32_t i = 0; i <= build_options.sah_samples; i++) {
-                    split_data_t candidate_split{};
-                    candidate_split.axis = axis;
-                    candidate_split.position = split_bounds.min[axis] + (i * scale);
-
-                    debug_data_t debug_data;
-                    float cost = get_split_cost(node_id, candidate_split, p_aabbs, p_centers, build_options, debug_data);
-                    if (cost < best_cost) {
-                        best_cost = cost;
-                        best_split = candidate_split;
-                        best_split.debug_data = debug_data;
-                    }
-                } 
-            } else {
+        if constexpr (use_binned_sah) {
+            for (uint32_t axis = 0; axis < 3; axis++) {
+                float bound_min = infinity, bound_max = -infinity;
                 for (uint32_t i = 0; i < node.primitive_count; i++) {
                     const uint32_t primitive_id = p_primitive_indices[node.first_index + i];
-                    split_data_t candidate_split;
-                    candidate_split.axis = axis;
-                    candidate_split.position = p_centers[primitive_id][axis];
+                    bound_min = glm::min(bound_min, p_centers[primitive_id][axis]);
+                    bound_max = glm::max(bound_max, p_centers[primitive_id][axis]);
+                }
+
+                if (bound_min == bound_max) continue;
+
+                bin_t bins[build_options.samples];
+                for (uint32_t i = 0; i < build_options.samples; i++) {
+                    bins[i] = bin_t{};
+                }
+
+                float scale = static_cast<float>(build_options.samples) / ( bound_max - bound_min );
+                for (uint32_t i = 0; i < node.primitive_count; i++) {
+                    const uint32_t primitive_id = p_primitive_indices[node.first_index + i];
+                    uint32_t bin_id = glm::min(build_options.samples - 1, static_cast<uint32_t>((p_centers[primitive_id][axis] - bound_min) * scale));
+                    bins[bin_id].primitive_count++;
+                    bins[bin_id].aabb.grow(p_aabbs[primitive_id]);
+                }
+
+                float left_area[build_options.samples - 1], right_area[build_options.samples - 1];
+                uint32_t left_count[build_options.samples - 1], right_count[build_options.samples - 1];
+                aabb_t left_box{}, right_box{};
+                uint32_t left_sum = 0, right_sum = 0;
+                for (uint32_t i = 0; i < build_options.samples - 1; i++) {
+                    left_sum += bins[i].primitive_count;
+                    left_count[i] = left_sum;
+                    left_box.grow(bins[i].aabb);
+                    left_area[i] = left_box.half_area();
                     
-                    debug_data_t debug_data;
-                    float cost = get_split_cost(node_id, candidate_split, p_aabbs, p_centers, build_options, debug_data);
+                    right_sum += bins[build_options.samples - 1 - i].primitive_count;
+                    right_count[build_options.samples - 2 - i] = right_sum;
+                    right_box.grow(bins[build_options.samples - 1 - i].aabb);
+                    right_area[build_options.samples - 2 - i] = right_box.half_area();
+                    
+                }
+
+                scale = ( bound_max - bound_min ) / static_cast<float>(build_options.samples);
+                for (uint32_t i = 0; i < build_options.samples - 1; i++) {
+                    float cost = approximate_internal_node_traversal_cost(left_count[i], right_count[i], left_area[i], right_area[i], aabb_t{ node.min, node.max }.half_area(), build_options);
                     if (cost < best_cost) {
                         best_cost = cost;
-                        best_split = candidate_split;
-                        best_split.debug_data = debug_data;
+                        best_split = { .axis = axis, .position = bound_min + scale * (i + 1) };
+                    }
+                }
+            }
+        } else {
+            aabb_t split_bounds{};
+            for (uint32_t i = 0; i < node.primitive_count; i++) {
+                const uint32_t primitive_id = p_primitive_indices[node.first_index + i];
+                split_bounds.grow(p_centers[primitive_id]);
+            }
+
+            for (uint32_t axis = 0; axis < 3; axis++) {
+                if (use_uniform_sampling) {
+                    const float scale = (split_bounds.max[axis] - split_bounds.min[axis]) / float(build_options.samples + 1);
+                    if (scale == 0.f) continue;
+                    for (uint32_t i = 0; i <= build_options.samples; i++) {
+                        split_data_t candidate_split{};
+                        candidate_split.axis = axis;
+                        candidate_split.position = split_bounds.min[axis] + (i * scale);
+
+                        debug_data_t debug_data;
+                        float cost = get_split_cost(node_id, candidate_split, p_aabbs, p_centers, build_options, debug_data);
+                        if (cost < best_cost) {
+                            best_cost = cost;
+                            best_split = candidate_split;
+                            best_split.debug_data = debug_data;
+                        }
+                    } 
+                } else {
+                    for (uint32_t i = 0; i < node.primitive_count; i++) {
+                        const uint32_t primitive_id = p_primitive_indices[node.first_index + i];
+                        split_data_t candidate_split;
+                        candidate_split.axis = axis;
+                        candidate_split.position = p_centers[primitive_id][axis];
+                        
+                        debug_data_t debug_data;
+                        float cost = get_split_cost(node_id, candidate_split, p_aabbs, p_centers, build_options, debug_data);
+                        if (cost < best_cost) {
+                            best_cost = cost;
+                            best_split = candidate_split;
+                            best_split.debug_data = debug_data;
+                        }
                     }
                 }
             }
@@ -441,16 +501,19 @@ struct blas_instance_t {
         
         node_t& root = bvh->p_nodes[0];
 
-        for (uint32_t i = 0; i < 8; i++) {
-            vec3 pos = {
-                i & 1 ? root.max.x : root.min.x,
-                i & 2 ? root.max.y : root.min.y,
-                i & 4 ? root.max.z : root.min.z,
-            };
-            pos = transform * vec4(pos, 1.f);
-            aabb.grow(pos);
-        }
-        inverse_transform = inverse(transpose(transform));
+        aabb.min = transform * vec4(root.min, 1);
+        aabb.max = transform * vec4(root.max, 1);
+
+        // for (uint32_t i = 0; i < 8; i++) {
+        //     vec3 pos = {
+        //         i & 1 ? root.max.x : root.min.x,
+        //         i & 2 ? root.max.y : root.min.y,
+        //         i & 4 ? root.max.z : root.min.z,
+        //     };
+        //     pos = vec4(pos, 1.f) * transform;
+        //     aabb.grow(pos);
+        // }
+        inverse_transform = transpose(inverse(transform));
     }
 
     bvh_t *bvh;
@@ -458,6 +521,30 @@ struct blas_instance_t {
     aabb_t aabb{};
     mat4 inverse_transform;
 };
+
+namespace sbvh {
+
+struct sbvh_node_t {
+    aabb_t aabb{};
+    uint32_t is_leaf : 1;
+    uint32_t id : 31;
+};
+
+struct sbvh_t {
+    static sbvh_t construct(const aabb_t *p_aabb, const vec3 *p_centers, uint32_t primitive_count) {
+        sbvh_t sbvh;
+
+
+
+        return sbvh;
+    }
+
+    std::vector<sbvh_node_t> nodes; 
+    uint32_t *p_primitive_indices{ nullptr };
+    uint32_t primitive_count;
+};
+
+} // namespace sbvh
 
 } // namespace core
 

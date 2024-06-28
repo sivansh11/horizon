@@ -45,10 +45,13 @@ struct blas_instance_t {
 
 static const uint32_t material_type_lambertian = 0;
 static const uint32_t material_type_diffuse_light = 1;
+static const uint32_t material_type_metal = 2;
+static const uint32_t material_type_dielectric = 3;
 
 struct material_t {
     uint32_t material_type;
     float3 albedo;
+    float ri_or_fuzz;
 };
 
 struct uniform_t {
@@ -114,6 +117,7 @@ struct ray_t {
     }
 
     float3 at_max() {
+        bool should_clear = false;
         return origin + tmax * direction;
     } 
 
@@ -213,22 +217,22 @@ struct blas_instance_intersection_t {
     float t = infinity;
     float u, v, w;
     triangle_t triangle;
-    // uint32_t node_intersect_count = 0;
-    // uint32_t primitive_intersect_count = 0;
+    float4x4 inverse_transform;
+    uint32_t node_intersect_count = 0;
+    uint32_t primitive_intersect_count = 0;
 };
 
 blas_instance_intersection_t blas_instance_intersect(blas_instance_t blas_instance, ray_t ray, uint groupIndex) {
     blas_instance_intersection_t intersection;
     if (aabb_intersect(blas_instance.min, blas_instance.max, ray).did_intersect()) {
         ray_t backup_ray = ray;
-        ray.origin = float3(float4(ray.origin, 1) * blas_instance.inverse_transform);
-        ray.direction = float3(float4(ray.direction, 0) * blas_instance.inverse_transform);
+        ray.origin = float3(blas_instance.inverse_transform * float4(ray.origin, 1));
+        ray.direction = float3(blas_instance.inverse_transform * float4(ray.direction, 0));
         ray.inverse_direction = { safe_inverse(ray.direction.x), safe_inverse(ray.direction.y), safe_inverse(ray.direction.z) };
         intersection = intersect_blas(blas_instance.p_bvh, ray, blas_instance.p_triangles, groupIndex);
         backup_ray.tmax = ray.tmax;
+        intersection.inverse_transform = blas_instance.inverse_transform;
         ray = backup_ray;
-    } else {
-        // printf("didnt even intersect\n");
     }
     return intersection;
 }
@@ -243,13 +247,13 @@ blas_instance_intersection_t intersect_blas(bvh_t *p_blas, ray_t ray, triangle_t
     uint32_t stack_top = 0;
 
     node_t root = p_blas->p_nodes[0];
-    // blas_intersection.node_intersect_count++;
+    blas_intersection.node_intersect_count++;
     if (!node_intersect(root, ray).did_intersect()) return blas_intersection;
 
     if (root.is_leaf()) {
         for (uint32_t i = 0; i < root.primitive_count; i++) {
             const uint final_id = p_blas.p_primitive_indices[root.first_index + i];
-            // blas_intersection.primitive_intersect_count++;
+            blas_intersection.primitive_intersect_count++;
             triangle_t triangle = p_triangles[final_id];
             triangle_intersection_t intersection = triangle_intersect(triangle, ray);
             if (intersection.did_intersect()) {
@@ -273,7 +277,7 @@ blas_instance_intersection_t intersect_blas(bvh_t *p_blas, ray_t ray, triangle_t
         node_t left = p_blas->p_nodes[current];
         node_t right = p_blas->p_nodes[current + 1];
 
-        // blas_intersection.node_intersect_count += 2;
+        blas_intersection.node_intersect_count += 2;
         aabb_intersect_t left_intersection = node_intersect(left, ray);
         aabb_intersect_t right_intersection = node_intersect(right, ray);
 
@@ -293,7 +297,7 @@ blas_instance_intersection_t intersect_blas(bvh_t *p_blas, ray_t ray, triangle_t
         }
         for (uint32_t primitive_id = start; primitive_id < end; primitive_id++) {
             const uint final_id = p_blas.p_primitive_indices[primitive_id];
-            // blas_intersection.primitive_intersect_count++;
+            blas_intersection.primitive_intersect_count++;
             triangle_t triangle = p_triangles[final_id];
             triangle_intersection_t intersection = triangle_intersect(triangle, ray);
             if (intersection.did_intersect()) {
@@ -341,7 +345,7 @@ hit_t stack_traverse_ordered_optimised_tlas(inout ray_t ray, uint groupIndex) {
 
     uint32_t current = 0;
     // hit.tlas_intersect_count++;
-    // hit.blas_hit.node_intersect_count++;
+    hit.blas_hit.node_intersect_count++;
     if (!node_intersect(uni.p_tlas.p_nodes[0], ray).did_intersect()) return hit;
 
     // uint count = 0;
@@ -352,7 +356,7 @@ hit_t stack_traverse_ordered_optimised_tlas(inout ray_t ray, uint groupIndex) {
         if (node.is_leaf()) {
             for (uint32_t i = 0; i < node.primitive_count; i++) {
                 const uint32_t primitive_id = uni.p_tlas.p_primitive_indices[node.first_index + i];
-                // hit.blas_hit.primitive_intersect_count++;
+                hit.blas_hit.primitive_intersect_count++;
                 blas_instance_t instance = uni.p_blas_instances[primitive_id];
                 blas_instance_intersection_t intersection = blas_instance_intersect(instance, ray, groupIndex);
                 if (intersection.did_intersect()) {
@@ -373,7 +377,7 @@ hit_t stack_traverse_ordered_optimised_tlas(inout ray_t ray, uint groupIndex) {
             if (stack_top == 0) return hit;
             current = local_stack[--stack_top];
         } else {
-            // hit.blas_hit.node_intersect_count += 2;
+            hit.blas_hit.node_intersect_count += 2;
             // hit.tlas_intersect_count++;
             // hit.tlas_intersect_count++;
             aabb_intersect_t left = node_intersect(uni.p_tlas->p_nodes[node.first_index], ray);
@@ -508,6 +512,45 @@ float3 lerp_f3(float3 start, float3 end, float t) {
     return start + (end - start) * t;
 }
 
+float4x4 inverse(float4x4 m) {
+    float n11 = m[0][0], n12 = m[1][0], n13 = m[2][0], n14 = m[3][0];
+    float n21 = m[0][1], n22 = m[1][1], n23 = m[2][1], n24 = m[3][1];
+    float n31 = m[0][2], n32 = m[1][2], n33 = m[2][2], n34 = m[3][2];
+    float n41 = m[0][3], n42 = m[1][3], n43 = m[2][3], n44 = m[3][3];
+
+    float t11 = n23 * n34 * n42 - n24 * n33 * n42 + n24 * n32 * n43 - n22 * n34 * n43 - n23 * n32 * n44 + n22 * n33 * n44;
+    float t12 = n14 * n33 * n42 - n13 * n34 * n42 - n14 * n32 * n43 + n12 * n34 * n43 + n13 * n32 * n44 - n12 * n33 * n44;
+    float t13 = n13 * n24 * n42 - n14 * n23 * n42 + n14 * n22 * n43 - n12 * n24 * n43 - n13 * n22 * n44 + n12 * n23 * n44;
+    float t14 = n14 * n23 * n32 - n13 * n24 * n32 - n14 * n22 * n33 + n12 * n24 * n33 + n13 * n22 * n34 - n12 * n23 * n34;
+
+    float det = n11 * t11 + n21 * t12 + n31 * t13 + n41 * t14;
+    float idet = 1.0f / det;
+
+    float4x4 ret;
+
+    ret[0][0] = t11 * idet;
+    ret[0][1] = (n24 * n33 * n41 - n23 * n34 * n41 - n24 * n31 * n43 + n21 * n34 * n43 + n23 * n31 * n44 - n21 * n33 * n44) * idet;
+    ret[0][2] = (n22 * n34 * n41 - n24 * n32 * n41 + n24 * n31 * n42 - n21 * n34 * n42 - n22 * n31 * n44 + n21 * n32 * n44) * idet;
+    ret[0][3] = (n23 * n32 * n41 - n22 * n33 * n41 - n23 * n31 * n42 + n21 * n33 * n42 + n22 * n31 * n43 - n21 * n32 * n43) * idet;
+
+    ret[1][0] = t12 * idet;
+    ret[1][1] = (n13 * n34 * n41 - n14 * n33 * n41 + n14 * n31 * n43 - n11 * n34 * n43 - n13 * n31 * n44 + n11 * n33 * n44) * idet;
+    ret[1][2] = (n14 * n32 * n41 - n12 * n34 * n41 - n14 * n31 * n42 + n11 * n34 * n42 + n12 * n31 * n44 - n11 * n32 * n44) * idet;
+    ret[1][3] = (n12 * n33 * n41 - n13 * n32 * n41 + n13 * n31 * n42 - n11 * n33 * n42 - n12 * n31 * n43 + n11 * n32 * n43) * idet;
+
+    ret[2][0] = t13 * idet;
+    ret[2][1] = (n14 * n23 * n41 - n13 * n24 * n41 - n14 * n21 * n43 + n11 * n24 * n43 + n13 * n21 * n44 - n11 * n23 * n44) * idet;
+    ret[2][2] = (n12 * n24 * n41 - n14 * n22 * n41 + n14 * n21 * n42 - n11 * n24 * n42 - n12 * n21 * n44 + n11 * n22 * n44) * idet;
+    ret[2][3] = (n13 * n22 * n41 - n12 * n23 * n41 - n13 * n21 * n42 + n11 * n23 * n42 + n12 * n21 * n43 - n11 * n22 * n43) * idet;
+
+    ret[3][0] = t14 * idet;
+    ret[3][1] = (n13 * n24 * n31 - n14 * n23 * n31 + n14 * n21 * n33 - n11 * n24 * n33 - n13 * n21 * n34 + n11 * n23 * n34) * idet;
+    ret[3][2] = (n14 * n22 * n31 - n12 * n24 * n31 - n14 * n21 * n32 + n11 * n24 * n32 + n12 * n21 * n34 - n11 * n22 * n34) * idet;
+    ret[3][3] = (n12 * n23 * n31 - n13 * n22 * n31 + n13 * n21 * n32 - n11 * n23 * n32 - n12 * n21 * n33 + n11 * n22 * n33) * idet;
+
+    return ret;
+}
+
 float3 refract(float3 dir, float3 n, float ri) {
     const float cos_theta = min(dot(-dir, n), 1.0);
     float3 r_out_perp = ri * (dir + cos_theta * n);
@@ -525,11 +568,11 @@ uniform uniform_t uni;
 uniform RWTexture2D<float4> o_color;
 
 float3 background(ray_t ray) {
-    // float3 unit_direction = normalize(ray.direction);
-    // float a = 0.5 * (unit_direction.y + 1.0);
-    // return (1.0 - a) * float3(1, 1, 1) + a * float3(0.3, 0.4, .7);
+    float3 unit_direction = normalize(ray.direction);
+    float a = 0.5 * (unit_direction.y + 1.0);
+    return (1.0 - a) * float3(1, 1, 1) + a * float3(0.3, 0.4, .7);
     // return { 0, 0, 0 };
-    return { 1, 1, 1 };
+    // return { 1, 1, 1 };
 }
 
 bool material_scatter(in material_t material, inout uint seed, in ray_t r_in, hit_t hit, out float3 attenuation, out ray_t scattered) {
@@ -539,7 +582,15 @@ bool material_scatter(in material_t material, inout uint seed, in ray_t r_in, hi
     // N = front_face ? N : -N;
 
     vertex_t vertex = hit.blas_hit.triangle.from_barry(hit.blas_hit.u, hit.blas_hit.v, hit.blas_hit.w);
-    float3 N = vertex.normal;
+
+    // float3 N = vertex.normal;
+    
+    float3 N = float3(float4(vertex.normal, 0) * inverse(hit.blas_hit.inverse_transform));
+    vertex.position = float3(float4(vertex.position, 1) * inverse(hit.blas_hit.inverse_transform));
+
+    // bool front_face = dot(r_in.direction, N) < 0;
+    // N = front_face ? N : -N;
+
     if (material.material_type == material_type_lambertian) {
         float3 scatter_direction = N + rand_float3_unit_sphere(seed);
 
@@ -550,29 +601,39 @@ bool material_scatter(in material_t material, inout uint seed, in ray_t r_in, hi
         attenuation = material.albedo;
         return true;
     }
-    if (material.material_type == material_type_diffuse_light) {
-        attenuation = {};
-        scattered = {};
-        return false;
-    }
+    // if (material.material_type == material_type_metal) {
+    //     float3 reflected = normalize(reflect(r_in.direction, N)) + (material.ri_or_fuzz * rand_float3_unit_sphere(seed));
+    //     scattered = ray_t.create(r_in.origin + hit.blas_hit.t * r_in.direction, reflected);
+    //     attenuation = material.albedo;
+    //     return (dot(scattered.direction, N) > 0);
+    // }
+    // if (material.material_type == material_type_dielectric) {
+    //     float ri = front_face ? 1.0 / material.ri_or_fuzz : material.ri_or_fuzz;
+    //     float3 normalized_dir = normalize(r_in.direction);
+    //     float cos = min(dot(-normalized_dir, N), 1);
+    //     float sin = sqrt(1.0 - cos * cos);
+    //     bool cannot_refract = ri * sin > 1;
+
+    //     float3 final_dir;
+
+    //     if (cannot_refract || reflectance(cos, ri) > rand(seed)) {
+    //         final_dir = reflect(normalized_dir, N);
+    //     } else {
+    //         final_dir = refract(normalized_dir, N, ri);
+    //     }
+    //     scattered = ray_t.create(r_in.origin + hit.blas_hit.t * r_in.direction, final_dir);
+    //     attenuation = material.albedo;
+    //     return true;
+    // }
     scattered = ray_t();
     attenuation = {};
     return false;
 }
 
 float3 material_emitted(in material_t material, hit_t hit) {
-    if (material.material_type == material_type_lambertian) {
-        return { 0, 0, 0 };
-    }
     if (material.material_type == material_type_diffuse_light) {
         return material.albedo;
     }
-    // if (material.material_type == material_type_metal) {
-    //     return { 0, 0, 0 };
-    // }
-    // if (material.material_type == material_type_dielectric) {
-    //     return { 0, 0, 0 };
-    // }
     return { 0, 0, 0 };
 }
 
@@ -612,22 +673,23 @@ bool russian_roulette_terminate_ray(inout float3 throughput, inout uint seed) {
     if (rand(seed) > p) {
         return true;
     }
-    throughput /= p;
+    throughput *= 1 / p;
     return false;
 }
 
 float3 ray_color(ray_t ray, inout uint seed, uint groupIndex) {
-    const uint32_t bounce_count = 5;
+    const uint32_t bounce_count = 1;
 
     float3 color = { 0, 0, 0 };
     float3 throughput = { 1, 1, 1 };
 
-    for (uint32_t bounce = 0; bounce < bounce_count; bounce++) {
+    for (uint32_t bounce = 0; bounce < bounce_count + 1; bounce++) {
         // hit_t hit = stack_traverse_ordered_optimised_further(uni.p_bvh, ray, p_triangles, groupIndex);
         // hit_t hit = stack_traverse_ordered_optimised(uni.p_bvh, ray, p_triangles, groupIndex);
         // hit_t hit = traverse_no_bvh(ray, p_triangles, blas_instance_count);
 
-        hit_t hit = stack_traverse_ordered_optimised_tlas(ray, groupIndex);
+        // hit_t hit = stack_traverse_ordered_optimised_tlas(ray, groupIndex);
+        hit_t hit = bvh_traverse_no_tlas(ray, groupIndex);
 
         if (!hit.did_intersect()) {
             color += throughput * background(ray);
@@ -641,12 +703,12 @@ float3 ray_color(ray_t ray, inout uint seed, uint groupIndex) {
         float3 attenuation;
         ray_t scattered;
 
-        if (material_scatter(material, seed, ray, hit, attenuation, scattered)) {
-            throughput = throughput * attenuation;
-            ray = scattered;
-        } else {
+        if (!material_scatter(material, seed, ray, hit, attenuation, scattered)) {
             break;
         }
+
+        throughput = throughput * attenuation;
+        ray = scattered;
 
         if (russian_roulette_terminate_ray(throughput, seed)) {
             break;
@@ -654,6 +716,17 @@ float3 ray_color(ray_t ray, inout uint seed, uint groupIndex) {
     }
 
     return color;
+}
+
+float3 heatmap(float t) {
+    const float3 C0 = float3(-0.020390, 0.009557, 0.018508);
+    const float3 C1 = float3(3.108226, -0.106297, -1.105891);
+    const float3 C2 = float3(-14.539061, -2.943057, 14.548595);
+    const float3 C3 = float3(71.394557, 22.644423, -71.418400);
+    const float3 C4 = float3(-152.022488, -31.024563, 152.048692);
+    const float3 C5 = float3(139.593599, 12.411251, -139.604042);
+    const float3 C6 = float3(-46.532952, -0.000874, 46.532928);
+    return C0 + (C1 + (C2 + (C3 + (C4 + (C5 + C6 * t) * t) * t) * t) * t) * t;
 }
 
 static const uint32_t work_group_width = 8;
@@ -674,6 +747,7 @@ void computeMain(uint3 dispatchThreadID: SV_DispatchThreadID, uint groupIndex: S
 
     float2 jitter = (rand_float2(seed) * 2.f - 1.f) / 1000.f;
     ray_t ray = ray_t::create(float2(u, v) + jitter, uni.inverse_projection, uni.inverse_view);
+    // ray_t ray = ray_t::create(float2(u, v), uni.inverse_projection, uni.inverse_view);
     float3 new_color = ray_color(ray, seed, groupIndex);
     float3 old_color = o_color[uint2(dispatchThreadID.x, dispatchThreadID.y)].xyz;
     color.xyz = (old_color * (uni.samples - 1) + new_color) / float(uni.samples);
@@ -682,9 +756,10 @@ void computeMain(uint3 dispatchThreadID: SV_DispatchThreadID, uint groupIndex: S
     // hit_t hit = stack_traverse_ordered_optimised_tlas(ray, groupIndex);
     // // hit_t hit = bvh_traverse_no_tlas(ray, groupIndex);
     // if (hit.did_intersect()) {
-    //     color.xyz = float3(((((hit.instance_id + 1) * 5678) % 255)) / 255.f, ((((hit.instance_id + 1) * 543) % 255)) / 255.f, ((((hit.instance_id + 1) * 567) % 255)) / 255.f);
+    //     color.xyz = float3(((((hit.blas_hit.primitive_id + 1) * 5678) % 255)) / 255.f, ((((hit.blas_hit.primitive_id + 1) * 543) % 255)) / 255.f, ((((hit.blas_hit.primitive_id + 1) * 567) % 255)) / 255.f);
 
-    //     // float t = hit.node_intersect_count / 250.f;
+    //     // float t = hit.blas_hit.node_intersect_count / 100.f;
+    //     // color.xyz = heatmap(t);
     //     // if (t > 1) {
     //     //     color.xyz = { 1, 1, 1 };
     //     // } else {
@@ -692,6 +767,5 @@ void computeMain(uint3 dispatchThreadID: SV_DispatchThreadID, uint groupIndex: S
     //     // }
     // }
     
-
     o_color[uint2(dispatchThreadID.x, dispatchThreadID.y)] = color;
 }

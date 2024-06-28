@@ -183,7 +183,7 @@ public:
             .commit();
     }
 
-    void update_uniform(glm::mat4 inverse_projection, glm::mat4 inverse_view, uint32_t  width, uint32_t  height, uint32_t  blas_instance_count, uint32_t samples, VkDeviceAddress p_blas_instances, VkDeviceAddress p_materials, VkDeviceAddress  p_bvh) {
+    void update_uniform(glm::mat4 inverse_projection, glm::mat4 inverse_view, uint32_t  width, uint32_t  height, uint32_t  blas_instance_count, uint32_t samples, VkDeviceAddress p_blas_instances, VkDeviceAddress p_materials, VkDeviceAddress p_bvh) {
         target_width = width;
         target_height = height;
 

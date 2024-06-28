@@ -28,9 +28,12 @@ struct transform_t {
     transform_t() = default;
 
     glm::mat4 mat4() const {
-        return glm::translate(glm::mat4(1.f), translation)
-            * glm::toMat4(glm::quat(rotation))
-            * glm::scale(glm::mat4(1.f), scale);
+        glm::mat4 transform = glm::translate(glm::mat4(1.f), translation);
+        transform = glm::rotate(transform, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
+        transform = glm::rotate(transform, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
+        transform = glm::rotate(transform, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
+        transform = glm::scale(transform, scale);
+        return transform;
     }
 };
 
@@ -62,18 +65,18 @@ public:
 private:
     core::window_t& _window;
 
-    glm::vec3 _position {0, 0, -5};
+    glm::vec3 _position {0, 2, 1.8};
     
     glm::mat4 _projection{1.0f};
     glm::mat4 _view{1.0f};
 
-    glm::vec3 _front{0, 0, 1};
+    glm::vec3 _front{0, 0, -1};
     glm::vec3 _up{0, 1, 0};
-    glm::vec3 _right{-1, 0, 0};
+    glm::vec3 _right{1, 0, 0};
 
     glm::vec2 _initial_mouse{};
 
-    float _yaw{90};
+    float _yaw{-90};
     float _pitch{0};
     float _mouse_speed{0.005f};
     float _mouse_sensitivity{100.f};
