@@ -140,11 +140,12 @@ struct triangle_t {
 //     std::vector<core::mat4> transformations;
 // };
 
-std::pair<core::bvh_t, std::vector<triangle_t>> bvh_from_model(const core::model_t& model, auto triangle_callback) {
+std::pair<core::bvh_t, std::vector<triangle_t>> bvh_from_model(const core::model_t& model, auto mesh_callback, auto triangle_callback) {
     std::vector<triangle_t> tris;
     std::vector<core::aabb_t> aabbs;
     std::vector<core::vec3> centers;
     for (auto& mesh : model.meshes) {
+        mesh_callback(mesh);
         horizon_info("{}", mesh.name);
         for (uint32_t i = 0; i < mesh.indices.size(); i += 3) {
             triangle_t tri {
@@ -278,7 +279,7 @@ int main(int argc, char **argv) {
         material_t{ material_type_lambertian   , { 1, 1, 1 } },
         material_t{ material_type_lambertian   , { 0, 1, 0 } },
         material_t{ material_type_lambertian   , { 1, 0, 0 } },
-        material_t{ material_type_metal        , { 0.91, 0.91, 0.91 }, 0.1 },
+        material_t{ material_type_metal        , { 0.91, 0.91, 0.91 }, 0.01 },
         material_t{ material_type_dielectric   , { 1, 1, 1 }, 1.5 },
     };
 
@@ -341,7 +342,7 @@ int main(int argc, char **argv) {
     //     transform.translation = { 0.69, 1.80, -1.8 };
     //     transform.rotation = { 0, glm::pi<float>() + glm::half_pi<float>(), 0 };
     //     auto [bvh, tris] = bvh_from_model(scene.get<core::model_t>(id2), [](auto& tri, std::string name) {
-    //         tri.material_id = 1;
+    //         tri.material_id = 5;
     //     });
     //     scene.construct<std::vector<triangle_t>>(id2) = tris;
     //     scene.construct<core::bvh_t>(id2) = bvh;
@@ -353,12 +354,32 @@ int main(int argc, char **argv) {
         auto& transform = scene.construct<transform_t>(id3);
         transform.scale = { 0.01, 0.01, 0.01 };
         core::rng_t rng{};
-        auto [bvh, tris] = bvh_from_model(scene.get<core::model_t>(id3), [&](auto& tri, std::string name) {
-            tri.material_id = int(rng.randomf() * 34567) % 10 + 5;
+        uint32_t counter = 0;
+        auto [bvh, tris] = bvh_from_model(scene.get<core::model_t>(id3), [&](auto& mesh) {
+            counter++;
+        }, [&](auto& tri, std::string name) {
+            tri.material_id = counter + 11;
+            // tri.material_id = int(rng.randomf() * 456) % 10 + 10;
         });
         scene.construct<std::vector<triangle_t>>(id3) = tris;
         scene.construct<core::bvh_t>(id3) = bvh;
     }
+
+    auto id4 = scene.create();
+    {
+        scene.construct<core::model_t>(id4) = core::load_model_from_path("../../assets/models/glTF-Sample-Models/1.0/Box/glTF/Box.gltf");
+        auto& transform = scene.construct<transform_t>(id4);
+        // transform.scale = { 0.01, 0.01, 0.01 };
+        transform.translation = { 0, 5, 0, };
+        core::rng_t rng{};
+        uint32_t counter = 0;
+        auto [bvh, tris] = bvh_from_model(scene.get<core::model_t>(id4), [](auto& mesh) {}, [&](auto& tri, std::string name) {
+            tri.material_id = 0;
+        });
+        scene.construct<std::vector<triangle_t>>(id4) = tris;
+        scene.construct<core::bvh_t>(id4) = bvh;
+    }
+
 
     std::vector<core::blas_instance_t<triangle_t>> blas_instances;
     std::vector<core::aabb_t> aabbs;

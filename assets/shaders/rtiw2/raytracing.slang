@@ -218,8 +218,8 @@ struct blas_instance_intersection_t {
     float u, v, w;
     triangle_t triangle;
     float4x4 inverse_transform;
-    uint32_t node_intersect_count = 0;
-    uint32_t primitive_intersect_count = 0;
+    // uint32_t node_intersect_count = 0;
+    // uint32_t primitive_intersect_count = 0;
 };
 
 blas_instance_intersection_t blas_instance_intersect(blas_instance_t blas_instance, ray_t ray, uint groupIndex) {
@@ -247,13 +247,13 @@ blas_instance_intersection_t intersect_blas(bvh_t *p_blas, ray_t ray, triangle_t
     uint32_t stack_top = 0;
 
     node_t root = p_blas->p_nodes[0];
-    blas_intersection.node_intersect_count++;
+    // blas_intersection.node_intersect_count++;
     if (!node_intersect(root, ray).did_intersect()) return blas_intersection;
 
     if (root.is_leaf()) {
         for (uint32_t i = 0; i < root.primitive_count; i++) {
             const uint final_id = p_blas.p_primitive_indices[root.first_index + i];
-            blas_intersection.primitive_intersect_count++;
+            // blas_intersection.primitive_intersect_count++;
             triangle_t triangle = p_triangles[final_id];
             triangle_intersection_t intersection = triangle_intersect(triangle, ray);
             if (intersection.did_intersect()) {
@@ -277,7 +277,7 @@ blas_instance_intersection_t intersect_blas(bvh_t *p_blas, ray_t ray, triangle_t
         node_t left = p_blas->p_nodes[current];
         node_t right = p_blas->p_nodes[current + 1];
 
-        blas_intersection.node_intersect_count += 2;
+        // blas_intersection.node_intersect_count += 2;
         aabb_intersect_t left_intersection = node_intersect(left, ray);
         aabb_intersect_t right_intersection = node_intersect(right, ray);
 
@@ -297,7 +297,7 @@ blas_instance_intersection_t intersect_blas(bvh_t *p_blas, ray_t ray, triangle_t
         }
         for (uint32_t primitive_id = start; primitive_id < end; primitive_id++) {
             const uint final_id = p_blas.p_primitive_indices[primitive_id];
-            blas_intersection.primitive_intersect_count++;
+            // blas_intersection.primitive_intersect_count++;
             triangle_t triangle = p_triangles[final_id];
             triangle_intersection_t intersection = triangle_intersect(triangle, ray);
             if (intersection.did_intersect()) {
@@ -345,7 +345,7 @@ hit_t stack_traverse_ordered_optimised_tlas(inout ray_t ray, uint groupIndex) {
 
     uint32_t current = 0;
     // hit.tlas_intersect_count++;
-    hit.blas_hit.node_intersect_count++;
+    // hit.blas_hit.node_intersect_count++;
     if (!node_intersect(uni.p_tlas.p_nodes[0], ray).did_intersect()) return hit;
 
     // uint count = 0;
@@ -356,7 +356,7 @@ hit_t stack_traverse_ordered_optimised_tlas(inout ray_t ray, uint groupIndex) {
         if (node.is_leaf()) {
             for (uint32_t i = 0; i < node.primitive_count; i++) {
                 const uint32_t primitive_id = uni.p_tlas.p_primitive_indices[node.first_index + i];
-                hit.blas_hit.primitive_intersect_count++;
+                // hit.blas_hit.primitive_intersect_count++;
                 blas_instance_t instance = uni.p_blas_instances[primitive_id];
                 blas_instance_intersection_t intersection = blas_instance_intersect(instance, ray, groupIndex);
                 if (intersection.did_intersect()) {
@@ -364,20 +364,12 @@ hit_t stack_traverse_ordered_optimised_tlas(inout ray_t ray, uint groupIndex) {
                     hit.instance_id = primitive_id;
                     hit.instance = instance;
                     hit.blas_hit = intersection;
-                    // hit.blas_hit.triangle = intersection.triangle;
-                    // hit.blas_hit.primitive_id = intersection.primitive_id;
-                    // hit.blas_hit.t = intersection.t;
-                    // hit.blas_hit.u = intersection.u;
-                    // hit.blas_hit.v = intersection.v;
-                    // hit.blas_hit.w = intersection.w;
-                    // hit.blas_hit.node_intersect_count += intersection.node_intersect_count;
-                    // hit.blas_hit.primitive_intersect_count += intersection.primitive_intersect_count;
                 }
             }
             if (stack_top == 0) return hit;
             current = local_stack[--stack_top];
         } else {
-            hit.blas_hit.node_intersect_count += 2;
+            // hit.blas_hit.node_intersect_count += 2;
             // hit.tlas_intersect_count++;
             // hit.tlas_intersect_count++;
             aabb_intersect_t left = node_intersect(uni.p_tlas->p_nodes[node.first_index], ray);
@@ -412,46 +404,17 @@ hit_t stack_traverse_ordered_optimised_tlas(inout ray_t ray, uint groupIndex) {
 hit_t bvh_traverse_no_tlas(ray_t ray, uint groupIndex) {
     hit_t hit;
     for (uint32_t i = 0; i < uni.blas_instance_count; i++) {
-        // hit.blas_hit.primitive_intersect_count++;
-        // blas_instance_intersection_t intersection = intersect_blas(uni.p_blas_instances[i].p_bvh, ray, uni.p_blas_instances[i].p_triangles, groupIndex);
         blas_instance_t instance = uni.p_blas_instances[i];
         blas_instance_intersection_t intersection = blas_instance_intersect(instance, ray, groupIndex);
         if (intersection.did_intersect()) {
-            printf("%i\n", i);
             ray.tmax = intersection.t;
             hit.instance_id = i;
             hit.instance = instance;
             hit.blas_hit = intersection;
-            // hit.blas_hit.triangle = intersection.triangle;
-            // hit.blas_hit.primitive_id = intersection.primitive_id;
-            // hit.blas_hit.t = intersection.t;
-            // hit.blas_hit.u = intersection.u;
-            // hit.blas_hit.v = intersection.v;
-            // hit.blas_hit.w = intersection.w;
-            // hit.blas_hit.node_intersect_count += intersection.node_intersect_count;
-            // hit.blas_hit.primitive_intersect_count += intersection.primitive_intersect_count;
         }
     }
-    printf("-----------\n");
     return hit;
 }
-
-// hit_t traverse_no_bvh(ray_t ray, triangle_t *triangles, uint32_t blas_instance_count) {
-//     hit_t hit;
-//     for (uint32_t i = 0; i < blas_instance_count; i++) {
-//         hit.primitive_intersect_count++;
-//         triangle_intersection_t intersection = triangle_intersect(triangles[i], ray);
-//         if (intersection.did_intersect()) {
-//             ray.tmax = intersection.t;
-//             hit.primitive_id = i;
-//             hit.t = intersection.t;
-//             hit.u = intersection.u;
-//             hit.v = intersection.v;
-//             hit.w = intersection.w;
-//         }
-//     }
-//     return hit;
-// }
 
 uint pcg_hash(uint seed) {
     uint state = seed * 747796405u + 2891336453u;
@@ -568,19 +531,14 @@ uniform uniform_t uni;
 uniform RWTexture2D<float4> o_color;
 
 float3 background(ray_t ray) {
-    float3 unit_direction = normalize(ray.direction);
-    float a = 0.5 * (unit_direction.y + 1.0);
-    return (1.0 - a) * float3(1, 1, 1) + a * float3(0.3, 0.4, .7);
-    // return { 0, 0, 0 };
+    // float3 unit_direction = normalize(ray.direction);
+    // float a = 0.5 * (unit_direction.y + 1.0);
+    // return (1.0 - a) * float3(1, 1, 1) + a * float3(0.3, 0.4, .7);
+    return { 0, 0, 0 };
     // return { 1, 1, 1 };
 }
 
 bool material_scatter(in material_t material, inout uint seed, in ray_t r_in, hit_t hit, out float3 attenuation, out ray_t scattered) {
-    // sphere_t sphere = uni.p_spheres[hit.primitive_id];
-    // float3 N = normalize((r_in.origin + hit.t * r_in.direction) - sphere.center);
-    // bool front_face = dot(r_in.direction, N) < 0;
-    // N = front_face ? N : -N;
-
     vertex_t vertex = hit.blas_hit.triangle.from_barry(hit.blas_hit.u, hit.blas_hit.v, hit.blas_hit.w);
 
     // float3 N = vertex.normal;
@@ -588,8 +546,8 @@ bool material_scatter(in material_t material, inout uint seed, in ray_t r_in, hi
     float3 N = float3(float4(vertex.normal, 0) * inverse(hit.blas_hit.inverse_transform));
     vertex.position = float3(float4(vertex.position, 1) * inverse(hit.blas_hit.inverse_transform));
 
-    // bool front_face = dot(r_in.direction, N) < 0;
-    // N = front_face ? N : -N;
+    bool front_face = dot(r_in.direction, N) < 0;
+    N = front_face ? N : -N;
 
     if (material.material_type == material_type_lambertian) {
         float3 scatter_direction = N + rand_float3_unit_sphere(seed);
@@ -601,30 +559,30 @@ bool material_scatter(in material_t material, inout uint seed, in ray_t r_in, hi
         attenuation = material.albedo;
         return true;
     }
-    // if (material.material_type == material_type_metal) {
-    //     float3 reflected = normalize(reflect(r_in.direction, N)) + (material.ri_or_fuzz * rand_float3_unit_sphere(seed));
-    //     scattered = ray_t.create(r_in.origin + hit.blas_hit.t * r_in.direction, reflected);
-    //     attenuation = material.albedo;
-    //     return (dot(scattered.direction, N) > 0);
-    // }
-    // if (material.material_type == material_type_dielectric) {
-    //     float ri = front_face ? 1.0 / material.ri_or_fuzz : material.ri_or_fuzz;
-    //     float3 normalized_dir = normalize(r_in.direction);
-    //     float cos = min(dot(-normalized_dir, N), 1);
-    //     float sin = sqrt(1.0 - cos * cos);
-    //     bool cannot_refract = ri * sin > 1;
+    if (material.material_type == material_type_metal) {
+        float3 reflected = normalize(reflect(r_in.direction, N)) + (material.ri_or_fuzz * rand_float3_unit_sphere(seed));
+        scattered = ray_t.create(r_in.origin + hit.blas_hit.t * r_in.direction, reflected);
+        attenuation = material.albedo;
+        return (dot(scattered.direction, N) > 0);
+    }
+    if (material.material_type == material_type_dielectric) {
+        float ri = front_face ? 1.0 / material.ri_or_fuzz : material.ri_or_fuzz;
+        float3 normalized_dir = normalize(r_in.direction);
+        float cos = min(dot(-normalized_dir, N), 1);
+        float sin = sqrt(1.0 - cos * cos);
+        bool cannot_refract = ri * sin > 1;
 
-    //     float3 final_dir;
+        float3 final_dir;
 
-    //     if (cannot_refract || reflectance(cos, ri) > rand(seed)) {
-    //         final_dir = reflect(normalized_dir, N);
-    //     } else {
-    //         final_dir = refract(normalized_dir, N, ri);
-    //     }
-    //     scattered = ray_t.create(r_in.origin + hit.blas_hit.t * r_in.direction, final_dir);
-    //     attenuation = material.albedo;
-    //     return true;
-    // }
+        if (cannot_refract || reflectance(cos, ri) > rand(seed)) {
+            final_dir = reflect(normalized_dir, N);
+        } else {
+            final_dir = refract(normalized_dir, N, ri);
+        }
+        scattered = ray_t.create(r_in.origin + hit.blas_hit.t * r_in.direction, final_dir);
+        attenuation = material.albedo;
+        return true;
+    }
     scattered = ray_t();
     attenuation = {};
     return false;
@@ -637,37 +595,6 @@ float3 material_emitted(in material_t material, hit_t hit) {
     return { 0, 0, 0 };
 }
 
-// float3 ray_color(ray_t ray, inout uint seed, sphere_t *p_spheres, uint32_t sphere_count) {
-//     const uint32_t bounce_count = 5;
-
-//     float3 color = { 0, 0, 0 };
-//     float3 throughput = { 1, 1, 1 };
-
-//     for (uint32_t bounce = 0; bounce < bounce_count; bounce++) {
-//         hit_t hit = traverse_no_bvh(ray, p_spheres, sphere_count);
-//         if (hit.did_intersect()) {
-//             material_t material = p_materials[p_spheres[hit.primitive_id].material_id];
-//             float3 attenuation;
-//             float3 emmision = { 0, 0, 0 };
-//             ray_t scattered;
-//             if (material_scatter(material, seed, ray, hit, attenuation, scattered)) {
-//                 throughput = (attenuation * throughput) + emmision;
-//                 ray = scattered;
-//             } else {
-//                 throughput *= emmision;
-//                 color = throughput;
-//                 break;
-//             }
-
-
-//         } else {
-//             color = throughput * background(ray);
-//             break;
-//         }
-//     }
-//     return color;
-// }
-
 bool russian_roulette_terminate_ray(inout float3 throughput, inout uint seed) {
     float p = max(throughput.x, max(throughput.y, throughput.z));
     if (rand(seed) > p) {
@@ -678,15 +605,12 @@ bool russian_roulette_terminate_ray(inout float3 throughput, inout uint seed) {
 }
 
 float3 ray_color(ray_t ray, inout uint seed, uint groupIndex) {
-    const uint32_t bounce_count = 1;
+    const uint32_t bounce_count = 3;
 
     float3 color = { 0, 0, 0 };
     float3 throughput = { 1, 1, 1 };
 
     for (uint32_t bounce = 0; bounce < bounce_count + 1; bounce++) {
-        // hit_t hit = stack_traverse_ordered_optimised_further(uni.p_bvh, ray, p_triangles, groupIndex);
-        // hit_t hit = stack_traverse_ordered_optimised(uni.p_bvh, ray, p_triangles, groupIndex);
-        // hit_t hit = traverse_no_bvh(ray, p_triangles, blas_instance_count);
 
         // hit_t hit = stack_traverse_ordered_optimised_tlas(ray, groupIndex);
         hit_t hit = bvh_traverse_no_tlas(ray, groupIndex);
@@ -696,7 +620,6 @@ float3 ray_color(ray_t ray, inout uint seed, uint groupIndex) {
             break;
         }
 
-        // material_t material = uni.p_materials[p_triangles[hit.primitive_id].material_id];
         material_t material = uni.p_materials[hit.blas_hit.triangle.material_id];
         float3 emission = material_emitted(material, hit);
         color += throughput * emission;
