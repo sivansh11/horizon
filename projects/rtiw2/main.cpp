@@ -500,8 +500,6 @@ int main(int argc, char **argv) {
             should_clear = true;
         }
 
-
-
         auto current_time = std::chrono::system_clock::now();
         auto time_difference = current_time - last_time;
         if (time_difference.count() / 1e6 < 1000.f / target_fps) {
