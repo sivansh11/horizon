@@ -21,18 +21,18 @@
 // }
 
 struct transform_t {
-    glm::vec3 translation{ 0.f, 0.f, 0.f };
-    glm::vec3 rotation{ 0.f, 0.f, 0.f };
-    glm::vec3 scale{ 1.f, 1.f, 1.f };
+    core::vec3 translation{ 0.f, 0.f, 0.f };
+    core::vec3 rotation{ 0.f, 0.f, 0.f };
+    core::vec3 scale{ 1.f, 1.f, 1.f };
     
     transform_t() = default;
 
-    glm::mat4 mat4() const {
-        glm::mat4 transform = glm::translate(glm::mat4(1.f), translation);
-        transform = glm::rotate(transform, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f));
-        transform = glm::rotate(transform, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f));
-        transform = glm::rotate(transform, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f));
-        transform = glm::scale(transform, scale);
+    core::mat4 mat4() const {
+        core::mat4 transform = core::translate(core::mat4(1.f), translation);
+        transform = core::rotate(transform, rotation.x, core::vec3(1.0f, 0.0f, 0.0f));
+        transform = core::rotate(transform, rotation.y, core::vec3(0.0f, 1.0f, 0.0f));
+        transform = core::rotate(transform, rotation.z, core::vec3(0.0f, 0.0f, 1.0f));
+        transform = core::scale(transform, scale);
         return transform;
     }
 };
@@ -43,16 +43,16 @@ public:
     void update_projection(float aspect_ratio);
     void update(float ts);
     
-    const glm::mat4& projection() const { return _projection; }
-    const glm::mat4& view() const { return _view; }
+    const core::mat4& projection() const { return _projection; }
+    const core::mat4& view() const { return _view; }
     // creates a new mat4
-    glm::mat4 inverse_projection() const { return glm::inverse(_projection); }
+    core::mat4 inverse_projection() const { return core::inverse(_projection); }
     // creates a new mat4
-    glm::mat4 inverse_view() const { return glm::inverse(_view); }
-    glm::vec3 front() const { return _front; }
-    glm::vec3 right() const { return _right; }
-    glm::vec3 up() const { return _up; }
-    glm::vec3 position() const { return _position; }
+    core::mat4 inverse_view() const { return core::inverse(_view); }
+    core::vec3 front() const { return _front; }
+    core::vec3 right() const { return _right; }
+    core::vec3 up() const { return _up; }
+    core::vec3 position() const { return _position; }
 
 public:
     
@@ -65,18 +65,18 @@ public:
 private:
     core::window_t& _window;
 
-    glm::vec3 _position {0, 2, 1.8};
+    core::vec3 _position {0, 2, 0};
     
-    glm::mat4 _projection{1.0f};
-    glm::mat4 _view{1.0f};
+    core::mat4 _projection{1.0f};
+    core::mat4 _view{1.0f};
 
-    glm::vec3 _front{0, 0, -1};
-    glm::vec3 _up{0, 1, 0};
-    glm::vec3 _right{1, 0, 0};
+    core::vec3 _front{1, 0, 0};
+    core::vec3 _up{0, 1, 0};
+    core::vec3 _right{1, 0, 0};
 
-    glm::vec2 _initial_mouse{};
+    core::vec2 _initial_mouse{};
 
-    float _yaw{-90};
+    float _yaw{0};
     float _pitch{0};
     float _mouse_speed{0.005f};
     float _mouse_sensitivity{100.f};
@@ -85,7 +85,7 @@ private:
 void editor_camera_t::update_projection(float aspect_ratio) {
     static float s_aspect_ratio = 0;
     if (s_aspect_ratio != aspect_ratio) {
-        _projection = glm::perspective(glm::radians(fov), aspect_ratio, near, far);
+        _projection = core::perspective(core::radians(fov), aspect_ratio, near, far);
         s_aspect_ratio = aspect_ratio;
     }
 }
@@ -112,8 +112,8 @@ void editor_camera_t::update(float ts) {
     if (glfwGetKey(_window.window(), GLFW_KEY_LEFT_SHIFT)) 
         _position -= _up * velocity;
     
-    glm::vec2 mouse{curX, curY};
-    glm::vec2 difference = mouse - _initial_mouse;
+    core::vec2 mouse{curX, curY};
+    core::vec2 difference = mouse - _initial_mouse;
     _initial_mouse = mouse;
 
     if (glfwGetMouseButton(_window.window(), GLFW_MOUSE_BUTTON_1)) {
@@ -130,15 +130,15 @@ void editor_camera_t::update(float ts) {
             _pitch = -89.0f;
     }
 
-    glm::vec3 front;
-    front.x = glm::cos(glm::radians(_yaw)) * glm::cos(glm::radians(_pitch));
-    front.y = glm::sin(glm::radians(_pitch));
-    front.z = glm::sin(glm::radians(_yaw)) * glm::cos(glm::radians(_pitch));
+    core::vec3 front;
+    front.x = core::cos(core::radians(_yaw)) * core::cos(core::radians(_pitch));
+    front.y = core::sin(core::radians(_pitch));
+    front.z = core::sin(core::radians(_yaw)) * core::cos(core::radians(_pitch));
     _front = front * camera_speed_multiplyer;
-    _right = glm::normalize(glm::cross(_front, glm::vec3{0, 1, 0}));
-    _up    = glm::normalize(glm::cross(_right, _front));
+    _right = core::normalize(core::cross(_front, core::vec3{0, 1, 0}));
+    _up    = core::normalize(core::cross(_right, _front));
 
-    _view = glm::lookAt(_position, _position + _front, glm::vec3{0, 1, 0});
+    _view = core::lookAt(_position, _position + _front, core::vec3{0, 1, 0});
 }
 
 #endif

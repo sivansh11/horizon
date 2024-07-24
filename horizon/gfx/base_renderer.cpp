@@ -4,7 +4,7 @@
 
 namespace renderer {
 
-update_descriptor_set_t& update_descriptor_set_t::push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t count) {
+update_descriptor_set_t& update_descriptor_set_t::push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t array_element) {
     horizon_profile();
     internal::descriptor_set_t& descriptor_set = utils::assert_and_get_data<internal::descriptor_set_t>(handle, renderer._descriptor_sets);
     internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(info.handle_buffer, renderer._buffers);
@@ -14,18 +14,18 @@ update_descriptor_set_t& update_descriptor_set_t::push_buffer_write(uint32_t bin
 
     descriptor_info_t descriptor_info{};
     descriptor_info.binding = binding;
-    descriptor_info.count = count;
+    descriptor_info.array_element = array_element;
     descriptor_info.type = descriptor_info_type_t::e_buffer;
     descriptor_info.as.buffer_info = info;
     infos.push_back(descriptor_info);
     return *this;
 }
 
-update_descriptor_set_t& update_descriptor_set_t::push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t count) {
+update_descriptor_set_t& update_descriptor_set_t::push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t array_element) {
     horizon_profile();
     descriptor_info_t descriptor_info{};
     descriptor_info.binding = binding;
-    descriptor_info.count = count;
+    descriptor_info.array_element = array_element;
     descriptor_info.type = descriptor_info_type_t::e_image;
     descriptor_info.as.image_info = info;
     infos.push_back(descriptor_info);
@@ -45,11 +45,11 @@ void update_descriptor_set_t::commit() {
                 gfx_info.handle_buffer = buffer.handle_buffers[0];
                 gfx_info.vk_offset = info.as.buffer_info.vk_offset;
                 gfx_info.vk_range = info.as.buffer_info.vk_range;
-                update_descriptor_set.push_buffer_write(info.binding, gfx_info, info.count);
+                update_descriptor_set.push_buffer_write(info.binding, gfx_info, info.array_element);
             } else if (info.type == descriptor_info_type_t::e_image) {
                 gfx::image_descriptor_info_t gfx_info{};
                 gfx_info = info.as.image_info;
-                update_descriptor_set.push_image_write(info.binding, gfx_info, info.count);
+                update_descriptor_set.push_image_write(info.binding, gfx_info, info.array_element);
             }
         }
         update_descriptor_set.commit();
@@ -66,18 +66,18 @@ void update_descriptor_set_t::commit() {
                         gfx_info.handle_buffer = buffer.handle_buffers[0];
                         gfx_info.vk_offset = info.as.buffer_info.vk_offset;
                         gfx_info.vk_range = info.as.buffer_info.vk_range;
-                        update_descriptor_set.push_buffer_write(info.binding, gfx_info, info.count);
+                        update_descriptor_set.push_buffer_write(info.binding, gfx_info, info.array_element);
                     } else if (buffer.policy == resource_policy_t::e_every_frame) {
                         gfx::buffer_descriptor_info_t gfx_info{};
                         gfx_info.handle_buffer = buffer.handle_buffers[i];
                         gfx_info.vk_offset = info.as.buffer_info.vk_offset;
                         gfx_info.vk_range = info.as.buffer_info.vk_range;
-                        update_descriptor_set.push_buffer_write(info.binding, gfx_info, info.count);
+                        update_descriptor_set.push_buffer_write(info.binding, gfx_info, info.array_element);
                     }
                 } else if (info.type == descriptor_info_type_t::e_image) {
                     gfx::image_descriptor_info_t gfx_info{};
                     gfx_info = info.as.image_info;
-                    update_descriptor_set.push_image_write(info.binding, gfx_info, info.count);
+                    update_descriptor_set.push_image_write(info.binding, gfx_info, info.array_element);
                 }
             }
             update_descriptor_set.commit();

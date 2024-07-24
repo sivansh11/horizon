@@ -10,20 +10,12 @@
 
 #include "utility.hpp"
 #include "renderer.hpp"
+// #include "new_bvh.hpp"
 
 #include <imgui.h>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-
-static core::bvh_t::build_options_t build_options{
-    .primitive_intersection_cost = 1.1f,
-    .node_intersection_cost = 1.f,
-    .min_primitive_count = 1,
-    .max_primitive_count = std::numeric_limits<uint32_t>::max(),
-    .samples = 100,
-    .add_node_intersection_cost_in_leaf_traversal = false,
-};
 
 struct gpu_buffer_t {
     operator VkDeviceAddress() const {
@@ -62,85 +54,8 @@ struct triangle_t {
     uint32_t material_id;
 };
 
-
-// struct mesh_t {
-//     static mesh_t process_mesh(core::mesh_t mesh) {
-//         core::rng_t rng;
-//         mesh_t r_mesh{};
-//         std::vector<core::aabb_t> aabbs;
-//         std::vector<core::vec3> centers;
-//         for (uint32_t i = 0; i < mesh.indices.size(); i += 3) {
-//             triangle_t tri {
-//                 mesh.vertices[mesh.indices[i + 0]],
-//                 mesh.vertices[mesh.indices[i + 1]],
-//                 mesh.vertices[mesh.indices[i + 2]],
-//                 0,
-//             };
-
-//             tri.material_id = int(rng.randomf() * 23456788.f) % 10;
-
-//             core::aabb_t aabb{};
-//             aabb.grow(tri.v0.position).grow(tri.v1.position).grow(tri.v2.position);
-//             core::vec3 center{};
-//             center = (tri.v0.position + tri.v1.position + tri.v2.position) / 3.f;
-
-//             r_mesh.tris.push_back(tri);
-//             aabbs.push_back(aabb);
-//             centers.push_back(center);
-//         }
-//         r_mesh.bvh = core::bvh_t::construct(aabbs.data(), centers.data(), r_mesh.tris.size(), build_options);
-//         return r_mesh;
-//     }
-//     core::bvh_t bvh;
-//     std::vector<triangle_t> tris;
-// };
-
-// struct model_t {
-//     static model_t process_model(core::model_t model) {
-//         horizon_info("model has {} meshes", model.meshes.size());
-//         model_t r_model{};
-//         for (auto& mesh : model.meshes) {
-//             r_model.meshes.push_back(mesh_t::process_mesh(mesh));
-//         }
-//         return r_model;
-//     }
-//     std::vector<mesh_t> meshes;
-// };
-
-// struct scene_t {
-//     void add_model(const model_t& model, const core::mat4& transform) {
-//         models.push_back(model);
-//         transformations.push_back(transform);
-//     }
-
-//     std::pair<core::bvh_t, std::vector<core::blas_instance_t<triangle_t>>> create_tlas() {
-//         std::vector<core::blas_instance_t<triangle_t>> blas_instances{};
-//         for (uint32_t i = 0; i < models.size(); i++) {
-//             model_t& model = models[i];
-//             core::mat4& transform = transformations[i];
-
-//             for (auto& mesh : model.meshes) {
-//                 core::blas_instance_t<triangle_t> blas_instance{ &mesh.bvh, mesh.tris.data(), transform };
-//                 blas_instances.push_back(blas_instance);
-//             }
-//         }
-
-//         std::vector<core::aabb_t> aabbs;
-//         std::vector<core::vec3> centers;
-//         for (auto& blas_instance : blas_instances) {
-//             aabbs.push_back(blas_instance.aabb);
-//             centers.push_back(blas_instance.aabb.center());
-//         }
-        
-//         core::bvh_t tlas = core::bvh_t::construct(aabbs.data(), centers.data(), blas_instances.size(), build_options);
-//         return { tlas, blas_instances };
-//     }
-
-//     std::vector<model_t> models;
-//     std::vector<core::mat4> transformations;
-// };
-
-std::pair<core::bvh_t, std::vector<triangle_t>> bvh_from_model(const core::model_t& model, auto mesh_callback, auto triangle_callback) {
+// TODO: remove name from triangle callback
+std::pair<core::bvh::bvh_t, std::vector<triangle_t>> bvh_from_model(const core::model_t& model, auto mesh_callback, auto triangle_callback) {
     std::vector<triangle_t> tris;
     std::vector<core::aabb_t> aabbs;
     std::vector<core::vec3> centers;
@@ -166,76 +81,145 @@ std::pair<core::bvh_t, std::vector<triangle_t>> bvh_from_model(const core::model
             aabbs.push_back(aabb);
             centers.push_back(center);
         }
-    }
-    core::bvh_t bvh = core::bvh_t::construct(aabbs.data(), centers.data(), tris.size(), build_options);
+    }  
+    core::bvh::options_t options {
+        .o_min_primitive_count         = 1,
+        .o_max_primitive_count         = std::numeric_limits<uint32_t>::max(),
+        .o_object_split_search_type    = core::bvh::object_split_search_type_t::e_binned_sah,
+        .o_primitive_intersection_cost = 1.1f,
+        .o_node_intersection_cost      = 1.f,
+        .o_samples                     = 100,
+    };
+    core::bvh::bvh_t bvh = core::bvh::build_bvh2(aabbs, centers, aabbs.size(), options);
+    horizon_info("cost of bvh: {}", core::bvh::cost_of_node(bvh, options));
     return { bvh, tris };
 }
 
 struct gpu_node_t {
     core::vec3   min;
-    uint32_t     primitive_count;
     core::vec3   max;
+    uint32_t     primitive_count;
     uint32_t     first_index;
 };
 
 struct gpu_bvh_t {
     VkDeviceAddress p_nodes;
-    VkDeviceAddress p_primitive_indices;
+    VkDeviceAddress p_triangles_indices;
     uint32_t node_count;
     uint32_t primitive_count;
 };
 
 struct gpu_blas_instance_t {
     VkDeviceAddress p_bvh;
-    VkDeviceAddress p_primitives;
+    VkDeviceAddress p_triangless;
     core::vec3 min, max;
     core::mat4 inverse_transform;
 };
 
-gpu_buffer_t to_gpu(renderer::base_renderer_t& renderer, const core::bvh_t& bvh) {
-    gpu_bvh_t gpu_bvh;
-    gpu_bvh.node_count = bvh.node_count;
-    gpu_bvh.primitive_count = bvh.primitive_count;
-    gpu_bvh.p_nodes = to_gpu(renderer, bvh.p_nodes, sizeof(core::node_t) * bvh.node_count);
-    gpu_bvh.p_primitive_indices = to_gpu(renderer, bvh.p_primitive_indices, sizeof(uint32_t) * bvh.primitive_count);
-    return to_gpu(renderer, &gpu_bvh, sizeof(gpu_bvh));
-}
-
-void show_bvh_info(const core::bvh_t& bvh) {
-    uint32_t max = 0;
-    uint32_t min = std::numeric_limits<uint32_t>::max();
-    float average = 0;
-    uint32_t leaf_node_count = 0;
-    for (uint32_t i = 0; i < bvh.node_count; i++) {
-        auto& node = bvh.p_nodes[i];
-        if (node.is_leaf()) {
-            if (node.primitive_count > max) {
-                max = node.primitive_count;
-            }
-            if (node.primitive_count < min) {
-                min = node.primitive_count;
-            }
-            average += node.primitive_count;
-            leaf_node_count++;
-        }
+std::vector<gpu_node_t> simplify_nodes(const std::vector<core::bvh::node_t>& nodes) {
+    std::vector<gpu_node_t> simplified_nodes;
+    for (auto& node : nodes) {
+        gpu_node_t gpu_node{};
+        gpu_node.min = node.aabb.min;
+        gpu_node.max = node.aabb.max;
+        gpu_node.primitive_count = node.primitive_count;
+        gpu_node.first_index = node.as.leaf.first_primitive_index;
+        simplified_nodes.push_back(gpu_node);
     }
 
-    horizon_info("\e[0;97mprimitive count: {}", bvh.primitive_count);
-    horizon_info("\e[0;97mnode count: {}", bvh.node_count);
-    horizon_info("\e[0;97mdepth: {}", bvh.depth());
-    horizon_info("\e[0;97mglobal sah cost: {}", bvh.node_traversal_cost(build_options));
-    horizon_info("\e[0;97mleaf count: {}", leaf_node_count);
-    horizon_info("\e[0;97mmax tris per leaf: {}", max);
-    horizon_info("\e[0;97mmin tris per leaf: {}", min);
-    horizon_info("\e[0;97maverage tris per leaf: {}", average / float(leaf_node_count));
+    return simplified_nodes;
 }
 
+gpu_buffer_t to_gpu(renderer::base_renderer_t& renderer, const core::bvh::bvh_t& bvh) {
+    gpu_bvh_t gpu_bvh;
+    horizon_info("sizes: {} {}", bvh.nodes.size(), bvh.primitive_indices.size());
+    gpu_bvh.node_count = bvh.nodes.size();
+    gpu_bvh.primitive_count = bvh.primitive_indices.size();
+    std::vector<gpu_node_t> simplified_nodes = simplify_nodes(bvh.nodes);
+    gpu_bvh.p_nodes = to_gpu(renderer, bvh.nodes.data(), sizeof(gpu_node_t) * simplified_nodes.size());
+    gpu_bvh.p_triangles_indices = to_gpu(renderer, bvh.primitive_indices.data(), sizeof(uint32_t) * bvh.primitive_indices.size());
+    return to_gpu(renderer, &gpu_bvh, sizeof(gpu_bvh));
+}
 
 struct material_t {
     uint32_t material_type;
     glm::vec3 albedo;
     float ri_or_fuzz;
 };
+
+auto calculate_aabbs_centers_and_triangles_from_model(const core::model_t& model) {
+    struct {    
+        std::vector<core::aabb_t>     aabbs;
+        std::vector<core::vec3>       centers;
+        std::vector<triangle_t> triangles;
+    } out;
+
+    for (auto& mesh : model.meshes) {
+        for (uint32_t i = 0; i < mesh.indices.size(); i += 3) {
+            triangle_t triangle {
+                mesh.vertices[mesh.indices[i + 0]],
+                mesh.vertices[mesh.indices[i + 1]],
+                mesh.vertices[mesh.indices[i + 2]],
+            };
+            core::aabb_t aabb{};
+            aabb.grow(triangle.v0.position).grow(triangle.v1.position).grow(triangle.v2.position);
+            core::vec3 center = (triangle.v0.position + triangle.v1.position + triangle.v2.position) / 3.f;
+
+            out.triangles.push_back(triangle);
+            out.aabbs.push_back(aabb);
+            out.centers.push_back(center);
+        }
+    }
+    return out;
+}
+
+std::vector<triangle_t> load(std::string path) {
+    core::binary_reader_t binary_reader(path);
+    std::vector<triangle_t> tris;
+    uint32_t count;
+    binary_reader.read(count);
+    std::cout << count << '\n';
+    for (uint32_t i = 0; i < count; i++) {
+        triangle_t tri;
+        binary_reader.read(tri.v0.position);
+        binary_reader.read(tri.v0.normal);
+        binary_reader.read(tri.v1.position);
+        binary_reader.read(tri.v1.normal);
+        binary_reader.read(tri.v2.position);
+        binary_reader.read(tri.v2.normal);
+        tris.push_back(tri);
+    }
+    return tris;
+}
+
+struct blas_instance_t {
+    static blas_instance_t create(core::bvh::bvh_t *p_bvh, triangle_t *p_triangles, const core::mat4& transform) {
+        blas_instance_t blas_instance{};
+        blas_instance.p_bvh = p_bvh;
+        blas_instance.p_triangles = p_triangles;
+        blas_instance.aabb = {};
+
+        core::aabb_t root_aabb = p_bvh->nodes[0].aabb;
+
+        for (uint32_t i = 0; i < 8; i++) {
+            core::vec3 pos = {
+                i & 1 ? root_aabb.max.x : root_aabb.min.x,
+                i & 2 ? root_aabb.max.y : root_aabb.min.y,
+                i & 4 ? root_aabb.max.z : root_aabb.min.z,
+            };
+            pos = transform * core::vec4(pos, 1);
+            blas_instance.aabb.grow(pos);
+        }
+        blas_instance.inverse_transform = core::inverse(transform);
+        return blas_instance;
+    }
+
+    core::bvh::bvh_t *p_bvh;
+    triangle_t *p_triangles;
+    core::aabb_t aabb;
+    core::mat4 inverse_transform;
+};
+
 
 int main(int argc, char **argv) {
     core::window_t window{ "rtiw2", 800, 800 };
@@ -291,121 +275,62 @@ int main(int argc, char **argv) {
 
     core::scene_t scene;
 
-    // auto id1 = scene.create();
-    // {
-    //     scene.construct<core::model_t>(id1) = core::load_model_from_path("../../assets/models/corenl_box.obj");
-    //     auto& transform = scene.construct<transform_t>(id1);
-    //     auto [bvh, tris] = bvh_from_model(scene.get<core::model_t>(id1), [](auto& tri, std::string name) {
-    //         if (name == "area_light") {
-    //             tri.material_id = 0;
-    //         }
-
-    //         if (name == "back_wall") {
-    //             tri.material_id = 4;
-    //         }
-
-    //         if (name == "ceiling") {
-    //             tri.material_id = 1;
-    //         }
-
-    //         if (name == "floor") {
-    //             tri.material_id = 1;
-    //         }
-
-    //         if (name == "left_wall") {
-    //             tri.material_id = 2;
-    //         }
-
-    //         if (name == "right_wall") {
-    //             tri.material_id = 3;
-    //         }
-
-    //         if (name == "short_box") {
-    //             tri.material_id = 1;
-    //         }
-
-    //         if (name == "tall_box") {
-    //             // tri.material_id = 5;
-    //             tri.material_id = 1;
-    //         }
-            
-    //     });
-    //     scene.construct<std::vector<triangle_t>>(id1) = tris;
-    //     scene.construct<core::bvh_t>(id1) = bvh;
-    // }
-
-    // auto id2 = scene.create();
-    // {
-    //     scene.construct<core::model_t>(id2) = core::load_model_from_path("../../assets/models/dragon.obj");
-    //     auto& transform = scene.construct<transform_t>(id2);
-    //     // transform.scale = { 0.1, 0.1, 0.1 };
-    //     transform.translation = { 0.69, 1.80, -1.8 };
-    //     transform.rotation = { 0, glm::pi<float>() + glm::half_pi<float>(), 0 };
-    //     auto [bvh, tris] = bvh_from_model(scene.get<core::model_t>(id2), [](auto& tri, std::string name) {
-    //         tri.material_id = 5;
-    //     });
-    //     scene.construct<std::vector<triangle_t>>(id2) = tris;
-    //     scene.construct<core::bvh_t>(id2) = bvh;
-    // }
-
-    auto id3 = scene.create();
+    auto id = scene.create();
     {
-        scene.construct<core::model_t>(id3) = core::load_model_from_path("../../assets/models/glTF-Sample-Models/2.0/Sponza/glTF/Sponza.gltf");
-        auto& transform = scene.construct<transform_t>(id3);
+        scene.construct<core::model_t>(id) = core::load_model_from_path("../../../bvh/assets/model/sponza/sponza.obj");
+        auto& transform = scene.construct<transform_t>(id);
         transform.scale = { 0.01, 0.01, 0.01 };
         core::rng_t rng{};
         uint32_t counter = 0;
-        auto [bvh, tris] = bvh_from_model(scene.get<core::model_t>(id3), [&](auto& mesh) {
+        auto [bvh, tris] = bvh_from_model(scene.get<core::model_t>(id), [&](auto& mesh) {
             counter++;
         }, [&](auto& tri, std::string name) {
             tri.material_id = counter + 11;
             // tri.material_id = int(rng.randomf() * 456) % 10 + 10;
         });
-        scene.construct<std::vector<triangle_t>>(id3) = tris;
-        scene.construct<core::bvh_t>(id3) = bvh;
+        // auto [aabbs, centers, tris] = calculate_aabbs_centers_and_triangles_from_model(scene.get<core::model_t>(id));
+        scene.construct<std::vector<triangle_t>>(id) = tris;
+        scene.construct<core::bvh::bvh_t>(id) = bvh;
     }
 
-    auto id4 = scene.create();
-    {
-        scene.construct<core::model_t>(id4) = core::load_model_from_path("../../assets/models/glTF-Sample-Models/1.0/Box/glTF/Box.gltf");
-        auto& transform = scene.construct<transform_t>(id4);
-        // transform.scale = { 0.01, 0.01, 0.01 };
-        transform.translation = { 0, 5, 0, };
-        core::rng_t rng{};
-        uint32_t counter = 0;
-        auto [bvh, tris] = bvh_from_model(scene.get<core::model_t>(id4), [](auto& mesh) {}, [&](auto& tri, std::string name) {
-            tri.material_id = 0;
-        });
-        scene.construct<std::vector<triangle_t>>(id4) = tris;
-        scene.construct<core::bvh_t>(id4) = bvh;
-    }
-
-
-    std::vector<core::blas_instance_t<triangle_t>> blas_instances;
+    
+    std::vector<blas_instance_t> blas_instances;
     std::vector<core::aabb_t> aabbs;
     std::vector<core::vec3> centers;
-    scene.for_all<core::bvh_t, std::vector<triangle_t>, transform_t>([&](auto id, auto& bvh, auto& tris, auto& transform) {
-        core::blas_instance_t<triangle_t> blas_instance(&bvh, tris.data(), transform.mat4());
+    scene.for_all<core::bvh::bvh_t, std::vector<triangle_t>, transform_t>([&](auto id, auto& bvh, auto& tris, transform_t& transform) {
+        blas_instance_t blas_instance = blas_instance_t::create(&bvh, tris.data(), transform.mat4());
         aabbs.push_back(blas_instance.aabb);
         centers.push_back(blas_instance.aabb.center());
         blas_instances.push_back(blas_instance);
     });
-    
-    core::bvh_t tlas = core::bvh_t::construct(aabbs.data(), centers.data(), blas_instances.size(), build_options);
+    core::bvh::options_t options {
+        .o_min_primitive_count         = 1,
+        .o_max_primitive_count         = std::numeric_limits<uint32_t>::max(),
+        .o_object_split_search_type    = core::bvh::object_split_search_type_t::e_binned_sah,
+        .o_primitive_intersection_cost = 1.1f,
+        .o_node_intersection_cost      = 1.f,
+        .o_samples                     = 8,
+    };
+    horizon_info("{}", blas_instances.size());
+    core::bvh::bvh_t tlas = core::bvh::build_bvh2(aabbs, centers, blas_instances.size(), options);
+    horizon_info("tlas cost: {}", core::bvh::cost_of_node(tlas, options));
 
     gpu_buffer_t gpu_buffer_tlas = to_gpu(renderer, tlas);
 
+    horizon_info("uploading blas");
     std::vector<gpu_blas_instance_t> gpu_blas_instances;
     for (auto blas_instance : blas_instances) {
+        horizon_info("uploading blas instance");
         gpu_blas_instance_t gpu_blas_instance{};
         gpu_blas_instance.inverse_transform = blas_instance.inverse_transform;
         gpu_blas_instance.min = blas_instance.aabb.min;
         gpu_blas_instance.max = blas_instance.aabb.max;
-        gpu_blas_instance.p_bvh = to_gpu(renderer, *blas_instance.bvh);
-        gpu_blas_instance.p_primitives = to_gpu(renderer, blas_instance.primitives, blas_instance.bvh->primitive_count * sizeof(triangle_t));
+        gpu_blas_instance.p_bvh = to_gpu(renderer, *blas_instance.p_bvh);
+        gpu_blas_instance.p_triangless = to_gpu(renderer, blas_instance.p_triangles, blas_instance.p_bvh->primitive_indices.size() * sizeof(triangle_t));
         gpu_blas_instances.push_back(gpu_blas_instance);
     }
-
+    
+    horizon_info("uploading tlas");
     gpu_buffer_t gpu_buffer_blas_instances = to_gpu(renderer, gpu_blas_instances.data(), gpu_blas_instances.size() * sizeof(gpu_blas_instance_t));
     gpu_buffer_t gpu_buffer_materials = to_gpu(renderer, materials.data(), materials.size() * sizeof(material_t));
 
@@ -419,6 +344,8 @@ int main(int argc, char **argv) {
     core::frame_timer_t frame_timer{ 60.f };
 
     uint32_t samples = 1;
+
+    horizon_info("strarting");
 
     while (!window.should_close()) {
         core::clear_frame_function_times();
@@ -475,25 +402,35 @@ int main(int argc, char **argv) {
             rebuild_tlas = false;
             context.wait_idle();
             context.destroy_buffer(gpu_buffer_tlas.handle);
-            std::vector<core::blas_instance_t<triangle_t>> blas_instances;
+            std::vector<blas_instance_t> blas_instances;
             std::vector<core::aabb_t> aabbs;
             std::vector<core::vec3> centers;
-            scene.for_all<core::bvh_t, std::vector<triangle_t>, transform_t>([&](auto id, auto& bvh, auto& tris, auto& transform) {
-                core::blas_instance_t<triangle_t> blas_instance(&bvh, tris.data(), transform.mat4());
+            scene.for_all<core::bvh::bvh_t, std::vector<triangle_t>, transform_t>([&](auto id, auto& bvh, auto& tris, auto& transform) {
+                blas_instance_t blas_instance = blas_instance_t::create(&bvh, tris.data(), transform.mat4());
                 aabbs.push_back(blas_instance.aabb);
                 centers.push_back(blas_instance.aabb.center());
                 blas_instances.push_back(blas_instance);
             });
-            core::bvh_t tlas = core::bvh_t::construct(aabbs.data(), centers.data(), blas_instances.size(), build_options);
-            gpu_buffer_tlas = to_gpu(renderer, tlas);
-            gpu_blas_instances.clear();
+            core::bvh::options_t options {
+                .o_min_primitive_count         = 1,
+                .o_max_primitive_count         = std::numeric_limits<uint32_t>::max(),
+                .o_object_split_search_type    = core::bvh::object_split_search_type_t::e_binned_sah,
+                .o_primitive_intersection_cost = 1.1f,
+                .o_node_intersection_cost      = 1.f,
+                .o_samples                     = 100,
+            };
+            core::bvh::bvh_t tlas = core::bvh::build_bvh2(aabbs, centers, blas_instances.size(), options);
+
+            gpu_buffer_t gpu_buffer_tlas = to_gpu(renderer, tlas);
+
+            std::vector<gpu_blas_instance_t> gpu_blas_instances;
             for (auto blas_instance : blas_instances) {
                 gpu_blas_instance_t gpu_blas_instance{};
                 gpu_blas_instance.inverse_transform = blas_instance.inverse_transform;
                 gpu_blas_instance.min = blas_instance.aabb.min;
                 gpu_blas_instance.max = blas_instance.aabb.max;
-                gpu_blas_instance.p_bvh = to_gpu(renderer, *blas_instance.bvh);
-                gpu_blas_instance.p_primitives = to_gpu(renderer, blas_instance.primitives, blas_instance.bvh->primitive_count * sizeof(triangle_t));
+                gpu_blas_instance.p_bvh = to_gpu(renderer, *blas_instance.p_bvh);
+                gpu_blas_instance.p_triangless = to_gpu(renderer, blas_instance.p_triangles, blas_instance.p_bvh->primitive_indices.size() * sizeof(triangle_t));
                 gpu_blas_instances.push_back(gpu_blas_instance);
             }
             gpu_buffer_blas_instances = to_gpu(renderer, gpu_blas_instances.data(), gpu_blas_instances.size() * sizeof(gpu_blas_instance_t));
@@ -533,7 +470,12 @@ int main(int argc, char **argv) {
         raytracer_pass->update_uniform(camera.inverse_projection(), camera.inverse_view(), width, height, blas_instances.size(), samples, gpu_buffer_blas_instances, gpu_buffer_materials, gpu_buffer_tlas);
         raytracer_pass->render(commandbuffer);
 
-        horizon_info("{} samples taken", samples);
+        static int i = 0;
+        i++;
+        if (i == 25) {
+            i = 0;
+            horizon_info("{} samples taken", samples);
+        } 
 
         renderer.end();
     }

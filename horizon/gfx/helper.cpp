@@ -67,7 +67,7 @@ void end_single_use_commandbuffer(context_t& context, handle_commandbuffer_t com
     context.submit_commandbuffer(commandbuffer, {}, {}, {}, fence);
     context.wait_fence(fence);
     context.destroy_fence(fence);
-    context.free_commandbuffer(commandbuffer);
+    // context.free_commandbuffer(commandbuffer);
 }
 
 VkImageAspectFlags image_aspect_from_format(VkFormat vk_format) {
@@ -420,7 +420,7 @@ void cmd_transition_image_layout(context_t& context, handle_commandbuffer_t hand
     context.cmd_pipeline_barrier(handle_commandbuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, {}, {}, { vk_image_memory_barrier });
 }
 
-std::pair<handle_image_t, handle_image_view_t> create_2D_image_and_image_views(context_t& context, uint32_t width, uint32_t height, VkFormat vk_format, VkImageUsageFlags vk_usage) {
+std::pair<handle_image_t, handle_image_view_t> create_2D_image_and_image_view(context_t& context, uint32_t width, uint32_t height, VkFormat vk_format, VkImageUsageFlags vk_usage) {
     gfx::config_image_t config_target_image{};
     config_target_image.vk_width = width;
     config_target_image.vk_height = height;

@@ -49,7 +49,7 @@ enum class descriptor_info_type_t {
 
 struct descriptor_info_t {
     uint32_t binding;
-    uint32_t count;
+    uint32_t array_element;
     descriptor_info_type_t type;
     union {
         buffer_descriptor_info_t buffer_info;
@@ -58,8 +58,8 @@ struct descriptor_info_t {
 };
 
 struct update_descriptor_set_t {
-    update_descriptor_set_t& push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t count = 1);
-    update_descriptor_set_t& push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t count = 1);
+    update_descriptor_set_t& push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t array_element = 0);
+    update_descriptor_set_t& push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t array_element = 0);
     void commit();
 
     base_renderer_t& renderer;

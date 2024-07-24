@@ -34,3 +34,5 @@
 [submodule "deps/imgui_cmake/imgui"]
 	path = deps/imgui_cmake/imgui
 	url = https://github.com/ocornut/imgui.git
+[submodule "assets/models/glTF-Sample-Models"]
+	url = https://github.com/KhronosGroup/glTF-Sample-Models.git

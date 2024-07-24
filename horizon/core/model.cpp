@@ -119,7 +119,11 @@ model_t load_model_from_path(const std::filesystem::path& file_path) {
     horizon_profile();
     Assimp::Importer importer{};
     const aiScene *scene = importer.ReadFile(file_path.string(),
-                                             aiProcessPreset_TargetRealtime_Quality
+                                            //  aiProcessPreset_TargetRealtime_Quality
+                                             aiProcess_Triangulate          |
+                                             aiProcess_GenNormals           |
+                                             aiProcess_CalcTangentSpace     |
+                                             aiProcess_PreTransformVertices
                                             );
     if (!scene || scene->mFlags & AI_SCENE_FLAGS_INCOMPLETE || !scene->mRootNode) {
         throw std::runtime_error(importer.GetErrorString());

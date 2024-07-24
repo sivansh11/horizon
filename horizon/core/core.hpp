@@ -12,6 +12,7 @@
 #include <fstream>
 #include <string_view>
 #include <atomic>
+#include <cstdint>
 
 #ifdef horizon_profile_enable
 #define horizon_profile() core::timer::frame_function_timer_t frame_function_timer{std::source_location::current().function_name()}
@@ -104,6 +105,11 @@ struct binary_writer_t {
 
 std::string read_file(const std::filesystem::path& filename);
 void write_file(const std::filesystem::path& filename, const void *data, size_t size);
+
+uint32_t number_of_bits_required_for_number(uint32_t n);
+float safe_inverse(float x);
+float clamp(float val, float min, float max);
+
 
 namespace timer {
 

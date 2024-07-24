@@ -5,7 +5,7 @@
 #include "gfx/helper.hpp"
 #include "gfx/base_renderer.hpp"
 
-#include "core/algebra.hpp"
+#include "core/math.hpp"
 
 class clear_pass_t {
     struct uniform_t {
@@ -211,8 +211,13 @@ public:
         base_renderer.context.cmd_dispatch(commandbuffer, (target_width / 8) + 1, (target_height / 8) + 1, 1);
         base_renderer.context.cmd_end_timer(commandbuffer, t);
 
-        if (auto time = base_renderer.context.timer_get_time(t)) {
-            horizon_info("{}", *time);
+        static int i = 0;
+        i++;
+        if (i == 25) {
+            i = 0;
+            if (auto time = base_renderer.context.timer_get_time(t)) {
+                horizon_info("{}", *time);
+            } 
         }
 
         // maybe I dont need this transition ?

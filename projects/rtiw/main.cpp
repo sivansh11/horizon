@@ -18,7 +18,7 @@ static const core::bvh_t::build_options_t build_options{
     .node_intersection_cost = 1,
     .min_primitive_count = 1,
     .max_primitive_count = std::numeric_limits<uint32_t>::max(),
-    .sah_samples = 25,
+    .samples = 25,
     .add_node_intersection_cost_in_leaf_traversal = false,
 };
 
@@ -163,7 +163,7 @@ int main(int argc, char **argv) {
     gfx::handle_pipeline_t rtiw_pipeline = context.create_compute_pipeline(config_rtiw_pipeline);
 
     std::vector<material_t> materials{
-        { material_type_lambertian, glm::vec3{ 0.1, 0.2, 0.5 } },  // center
+        { material_type_lambertian, glm::vec3{ 0.1, 0.2, 0.5 } },  // center`
         { material_type_lambertian, glm::vec3{ 0.8, 0.8, 0.0 } },  // ground
         { material_type_dielectric, glm::vec3{ 1, 1, 1 }, 1.5 },  // left
         { material_type_metal, glm::vec3{ 0.8, 0.6, 0.2 }, 0.1 },  // right

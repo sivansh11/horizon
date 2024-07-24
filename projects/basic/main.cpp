@@ -126,8 +126,8 @@ int main() {
     gfx::context_t context{ true };
 
     auto [width, height] = window.dimensions();
-    auto [target_image, target_image_view] = gfx::helper::create_2D_image_and_image_views(context, width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
-    auto [target_depth_image, target_depth_image_view] = gfx::helper::create_2D_image_and_image_views(context, width, height, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    auto [target_image, target_image_view] = gfx::helper::create_2D_image_and_image_view(context, width, height, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
+    auto [target_depth_image, target_depth_image_view] = gfx::helper::create_2D_image_and_image_view(context, width, height, VK_FORMAT_D32_SFLOAT, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
     gfx::handle_sampler_t sampler = context.create_sampler({});
 

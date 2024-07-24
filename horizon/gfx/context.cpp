@@ -16,10 +16,14 @@
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
+#include <cstdint>
 #include <iostream>
 #include <sstream>
 #include <cmath>
 #include <set>
+
+
+#define size_t uint64_t  // because my intellisense is being weird
 
 namespace utils {
 
@@ -44,6 +48,12 @@ inline void diagnose_if_needed(slang::IBlob *diagnostics_blob) {
     }
 }
 
+inline void diagnostic_callback_slang(const char *msg, void *user_data) {
+    if (msg) {
+        horizon_error("{}", msg);
+    }
+}
+
 class file_includer_t : public shaderc::CompileOptions::IncluderInterface {
 public:
     struct included_data_t {
@@ -51,7 +61,7 @@ public:
         std::string content;
     };
 
-    shaderc_include_result* GetInclude(const char* requested_source, shaderc_include_type type, const char* requesting_source, size_t include_depth) override {
+    shaderc_include_result* GetInclude(const char* requested_source, shaderc_include_type type, const char* requesting_source, size_t include_depth) {
         horizon_trace("requested source: {}\nrequesting source: {}", requested_source, requesting_source);
         std::filesystem::path resolved_path = std::string("../../assets/shaders/") + requested_source;
         horizon_trace("resolved path: {}", resolved_path.string());
@@ -228,12 +238,12 @@ VkPipelineColorBlendAttachmentState default_color_blend_attachment() {
     return vk_color_blend_attachment;
 }
 
-update_descriptor_set_t& update_descriptor_set_t::push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t count) {
+update_descriptor_set_t& update_descriptor_set_t::push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t array_element) {
     horizon_profile();
     internal::descriptor_set_t& descriptor_set = utils::assert_and_get_data<internal::descriptor_set_t>(handle, context._descriptor_sets);
     VkWriteDescriptorSet vk_write{ .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
     vk_write.dstBinding = binding;
-    vk_write.descriptorCount = count;
+    vk_write.descriptorCount = 1; // this is 1 as I am only updating 1 buffer descriptor per write
     vk_write.dstSet = descriptor_set;
     VkDescriptorBufferInfo *vk_buffer_info = new VkDescriptorBufferInfo;
     vk_buffer_info->buffer = utils::assert_and_get_data<internal::buffer_t>(info.handle_buffer, context._buffers);
@@ -249,20 +259,21 @@ update_descriptor_set_t& update_descriptor_set_t::push_buffer_write(uint32_t bin
     assert(itr != descriptor_set_layout.config.vk_descriptor_set_layout_bindings.end());
     vk_write.descriptorType = itr->descriptorType;
     vk_write.pBufferInfo = vk_buffer_info;
+    vk_write.dstArrayElement = array_element;
     vk_writes.push_back(vk_write);
     return *this;
 }
 
-update_descriptor_set_t& update_descriptor_set_t::push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t count) {
+update_descriptor_set_t& update_descriptor_set_t::push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t array_element) {
     horizon_profile();
     internal::descriptor_set_t& descriptor_set = utils::assert_and_get_data<internal::descriptor_set_t>(handle, context._descriptor_sets);
     VkWriteDescriptorSet vk_write{ .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET };
     vk_write.dstBinding = binding;
-    vk_write.descriptorCount = count;
+    vk_write.descriptorCount = 1;  // this is 1 as I am only updating 1 buffer descriptor per write
     vk_write.dstSet = descriptor_set;
     VkDescriptorImageInfo *vk_image_info = new VkDescriptorImageInfo;
-    vk_image_info->sampler = utils::assert_and_get_data<internal::sampler_t>(info.handle_sampler, context._samplers);
-    vk_image_info->imageView = utils::assert_and_get_data<internal::image_view_t>(info.handle_image_view, context._image_views);
+    vk_image_info->sampler = info.handle_sampler != null_handle ? utils::assert_and_get_data<internal::sampler_t>(info.handle_sampler, context._samplers).vk_sampler : VK_NULL_HANDLE;
+    vk_image_info->imageView = info.handle_image_view != null_handle ? utils::assert_and_get_data<internal::image_view_t>(info.handle_image_view, context._image_views).vk_image_view : VK_NULL_HANDLE;
     vk_image_info->imageLayout = info.vk_image_layout;
 
     internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(descriptor_set.config.handle_descriptor_set_layout, context._descriptor_set_layouts);
@@ -274,6 +285,7 @@ update_descriptor_set_t& update_descriptor_set_t::push_image_write(uint32_t bind
     assert(itr != descriptor_set_layout.config.vk_descriptor_set_layout_bindings.end());
     vk_write.descriptorType = itr->descriptorType;
     vk_write.pImageInfo = vk_image_info;
+    vk_write.dstArrayElement = array_element;
     vk_writes.push_back(vk_write);
     return *this;
 }
@@ -435,31 +447,12 @@ void context_t::create_device() {
     vkb_physical_device_selector.add_required_extension(VK_KHR_DEDICATED_ALLOCATION_EXTENSION_NAME);
     vkb_physical_device_selector.add_required_extension(VK_KHR_BIND_MEMORY_2_EXTENSION_NAME);
     vkb_physical_device_selector.add_required_extension(VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME);
-    VkPhysicalDeviceScalarBlockLayoutFeatures vk_physical_device_scalar_block_layout_features{
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES,
-        .scalarBlockLayout = VK_TRUE,
-    };
-    vkb_physical_device_selector.add_required_extension_features<VkPhysicalDeviceScalarBlockLayoutFeatures>(vk_physical_device_scalar_block_layout_features);
-    VkPhysicalDeviceBufferDeviceAddressFeatures vk_physical_device_buffer_device_address_features = {
-        .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES,
-        .bufferDeviceAddress = VK_TRUE,
-        .bufferDeviceAddressCaptureReplay = VK_FALSE,
-        .bufferDeviceAddressMultiDevice = VK_FALSE
-    };
-    vkb_physical_device_selector.add_required_extension_features<VkPhysicalDeviceBufferDeviceAddressFeatures>(vk_physical_device_buffer_device_address_features);
     VkPhysicalDeviceDynamicRenderingFeaturesKHR vk_physical_device_dynamic_rendering_features{ .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES };
     vk_physical_device_dynamic_rendering_features.dynamicRendering = VK_TRUE;
     vkb_physical_device_selector.add_required_extension_features<VkPhysicalDeviceDynamicRenderingFeaturesKHR>(vk_physical_device_dynamic_rendering_features);
-    VkPhysicalDeviceDescriptorIndexingFeatures vk_physical_device_descriptor_indexing_features{ .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES };
-    vk_physical_device_descriptor_indexing_features.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
-    vk_physical_device_descriptor_indexing_features.descriptorBindingSampledImageUpdateAfterBind = VK_TRUE;
-    vk_physical_device_descriptor_indexing_features.shaderUniformBufferArrayNonUniformIndexing = VK_TRUE;
-    vk_physical_device_descriptor_indexing_features.descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE;
-    vk_physical_device_descriptor_indexing_features.shaderStorageBufferArrayNonUniformIndexing = VK_TRUE;
-    vk_physical_device_descriptor_indexing_features.descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE;
-    vkb_physical_device_selector.add_required_extension_features(vk_physical_device_descriptor_indexing_features);
     VkPhysicalDeviceFeatures vk_physical_device_features{
         .fillModeNonSolid = VK_TRUE,
+        .shaderInt64 = VK_TRUE,
     };
     vkb_physical_device_selector.set_required_features(vk_physical_device_features);
     VkPhysicalDeviceVulkan11Features vk_physical_device_vulkan_11_features{
@@ -467,6 +460,21 @@ void context_t::create_device() {
         .variablePointers = VK_TRUE,
     };
     vkb_physical_device_selector.set_required_features_11(vk_physical_device_vulkan_11_features);
+    VkPhysicalDeviceVulkan12Features vk_physical_device_vulkan_12_features{
+        .shaderUniformBufferArrayNonUniformIndexing = VK_TRUE,
+        .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+        .shaderStorageBufferArrayNonUniformIndexing = VK_TRUE,
+        .descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE,
+        .descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
+        .descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE,
+        .descriptorBindingPartiallyBound = VK_TRUE,
+        .descriptorBindingVariableDescriptorCount = VK_TRUE,
+        .runtimeDescriptorArray = VK_TRUE,
+        .scalarBlockLayout = VK_TRUE,
+        .bufferDeviceAddress = VK_TRUE,
+    };
+    vkb_physical_device_selector.set_required_features_12(vk_physical_device_vulkan_12_features);
+    
     vkb_physical_device_selector.prefer_gpu_device_type(vkb::PreferredDeviceType::discrete);
 
     // create temp window to get surface information
@@ -602,7 +610,7 @@ void context_t::create_descriptor_pool() {
     vk_descriptor_pool_create_info.poolSizeCount = vk_pool_sizes.size();
     vk_descriptor_pool_create_info.pPoolSizes = vk_pool_sizes.data();
     vk_descriptor_pool_create_info.maxSets = 1000000 * 7;
-    vk_descriptor_pool_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    vk_descriptor_pool_create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT | VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT;
     VkResult vk_result = vkCreateDescriptorPool(_vkb_device, &vk_descriptor_pool_create_info, nullptr, &_vk_descriptor_pool);
     check(vk_result == VK_SUCCESS, "Failed to create descriptor pool");
     horizon_trace("created descriptor pool");
@@ -923,6 +931,16 @@ handle_descriptor_set_layout_t context_t::create_descriptor_set_layout(const con
     VkDescriptorSetLayoutCreateInfo vk_descriptor_set_layout_create_info{ .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
     vk_descriptor_set_layout_create_info.bindingCount = config.vk_descriptor_set_layout_bindings.size();
     vk_descriptor_set_layout_create_info.pBindings = config.vk_descriptor_set_layout_bindings.data();
+    vk_descriptor_set_layout_create_info.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT;
+
+    std::vector<VkDescriptorBindingFlags> vk_descriptor_binding_flags;
+    vk_descriptor_binding_flags.resize(config.vk_descriptor_set_layout_bindings.size(), VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT);
+
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT vk_descriptor_set_layout_binding_flags_create_info{ .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT };
+    vk_descriptor_set_layout_binding_flags_create_info.bindingCount = vk_descriptor_binding_flags.size();
+    vk_descriptor_set_layout_binding_flags_create_info.pBindingFlags = vk_descriptor_binding_flags.data();
+
+    vk_descriptor_set_layout_create_info.pNext = &vk_descriptor_set_layout_binding_flags_create_info;
 
     VkResult vk_result = vkCreateDescriptorSetLayout(_vkb_device, &vk_descriptor_set_layout_create_info, nullptr, &descriptor_set_layout.vk_descriptor_set_layout);
     check(vk_result == VK_SUCCESS, "Failed to create descriptor set layout");
@@ -954,6 +972,13 @@ handle_descriptor_set_t context_t::allocate_descriptor_set(const config_descript
     vk_descriptor_set_allocate_info.descriptorPool = _vk_descriptor_pool;
     vk_descriptor_set_allocate_info.descriptorSetCount = 1;
     vk_descriptor_set_allocate_info.pSetLayouts = &descriptor_set_layout.vk_descriptor_set_layout;
+
+    uint32_t descriptor_count = 1;
+
+    VkDescriptorSetVariableDescriptorCountAllocateInfo vk_descriptor_set_variable_descriptor_count_allocate_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO };
+    vk_descriptor_set_variable_descriptor_count_allocate_info.descriptorSetCount = 1;
+    vk_descriptor_set_variable_descriptor_count_allocate_info.pDescriptorCounts = &descriptor_count;
+    vk_descriptor_set_allocate_info.pNext = &vk_descriptor_set_variable_descriptor_count_allocate_info;
 
     VkResult vk_result = vkAllocateDescriptorSets(_vkb_device, &vk_descriptor_set_allocate_info, &descriptor_set.vk_descriptor_set);
     check(vk_result == VK_SUCCESS, "Failed to allocate descriptor set");
@@ -1032,6 +1057,7 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
         shaderc_compile_options.SetIncluder(std::make_unique<utils::file_includer_t>());
         return true;
     }();
+    Slang::ComPtr<slang::ICompileRequest> compileRequest;
     Slang::ComPtr<slang::IBlob> spirvCode;
     Slang::ComPtr<slang::IComponentType> composedProgram;
     Slang::List<slang::IComponentType*> componentTypes;
@@ -1047,6 +1073,46 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
     std::string path = config.is_code ? "" : config.code_or_path;
     
     if (config.language == shader_language_t::e_slang) {  
+        // slangGlobalSession->createCompileRequest(compileRequest.writeRef());
+        // compileRequest->setCodeGenTarget(SlangCompileTarget::SLANG_SPIRV);
+        // const int translationUnitIndex = compileRequest->addTranslationUnit(SlangSourceLanguage::SLANG_SOURCE_LANGUAGE_SLANG, nullptr);
+        // compileRequest->addTranslationUnitSourceString(translationUnitIndex, path.c_str(), code.c_str());
+        // compileRequest->setMatrixLayoutMode(SLANG_MATRIX_LAYOUT_COLUMN_MAJOR);
+        // compileRequest->setTargetFlags(0, SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY | SLANG_TARGET_FLAG_GENERATE_WHOLE_PROGRAM);
+        // compileRequest->setTargetForceGLSLScalarBufferLayout(0, true);
+        // compileRequest->setDiagnosticCallback(utils::diagnostic_callback_slang, this);
+        // compileRequest->setOptimizationLevel(SLANG_OPTIMIZATION_LEVEL_NONE);
+        // compileRequest->setDebugInfoLevel(SLANG_DEBUG_INFO_LEVEL_MAXIMAL);
+        // auto compileArguments = std::to_array<const char*>({
+        //     "-warnings-disable", "39001", // Disables descriptor binding aliasing warning
+        //     "-fvk-use-entrypoint-name",
+        //     "-O0"
+        // });
+        // if (SLANG_FAILED(compileRequest->processCommandLineArguments(compileArguments.data(), (int)compileArguments.size()))) {
+        //     horizon_error("{}", compileRequest->getDiagnosticOutput());
+        //     std::terminate();
+        // }
+
+        // if (SLANG_FAILED(compileRequest->compile())) {
+        //     horizon_error("{}", "somthing fucked up");
+        //     std::terminate();
+        // }
+
+        // size_t codeSize;
+        // const void* code = compileRequest->getCompileRequestCode(&codeSize);
+
+        // vk_shader_module_create_info.codeSize = codeSize;
+        // vk_shader_module_create_info.pCode = static_cast<const uint32_t *>(code);
+
+        // // auto reflection = compileRequest->getReflection();
+        // // uint32_t parameter_count = spReflection_GetParameterCount(reflection);
+        // // for (uint32_t i = 0; i < parameter_count; i++) {
+        // //     SlangReflectionParameter *param = spReflection_GetParameterByIndex(reflection, i);
+        // //     uint32_t index = spReflectionParameter_GetBindingIndex(param);
+        // //     uint32_t space = spReflectionParameter_GetBindingSpace(param);
+        // //     horizon_info("{} {}", index, space);
+        // // }
+
         static std::vector<slang::CompilerOptionEntry> compiler_options;
         Slang::ComPtr<slang::ISession> session;
         slang::SessionDesc sessionDesc = {};
@@ -1059,18 +1125,25 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
         slang::CompilerOptionValue compiler_value{};
         slang::CompilerOptionEntry compiler_option{};
 
-        compiler_value.intValue0 = 1;
-        compiler_value.kind = slang::CompilerOptionValueKind::Int;
-        compiler_option = {
-            .name = slang::CompilerOptionName::EmitSpirvDirectly,
-            .value = compiler_value,
-        };
-        compiler_options.push_back(compiler_option);
+        // compiler_value.intValue0 = 1;
+        // compiler_value.kind = slang::CompilerOptionValueKind::Int;
+        // compiler_option = {
+        //     .name = slang::CompilerOptionName::EmitSpirvDirectly,
+        //     .value = compiler_value,
+        // };
+        // compiler_options.push_back(compiler_option);
 
         compiler_option.name = slang::CompilerOptionName::DebugInformation;
-        compiler_value.intValue0 = SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_STANDARD;
+        compiler_value.intValue0 = SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL;
         compiler_option.value = compiler_value;
         compiler_options.push_back(compiler_option);
+
+
+        compiler_option.name = slang::CompilerOptionName::Optimization;
+        compiler_value.intValue0 = SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_NONE;
+        compiler_option.value = compiler_value;
+        compiler_options.push_back(compiler_option);
+
 
         compiler_option.name = slang::CompilerOptionName::GLSLForceScalarLayout;
         compiler_value.kind = slang::CompilerOptionValueKind::Int;
@@ -1130,7 +1203,7 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
                 horizon_error("unknown shader type");
                 std::terminate();
         }
-        check(entryPoint, "failed to find entrypoint");
+        check(entryPoint, "failed to find entrypoint in {}", path);
 
         componentTypes.add(slangModule);
         componentTypes.add(entryPoint);
@@ -1154,6 +1227,21 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
             );
             utils::diagnose_if_needed(diagnosticsBlob);
             check(result == 0, "Failed to get spirv code");
+        }
+        
+        slang::ProgramLayout *program_layout;
+        {
+            Slang::ComPtr<slang::IBlob> diagnosticsBlob;
+            program_layout = composedProgram->getLayout(0, diagnosticsBlob.writeRef());
+            utils::diagnose_if_needed(diagnosticsBlob);
+            check(program_layout, "Failed to get program layout");
+        }
+
+        uint32_t parameter_count = program_layout->getParameterCount();
+        for (uint32_t i = 0; i < parameter_count; i++) {
+            slang::VariableLayoutReflection *parameter = program_layout->getParameterByIndex(i);
+            unsigned index = parameter->getBindingIndex();
+            horizon_info("{} {}", parameter->getName(), index);
         }
 
         vk_shader_module_create_info.codeSize = spirvCode->getBufferSize();
@@ -1203,6 +1291,8 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
     } else {
         check(false, "unknown shader language");
     }
+
+    if (!config.is_code) horizon_info("{}", config.code_or_path);
 
     internal::shader_t shader{ .config = config };
     VkResult vk_result = vkCreateShaderModule(_vkb_device, &vk_shader_module_create_info, nullptr, &shader.vk_shader);
@@ -1344,7 +1434,7 @@ handle_pipeline_t context_t::create_graphics_pipeline(const config_pipeline_t& c
     vk_pipeline_rendering_create.colorAttachmentCount    = config.vk_color_formats.size();
     vk_pipeline_rendering_create.pColorAttachmentFormats = config.vk_color_formats.data();
     vk_pipeline_rendering_create.depthAttachmentFormat   = config.vk_depth_format;
-    vk_pipeline_rendering_create.stencilAttachmentFormat = config.vk_depth_format;
+    vk_pipeline_rendering_create.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
 
     VkGraphicsPipelineCreateInfo vk_pipeline_info{};
     vk_pipeline_info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

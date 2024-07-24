@@ -6,21 +6,6 @@ file(GLOB_RECURSE SRC_FILES ./*.cpp)
 
 add_library(horizon ${SRC_FILES})
 
-# set(Vulkan_INCLUDE_DIR "/home/sivansh/programming/vulkan_sdk/1.3.275.0/x86_64/include")
-# set(Vulkan_LIBRARY "/home/sivansh/programming/vulkan_sdk/1.3.275.0/x86_64/lib")
-find_package(Vulkan REQUIRED)
-
-find_package(X11 REQUIRED)
-if(!X11_XTest_FOUND)
-    message(FATAL_ERROR "X11 extensions are required, but not found!")
-endif()
-if(!X11_Xfixes_LIB)
-    message(FATAL_ERROR "X11 fixes extension is required, but not found!")
-endif()
-if (!X11_Xext_LIB)
-    message(FATAL_ERROR "X11 Xext extension required but not found!")
-endif()
-
 target_compile_definitions(horizon PUBLIC
     # horizon_profile_enable
 )
@@ -62,12 +47,5 @@ target_link_libraries(horizon
     assimp
     slang
     core
-    # gfx
-    # gfx-util
-    # platform
     imgui_cmake
-    # EnTT
-    # screen_capture_lite_static
-    # imgui
-    # msdf-atlas-gen
 )

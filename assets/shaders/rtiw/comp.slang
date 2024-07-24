@@ -1,9 +1,38 @@
+// uint32_t extract_first_n_bits(uint32_t value, int n) {
+//   if (n <= 0) {
+//     return 0;
+//   }
+//   uint32_t mask = (1U << n) - 1;
+//   return value & mask;
+// }
+
+// // Function to extract the remaining 32 - n bits
+// uint32_t extract_remaining_bits(uint32_t value, int n) {
+//   // Check for invalid input (n <= 0 or n >= 32)
+//   if (n <= 0 || n >= 32) {
+//     return 0;
+//   }
+  
+//   // Shift the value right by (32 - n) bits to isolate the remaining bits
+//   return value >> (32 - n);
+// }
+
+
+// struct node_t {
+//     float3 min;
+//     float3 max;
+//     uint32_t is_leaf : 1;
+//     uint32_t primitive_count : 31;
+//     uint32_t first_index : 28;
+//     uint32_t dummy : 4;
+// };
+
 struct node_t {
     bool is_leaf() { return primitive_count != 0; }
     float3 min;
-    uint32_t first_index;
     float3 max;
     uint32_t primitive_count;
+    uint32_t first_index;
 };
 
 struct bvh_t {
@@ -11,7 +40,6 @@ struct bvh_t {
     uint32_t *p_primitive_indices;
     uint32_t node_count;
     uint32_t primitive_count;
-    uint32_t *p_parent_ids;
 };
 
 struct sphere_t {

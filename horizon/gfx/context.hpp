@@ -38,7 +38,7 @@ inline data_t& assert_and_get_data(handle_t handle, map_t& map) {
 
 } // namespace utils
 
-using handle_t = uint64_t;
+using handle_t = uint32_t;
 
 #define define_handle(name) \
 struct name { \
@@ -350,8 +350,8 @@ struct image_descriptor_info_t {
 };
 
 struct update_descriptor_set_t {
-    update_descriptor_set_t& push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t count = 1);
-    update_descriptor_set_t& push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t count = 1);
+    update_descriptor_set_t& push_buffer_write(uint32_t binding, const buffer_descriptor_info_t& info, uint32_t array_element = 0);
+    update_descriptor_set_t& push_image_write(uint32_t binding, const image_descriptor_info_t& info, uint32_t array_element = 0);
     void commit();
 
     context_t& context;
@@ -551,5 +551,31 @@ define_fmt(gfx::handle_semaphore_t);
 define_fmt(gfx::handle_command_pool_t);
 define_fmt(gfx::handle_commandbuffer_t);
 define_fmt(gfx::handle_timer_t);
+
+#define define_handle_hash(name)                    \
+template <>                                         \
+struct std::hash<name> {                            \
+    size_t operator()(const name& handle) const {   \
+        size_t seed = 0;                            \
+        core::hash_combine(seed, handle.val);       \
+        return seed;                                \
+    }                                               \
+}
+
+define_handle_hash(gfx::handle_swapchain_t);
+define_handle_hash(gfx::handle_buffer_t);
+define_handle_hash(gfx::handle_sampler_t);
+define_handle_hash(gfx::handle_image_t);
+define_handle_hash(gfx::handle_image_view_t);
+define_handle_hash(gfx::handle_descriptor_set_layout_t);
+define_handle_hash(gfx::handle_descriptor_set_t);
+define_handle_hash(gfx::handle_pipeline_layout_t);
+define_handle_hash(gfx::handle_shader_t);
+define_handle_hash(gfx::handle_pipeline_t);
+define_handle_hash(gfx::handle_fence_t);
+define_handle_hash(gfx::handle_semaphore_t);
+define_handle_hash(gfx::handle_command_pool_t);
+define_handle_hash(gfx::handle_commandbuffer_t);
+define_handle_hash(gfx::handle_timer_t);
 
 #endif

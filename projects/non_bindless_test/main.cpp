@@ -9,12 +9,12 @@
 #include <GLFW/glfw3.h>
 
 const std::vector<core::vertex_t> vertices {
-    core::vertex_t{ {-1 / 2.f, -1 / 2.f, 0}, core::vec3{ 1 }, {0, 0} },
-    core::vertex_t{ {-1 / 2.f,  1 / 2.f, 0}, core::vec3{ 1 }, {0, 1} },
-    core::vertex_t{ { 1 / 2.f,  1 / 2.f, 0}, core::vec3{ 1 }, {1, 1} },
-    core::vertex_t{ {-1 / 2.f, -1 / 2.f, 0}, core::vec3{ 0 }, {0, 0} },
-    core::vertex_t{ { 1 / 2.f,  1 / 2.f, 0}, core::vec3{ 0 }, {1, 1} },
-    core::vertex_t{ { 1 / 2.f, -1 / 2.f, 0}, core::vec3{ 0 }, {1, 0} },
+    core::vertex_t{ {-1 / 2.f, -1 / 2.f, 0}, {}, {0, 0} },
+    core::vertex_t{ {-1 / 2.f,  1 / 2.f, 0}, {}, {0, 1} },
+    core::vertex_t{ { 1 / 2.f,  1 / 2.f, 0}, {}, {1, 1} },
+    core::vertex_t{ {-1 / 2.f, -1 / 2.f, 0}, {}, {0, 0} },
+    core::vertex_t{ { 1 / 2.f,  1 / 2.f, 0}, {}, {1, 1} },
+    core::vertex_t{ { 1 / 2.f, -1 / 2.f, 0}, {}, {1, 0} },
 };
 
 const std::vector<uint32_t> indices {
@@ -33,27 +33,22 @@ int main(int argc, char **argv) {
 
     auto renderer = renderer::base_renderer_t{ window, context, sampler, o_image_view };
 
-    gfx::config_descriptor_set_layout_t cdsl1{};
-    cdsl1.add_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
-         .add_layout_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS);
-
-    gfx::config_descriptor_set_layout_t cdsl2{};
-    cdsl2.add_layout_binding(0, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS)
-         .add_layout_binding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS, 2);
-
-    gfx::handle_descriptor_set_layout_t dsl1 = context.create_descriptor_set_layout(cdsl1);
-    gfx::handle_descriptor_set_layout_t dsl2 = context.create_descriptor_set_layout(cdsl2);
+    gfx::config_descriptor_set_layout_t cdsl{};
+    cdsl.add_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+        .add_layout_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+        .add_layout_binding(2, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS)
+        .add_layout_binding(3, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS);
+    gfx::handle_descriptor_set_layout_t dsl = context.create_descriptor_set_layout(cdsl);
 
     gfx::config_pipeline_layout_t cpl{};
-    cpl.add_descriptor_set_layout(dsl1);
-    cpl.add_descriptor_set_layout(dsl2);
+    cpl.add_descriptor_set_layout(dsl);
     gfx::handle_pipeline_layout_t pl = context.create_pipeline_layout(cpl);
 
     gfx::config_pipeline_t cp{};
     cp.handle_pipeline_layout = pl;
     cp.add_color_attachment(VK_FORMAT_R8G8B8A8_SRGB, gfx::default_color_blend_attachment());
-    cp.add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/bindless/vert.slang", .is_code = false, .name = "vertex shader", .type = gfx::shader_type_t::e_vertex }));
-    cp.add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/bindless/frag.slang", .is_code = false, .name = "fragment shader", .type = gfx::shader_type_t::e_fragment }));
+    cp.add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/non_bindless/vert.slang", .is_code = false, .name = "vertex shader", .type = gfx::shader_type_t::e_vertex }));
+    cp.add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/non_bindless/frag.slang", .is_code = false, .name = "fragment shader", .type = gfx::shader_type_t::e_fragment }));
     gfx::handle_pipeline_t p = context.create_graphics_pipeline(cp);
 
     gfx::config_buffer_t config_index_buffer{};        
@@ -73,41 +68,18 @@ int main(int argc, char **argv) {
     gfx::handle_image_t image = gfx::helper::load_image_from_path(context, renderer.command_pool, "../../assets/texture/noise.jpg", VK_FORMAT_R8G8B8A8_SRGB);
     gfx::handle_image_view_t image_view = context.create_image_view({.handle_image = image});
 
-    gfx::handle_image_t default_image = gfx::helper::load_image_from_path(context, renderer.command_pool, "../../assets/texture/default.png", VK_FORMAT_R8G8B8A8_SRGB);
-    gfx::handle_image_view_t default_image_view = context.create_image_view({.handle_image = default_image});
-
-    gfx::handle_descriptor_set_t ds1 = context.allocate_descriptor_set({ .handle_descriptor_set_layout = dsl1 });
-    context.update_descriptor_set(ds1)
+    gfx::handle_descriptor_set_t ds = context.allocate_descriptor_set({ .handle_descriptor_set_layout = dsl });
+    context.update_descriptor_set(ds)
         .push_buffer_write(0, { .handle_buffer = index_buffer })
         .push_buffer_write(1, { .handle_buffer = vertex_buffer })
-        // .push_image_write(2, { .handle_sampler = sampler })
-        // .push_image_write(3, { .handle_image_view = image_view, .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, 1)
-        // .push_image_write(3, { .handle_image_view = default_image_view, .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, 0)
-        .commit();
-
-    gfx::handle_descriptor_set_t ds2 = context.allocate_descriptor_set({ .handle_descriptor_set_layout = dsl2 });
-    context.update_descriptor_set(ds2)
-        // .push_buffer_write(0, { .handle_buffer = index_buffer })
-        // .push_buffer_write(1, { .handle_buffer = vertex_buffer })
-        .push_image_write(0, { .handle_sampler = sampler })
-        .push_image_write(1, { .handle_image_view = image_view, .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, 1)
-        .push_image_write(1, { .handle_image_view = default_image_view, .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL }, 0)
+        .push_image_write(2, { .handle_sampler = sampler })
+        .push_image_write(3, { .handle_image_view = image_view, .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL })
         .commit();
     
     while (!window.should_close()) {
         core::clear_frame_function_times();
         core::window_t::poll_events();
         if (glfwGetKey(window, GLFW_KEY_ESCAPE)) break;
-        if (glfwGetKey(window, GLFW_KEY_R)) {
-            context.wait_idle();
-            context.destroy_pipeline(p);
-            gfx::config_pipeline_t cp{};
-            cp.handle_pipeline_layout = pl;
-            cp.add_color_attachment(VK_FORMAT_R8G8B8A8_SRGB, gfx::default_color_blend_attachment());
-            cp.add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/bindless/vert.slang", .is_code = false, .name = "vertex shader", .type = gfx::shader_type_t::e_vertex }));
-            cp.add_shader(context.create_shader(gfx::config_shader_t{ .code_or_path = "../../assets/shaders/bindless/frag.slang", .is_code = false, .name = "fragment shader", .type = gfx::shader_type_t::e_fragment }));
-            p = context.create_graphics_pipeline(cp);
-        }
 
         renderer.begin();
 
@@ -125,7 +97,7 @@ int main(int argc, char **argv) {
 
         context.cmd_begin_rendering(commandbuffer, { color_rendering_attachment }, std::nullopt, VkRect2D{ VkOffset2D{}, { static_cast<uint32_t>(width), static_cast<uint32_t>(height) } });
         context.cmd_bind_pipeline(commandbuffer, p);
-        context.cmd_bind_descriptor_sets(commandbuffer, p, 0, { ds1, ds2 });
+        context.cmd_bind_descriptor_sets(commandbuffer, p, 0, { ds });
         context.cmd_set_viewport_and_scissor(commandbuffer, viewport, scissor);
         context.cmd_draw(commandbuffer, 6, 1, 0, 0);
         context.cmd_end_rendering(commandbuffer);

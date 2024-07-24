@@ -1,8 +1,8 @@
 struct node_t {
     bool is_leaf() { return primitive_count != 0; }
     float3 min;
-    uint32_t first_index;
     float3 max;
+    uint32_t first_index;
     uint32_t primitive_count;
 };
 
@@ -218,8 +218,8 @@ struct blas_instance_intersection_t {
     float u, v, w;
     triangle_t triangle;
     float4x4 inverse_transform;
-    // uint32_t node_intersect_count = 0;
-    // uint32_t primitive_intersect_count = 0;
+    uint32_t node_intersect_count = 0;
+    uint32_t primitive_intersect_count = 0;
 };
 
 blas_instance_intersection_t blas_instance_intersect(blas_instance_t blas_instance, ray_t ray, uint groupIndex) {
@@ -247,13 +247,13 @@ blas_instance_intersection_t intersect_blas(bvh_t *p_blas, ray_t ray, triangle_t
     uint32_t stack_top = 0;
 
     node_t root = p_blas->p_nodes[0];
-    // blas_intersection.node_intersect_count++;
+    blas_intersection.node_intersect_count++;
     if (!node_intersect(root, ray).did_intersect()) return blas_intersection;
 
     if (root.is_leaf()) {
         for (uint32_t i = 0; i < root.primitive_count; i++) {
             const uint final_id = p_blas.p_primitive_indices[root.first_index + i];
-            // blas_intersection.primitive_intersect_count++;
+            blas_intersection.primitive_intersect_count++;
             triangle_t triangle = p_triangles[final_id];
             triangle_intersection_t intersection = triangle_intersect(triangle, ray);
             if (intersection.did_intersect()) {
@@ -277,7 +277,7 @@ blas_instance_intersection_t intersect_blas(bvh_t *p_blas, ray_t ray, triangle_t
         node_t left = p_blas->p_nodes[current];
         node_t right = p_blas->p_nodes[current + 1];
 
-        // blas_intersection.node_intersect_count += 2;
+        blas_intersection.node_intersect_count += 2;
         aabb_intersect_t left_intersection = node_intersect(left, ray);
         aabb_intersect_t right_intersection = node_intersect(right, ray);
 
@@ -297,7 +297,7 @@ blas_instance_intersection_t intersect_blas(bvh_t *p_blas, ray_t ray, triangle_t
         }
         for (uint32_t primitive_id = start; primitive_id < end; primitive_id++) {
             const uint final_id = p_blas.p_primitive_indices[primitive_id];
-            // blas_intersection.primitive_intersect_count++;
+            blas_intersection.primitive_intersect_count++;
             triangle_t triangle = p_triangles[final_id];
             triangle_intersection_t intersection = triangle_intersect(triangle, ray);
             if (intersection.did_intersect()) {
@@ -437,6 +437,12 @@ float rand(inout uint state) {
     return float(x) * reinterpret<float>(0x2f800004u);
 }
 
+// float rand_normal_distribution(inout uint seed) {
+//     float theta = 2 * 3.1415926 * rand(seed);
+//     float rho = sqrt(-2 * log(rand(seed)));
+//     return rho * cos(theta);
+// }
+
 float3 rand_float3(inout uint seed) {
     return { rand(seed), rand(seed), rand(seed) };
 }
@@ -454,10 +460,14 @@ float3 rand_float3_in_unit_sphere(inout uint seed) {
         float3 r = rand_float3(seed) * 2.f - 1.f;
         if (length(r) < 1) return r;
     }
+    // float theta = 2 * 3.1415926 * rand(seed);
+    // float rho = sqrt(-2 * log(rand(seed)));
+    // return rho * cos(theta);
 }
 
 float3 rand_float3_unit_sphere(inout uint seed) {
     return normalize(rand_float3_in_unit_sphere(seed));
+    // return normalize(float3(rand_normal_distribution(seed), rand_normal_distribution(seed), rand_normal_distribution(seed)));
 }
 
 float3 rand_float3_hemisphere(inout uint seed, float3 normal) {
@@ -531,10 +541,10 @@ uniform uniform_t uni;
 uniform RWTexture2D<float4> o_color;
 
 float3 background(ray_t ray) {
-    // float3 unit_direction = normalize(ray.direction);
-    // float a = 0.5 * (unit_direction.y + 1.0);
-    // return (1.0 - a) * float3(1, 1, 1) + a * float3(0.3, 0.4, .7);
-    return { 0, 0, 0 };
+    float3 unit_direction = normalize(ray.direction);
+    float a = 0.5 * (unit_direction.y + 1.0);
+    return (1.0 - a) * float3(1, 1, 1) + a * float3(0.3, 0.4, .7);
+    // return { 0, 0, 0 };
     // return { 1, 1, 1 };
 }
 
@@ -668,27 +678,29 @@ void computeMain(uint3 dispatchThreadID: SV_DispatchThreadID, uint groupIndex: S
 
     uint seed = uint(dispatchThreadID.x + uni.width * (dispatchThreadID.y + uni.height * uni.samples));
 
-    float2 jitter = (rand_float2(seed) * 2.f - 1.f) / 1000.f;
-    ray_t ray = ray_t::create(float2(u, v) + jitter, uni.inverse_projection, uni.inverse_view);
-    // ray_t ray = ray_t::create(float2(u, v), uni.inverse_projection, uni.inverse_view);
-    float3 new_color = ray_color(ray, seed, groupIndex);
-    float3 old_color = o_color[uint2(dispatchThreadID.x, dispatchThreadID.y)].xyz;
-    color.xyz = (old_color * (uni.samples - 1) + new_color) / float(uni.samples);
+    // float2 jitter = (rand_float2(seed) * 2.f - 1.f) / 1000.f;
+    // ray_t ray = ray_t::create(float2(u, v) + jitter, uni.inverse_projection, uni.inverse_view);
+    // // ray_t ray = ray_t::create(float2(u, v), uni.inverse_projection, uni.inverse_view);
+    // float3 new_color = ray_color(ray, seed, groupIndex);
+    // float3 old_color = o_color[uint2(dispatchThreadID.x, dispatchThreadID.y)].xyz;
+    // color.xyz = (old_color * (uni.samples - 1) + new_color) / float(uni.samples);
 
-    // ray_t ray = ray_t::create( { u, v }, uni.inverse_projection, uni.inverse_view);
-    // hit_t hit = stack_traverse_ordered_optimised_tlas(ray, groupIndex);
-    // // hit_t hit = bvh_traverse_no_tlas(ray, groupIndex);
-    // if (hit.did_intersect()) {
-    //     color.xyz = float3(((((hit.blas_hit.primitive_id + 1) * 5678) % 255)) / 255.f, ((((hit.blas_hit.primitive_id + 1) * 543) % 255)) / 255.f, ((((hit.blas_hit.primitive_id + 1) * 567) % 255)) / 255.f);
+    ray_t ray = ray_t::create( { u, v }, uni.inverse_projection, uni.inverse_view);
+    hit_t hit = stack_traverse_ordered_optimised_tlas(ray, groupIndex);
+    // hit_t hit = bvh_traverse_no_tlas(ray, groupIndex);
+    if (hit.did_intersect()) {
+        // color.xyz = float3(((((hit.blas_hit.primitive_id + 1) * 5678) % 255)) / 255.f, ((((hit.blas_hit.primitive_id + 1) * 543) % 255)) / 255.f, ((((hit.blas_hit.primitive_id + 1) * 567) % 255)) / 255.f);
 
-    //     // float t = hit.blas_hit.node_intersect_count / 100.f;
-    //     // color.xyz = heatmap(t);
-    //     // if (t > 1) {
-    //     //     color.xyz = { 1, 1, 1 };
-    //     // } else {
-    //     //     color.xyz = lerp_f3( { 0, 1, 0 }, { 1, 0, 0 }, t);
-    //     // }
-    // }
+        float t = hit.blas_hit.node_intersect_count / 100.f;
+
+        color.xyz = heatmap(t);
+
+        // if (t > 1) {
+        //     color.xyz = { 1, 1, 1 };
+        // } else {
+        //     color.xyz = lerp_f3( { 0, 1, 0 }, { 1, 0, 0 }, t);
+        // }
+    }
     
     o_color[uint2(dispatchThreadID.x, dispatchThreadID.y)] = color;
 }

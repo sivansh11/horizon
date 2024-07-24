@@ -25,6 +25,28 @@ void write_file(const std::filesystem::path& filename, const void *data, size_t 
     file.close();
 }
 
+uint32_t number_of_bits_required_for_number(uint32_t n) {
+    uint32_t r = 1;
+    if (n >> 16) { r += 16; n >>= 16; }
+    if (n >>  8) { r +=  8; n >>=  8; }
+    if (n >>  4) { r +=  4; n >>=  4; }
+    if (n >>  2) { r +=  2; n >>=  2; }
+    if (n - 1) ++r;
+    return r;
+}
+
+float safe_inverse(float x) {
+    static constexpr float epsilon = std::numeric_limits<float>::epsilon();
+    if (std::abs(x) <= epsilon) {
+        return x >= 0 ? 1.f / epsilon : -1.f / epsilon;
+    }
+    return 1.f / x;
+}
+
+float clamp(float val, float min, float max) {
+    return val > max ? max : val < min ? min : val;
+}
+
 namespace timer {
 
 static frame_function_times scope_total_time;
