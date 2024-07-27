@@ -12,6 +12,10 @@ bindless_manager_t::bindless_manager_t(gfx::context_t& context) : _context(conte
     _dsl = _context.create_descriptor_set_layout(cdsl);
     _ds = _context.allocate_descriptor_set({ .handle_descriptor_set_layout = _dsl });
 
+    gfx::config_pipeline_layout_t cpl{};
+    cpl.add_descriptor_set_layout(_dsl);
+    _pl = _context.create_pipeline_layout(cpl);
+
     gfx::config_buffer_t cb{};
     cb.vk_size = MAX_SLOTS * sizeof(VkDeviceAddress);
     cb.vk_buffer_usage_flags = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT;

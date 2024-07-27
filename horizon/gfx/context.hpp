@@ -394,6 +394,7 @@ public:
     void unmap_buffer(handle_buffer_t handle);
     VkDeviceAddress get_buffer_device_address(handle_buffer_t handle);
     internal::buffer_t& get_buffer(handle_buffer_t handle);
+    void flush_buffer(handle_buffer_t handle);
 
     handle_sampler_t create_sampler(const config_sampler_t& config);
     void destroy_sampler(handle_sampler_t handle);
@@ -457,7 +458,7 @@ public:
 
     void cmd_bind_pipeline(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline);
     void cmd_bind_descriptor_sets(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline, uint32_t vk_first_set, const std::vector<handle_descriptor_set_t>& handle_descriptor_sets);
-    void cmd_push_constants(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_layout_t handle_pipeline_layout, VkShaderStageFlags vk_shader_stages, uint32_t vk_offset, uint32_t vk_size, const void *vk_data);
+    void cmd_push_constants(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline, VkShaderStageFlags vk_shader_stages, uint32_t vk_offset, uint32_t vk_size, const void *vk_data);
     void cmd_dispatch(handle_commandbuffer_t handle_commandbuffer, uint32_t vk_group_count_x, uint32_t vk_group_count_y, uint32_t vk_group_count_z);
     void cmd_set_viewport_and_scissor(handle_commandbuffer_t handle_commandbuffer, VkViewport vk_viewport, VkRect2D vk_scissor);
     void cmd_begin_rendering(handle_commandbuffer_t handle_commandbuffer, const std::vector<rendering_attachment_t>& color_rendering_attachments, const std::optional<rendering_attachment_t>& depth_rendering_attachment, const VkRect2D& vk_render_area, uint32_t vk_layer_count = 1);

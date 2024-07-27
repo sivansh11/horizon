@@ -466,6 +466,7 @@ void context_t::create_device() {
         .shaderStorageBufferArrayNonUniformIndexing = VK_TRUE,
         .descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE,
         .descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
+        .descriptorBindingStorageImageUpdateAfterBind = VK_TRUE,
         .descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE,
         .descriptorBindingPartiallyBound = VK_TRUE,
         .descriptorBindingVariableDescriptorCount = VK_TRUE,
@@ -786,6 +787,12 @@ VkDeviceAddress context_t::get_buffer_device_address(handle_buffer_t handle) {
 internal::buffer_t& context_t::get_buffer(handle_buffer_t handle) {
     horizon_profile();
     return utils::assert_and_get_data<internal::buffer_t>(handle, _buffers);
+}
+
+void context_t::flush_buffer(handle_buffer_t handle) {
+    horizon_profile();
+    auto buffer = get_buffer(handle);
+    vmaFlushAllocation(_vma_allocator, buffer.vma_allocation, 0, VK_WHOLE_SIZE);
 }
 
 handle_sampler_t context_t::create_sampler(const config_sampler_t& config) {
@@ -1662,10 +1669,11 @@ void context_t::cmd_bind_descriptor_sets(handle_commandbuffer_t handle_commandbu
     vkCmdBindDescriptorSets(commandbuffer, pipeline.vk_pipeline_bind_point, pipeline_layout, vk_first_set, handle_descriptor_sets.size(), vk_descriptor_sets, 0, nullptr);
 }
 
-void context_t::cmd_push_constants(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_layout_t handle_pipeline_layout, VkShaderStageFlags vk_shader_stages, uint32_t vk_offset, uint32_t vk_size, const void *vk_data) {
+void context_t::cmd_push_constants(handle_commandbuffer_t handle_commandbuffer, handle_pipeline_t handle_pipeline, VkShaderStageFlags vk_shader_stages, uint32_t vk_offset, uint32_t vk_size, const void *vk_data) {
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
-    internal::pipeline_layout_t& pipeline_layout = utils::assert_and_get_data<internal::pipeline_layout_t>(handle_pipeline_layout, _pipeline_layouts);
+    internal::pipeline_t& pipeline = utils::assert_and_get_data<internal::pipeline_t>(handle_pipeline, _pipelines);
+    internal::pipeline_layout_t& pipeline_layout = utils::assert_and_get_data<internal::pipeline_layout_t>(pipeline.config.handle_pipeline_layout, _pipeline_layouts);
     vkCmdPushConstants(commandbuffer, pipeline_layout, vk_shader_stages, vk_offset, vk_size, vk_data);
 }
 

@@ -23,11 +23,13 @@ public:
 
     handle_descriptor_set_layout_t dsl() { return _dsl; }
     handle_descriptor_set_t ds() { return _ds; }
+    handle_pipeline_layout_t pl() { return _pl; }
 
 private:
     context_t&                                                  _context;
     handle_descriptor_set_layout_t                              _dsl;
     handle_descriptor_set_t                                     _ds;
+    handle_pipeline_layout_t                                    _pl;
 
     handle_buffer_t                                             _b;
     std::array<VkDeviceAddress, MAX_SLOTS>                      _pointers;
