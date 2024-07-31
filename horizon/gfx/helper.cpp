@@ -148,6 +148,7 @@ handle_image_t load_image_from_path(context_t& context, handle_command_pool_t ha
         config_image.vk_type = VK_IMAGE_TYPE_2D;
         config_image.vk_format = vk_format;
         config_image.vk_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+        config_image.debug_name = path.string();
         handle_image_t image = context.create_image(config_image);
 
         handle_commandbuffer_t commandbuffer = start_single_use_commandbuffer(context, handle_command_pool);
@@ -420,7 +421,7 @@ void cmd_transition_image_layout(context_t& context, handle_commandbuffer_t hand
     context.cmd_pipeline_barrier(handle_commandbuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, {}, {}, { vk_image_memory_barrier });
 }
 
-std::pair<handle_image_t, handle_image_view_t> create_2D_image_and_image_view(context_t& context, uint32_t width, uint32_t height, VkFormat vk_format, VkImageUsageFlags vk_usage) {
+std::pair<handle_image_t, handle_image_view_t> create_2D_image_and_image_view(context_t& context, uint32_t width, uint32_t height, VkFormat vk_format, VkImageUsageFlags vk_usage, std::string debug_name) {
     gfx::config_image_t config_target_image{};
     config_target_image.vk_width = width;
     config_target_image.vk_height = height;
@@ -429,8 +430,9 @@ std::pair<handle_image_t, handle_image_view_t> create_2D_image_and_image_view(co
     config_target_image.vk_format = vk_format;
     config_target_image.vk_usage = vk_usage | VK_IMAGE_USAGE_SAMPLED_BIT;
     config_target_image.vk_mips = 1;
+    config_target_image.debug_name = debug_name;
     handle_image_t target_image = context.create_image(config_target_image);
-    gfx::handle_image_view_t target_image_view = context.create_image_view({ .handle_image = target_image });
+    gfx::handle_image_view_t target_image_view = context.create_image_view({ .handle_image = target_image, .debug_name = debug_name + "_view" });
     return { target_image, target_image_view };
 }
 

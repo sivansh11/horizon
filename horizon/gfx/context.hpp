@@ -81,6 +81,7 @@ struct config_buffer_t {
     VkBufferUsageFlags       vk_buffer_usage_flags;
     VmaAllocationCreateFlags vma_allocation_create_flags;
     VmaMemoryUsage           vma_memory_usage = default_vma_memory_usage;
+    std::string              debug_name = "";   
 };
 
 struct config_sampler_t {
@@ -99,6 +100,7 @@ struct config_sampler_t {
     float                   vk_max_lod = VK_LOD_CLAMP_NONE;
     VkBorderColor           vk_border_color = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
     VkBool32                vk_unnormalized_coordinates = VK_FALSE;
+    std::string             debug_name = "";   
 };
 
 constexpr const uint32_t vk_auto_calculate_mip_levels = std::numeric_limits<uint32_t>::max();
@@ -116,6 +118,7 @@ struct config_image_t {
     VkImageTiling            vk_tiling = VK_IMAGE_TILING_OPTIMAL;
     VkImageLayout            vk_initial_layout = VK_IMAGE_LAYOUT_UNDEFINED;
     VmaMemoryUsage           vma_memory_usage = VMA_MEMORY_USAGE_AUTO;
+    std::string              debug_name = "";   
 };
 
 constexpr VkImageViewType vk_auto_image_view_type = static_cast<VkImageViewType>(0x7FFFFFFF - 1);  // -1 cause I dont wanna collide with the max enum enum in the enum definition
@@ -132,16 +135,20 @@ struct config_image_view_t {
     uint32_t        vk_mips = vk_auto_mips;  // gets the max level count possible for the image
     uint32_t        vk_base_array_layer = vk_default_base_array_layer;
     uint32_t        vk_layers = vk_auto_layers;
+    std::string     debug_name = "";   
 };
 
 struct config_descriptor_set_layout_t {
     config_descriptor_set_layout_t& add_layout_binding(uint32_t vk_binding, VkDescriptorType vk_descriptor_type, VkShaderStageFlags vk_shader_stages, uint32_t vk_count = 1);
 
     std::vector<VkDescriptorSetLayoutBinding> vk_descriptor_set_layout_bindings;
+    bool use_bindless = true;
+    std::string                               debug_name = "";   
 };
 
 struct config_descriptor_set_t {
     handle_descriptor_set_layout_t handle_descriptor_set_layout = null_handle;
+    std::string                    debug_name = "";   
 };
 
 enum class shader_type_t {
@@ -161,7 +168,8 @@ struct config_pipeline_layout_t {
     config_pipeline_layout_t& add_push_constant(uint32_t vk_size, VkShaderStageFlagBits vk_shader_stages, uint32_t vk_offset = 0);
 
     std::vector<handle_descriptor_set_layout_t> handle_descriptor_set_layouts{};
-    std::vector<VkPushConstantRange> vk_push_constant_ranges{};
+    std::vector<VkPushConstantRange>            vk_push_constant_ranges{};
+    std::string                                 debug_name = "";   
 };
 
 struct config_shader_t {
@@ -170,6 +178,7 @@ struct config_shader_t {
     std::string         name;
     shader_type_t       type;
     shader_language_t   language = shader_language_t::e_slang;
+    std::string         debug_name = "";   
 };
 
 VkPipelineColorBlendAttachmentState default_color_blend_attachment();
@@ -204,26 +213,28 @@ struct config_pipeline_t {
     VkPipelineInputAssemblyStateCreateInfo           vk_pipeline_input_assembly_state{};
     VkPipelineRasterizationStateCreateInfo           vk_pipeline_rasterization_state{};
     VkPipelineMultisampleStateCreateInfo             vk_pipeline_multisample_state{};
+    std::string                                      debug_name = "";   
 };
 
 struct config_fence_t {
-
+    std::string debug_name = "";   
 };
 
 struct config_semaphore_t {
-
+    std::string debug_name = "";   
 };
 
 struct config_command_pool_t {
-
+    std::string debug_name = "";   
 };
 
 struct config_commandbuffer_t {
     handle_command_pool_t handle_command_pool;
+    std::string debug_name = "";   
 };
 
 struct config_timer_t {
-
+    std::string debug_name = "";   
 };
 
 namespace internal {
@@ -361,16 +372,16 @@ struct update_descriptor_set_t {
 
 struct rendering_attachment_t {
     handle_image_view_t handle_image_view = null_handle;
-    VkImageLayout       image_layout;
-    VkAttachmentLoadOp  load_op;
-    VkAttachmentStoreOp store_op;
-    VkClearValue        clear_value;
+    VkImageLayout       image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    VkAttachmentLoadOp  load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    VkAttachmentStoreOp store_op = VK_ATTACHMENT_STORE_OP_STORE;
+    VkClearValue        clear_value = { 0, 0, 0, 0 };
 };
 
 struct buffer_copy_info_t {
     VkDeviceSize vk_src_offset = 0;
     VkDeviceSize vk_dst_offset = 0;
-    VkDeviceSize vk_size;
+    VkDeviceSize vk_size = VK_WHOLE_SIZE;
 };
 
 class context_t {

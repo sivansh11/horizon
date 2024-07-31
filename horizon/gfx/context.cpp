@@ -430,6 +430,7 @@ void context_t::create_instance() {
     vkb_instance_builder.set_debug_callback(debug_callback)
                        .desire_api_version(VK_API_VERSION_1_3)
                        .enable_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
+                       .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
                        .request_validation_layers(_validation);
     auto result = vkb_instance_builder.build();
     check(result, "Failed to create instance");
@@ -750,7 +751,16 @@ handle_buffer_t context_t::create_buffer(const config_buffer_t& config) {
     buffer.vk_device_address = vkGetBufferDeviceAddress(_vkb_device, &vk_buffer_device_address_info);
 
     handle_buffer_t handle = utils::create_and_insert_new_handle<handle_buffer_t>(_buffers, buffer);
-    horizon_trace("created buffer");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_BUFFER;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(buffer.vk_buffer);
+        vk_debug_utils_object_name_info.pObjectName = buffer.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created buffer {}", buffer.config.debug_name);
+    } else {
+        horizon_trace("created buffer");
+    }
     return handle;
 }
 
@@ -821,7 +831,16 @@ handle_sampler_t context_t::create_sampler(const config_sampler_t& config) {
     check(vk_result == VK_SUCCESS, "Failed to create sampler");
 
     handle_sampler_t handle = utils::create_and_insert_new_handle<handle_sampler_t>(_samplers, sampler);
-    horizon_trace("created sampler");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_SAMPLER;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(sampler.vk_sampler);
+        vk_debug_utils_object_name_info.pObjectName = sampler.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created sampler {}", sampler.config.debug_name);
+    } else {
+        horizon_trace("created sampler");
+    }
     return handle;
 }
 
@@ -870,7 +889,16 @@ handle_image_t context_t::create_image(const config_image_t& config) {
     check(vk_result == VK_SUCCESS, "Failed to create image");
 
     handle_image_t handle = utils::create_and_insert_new_handle<handle_image_t>(_images, image);
-    horizon_trace("created image");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_IMAGE;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(image.vk_image);
+        vk_debug_utils_object_name_info.pObjectName = image.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created image {}", image.config.debug_name);
+    } else {
+        horizon_trace("created image");
+    }
     return handle;
 }
 
@@ -915,7 +943,16 @@ handle_image_view_t context_t::create_image_view(const config_image_view_t& conf
     check(vk_result == VK_SUCCESS, "Failed to create image view");
 
     handle_image_view_t handle = utils::create_and_insert_new_handle<handle_image_view_t>(_image_views, image_view);
-    horizon_trace("created image view");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_IMAGE_VIEW;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(image_view.vk_image_view);
+        vk_debug_utils_object_name_info.pObjectName = image_view.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created image view {}", image_view.config.debug_name);
+    } else {
+        horizon_trace("created image view");
+    }
     return handle;
 }
 
@@ -935,25 +972,37 @@ handle_descriptor_set_layout_t context_t::create_descriptor_set_layout(const con
     horizon_profile();
     internal::descriptor_set_layout_t descriptor_set_layout{ .config = config };
 
+    std::vector<VkDescriptorBindingFlags> vk_descriptor_binding_flags;
+    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT vk_descriptor_set_layout_binding_flags_create_info{ .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT };
     VkDescriptorSetLayoutCreateInfo vk_descriptor_set_layout_create_info{ .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
     vk_descriptor_set_layout_create_info.bindingCount = config.vk_descriptor_set_layout_bindings.size();
     vk_descriptor_set_layout_create_info.pBindings = config.vk_descriptor_set_layout_bindings.data();
-    vk_descriptor_set_layout_create_info.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT;
 
-    std::vector<VkDescriptorBindingFlags> vk_descriptor_binding_flags;
-    vk_descriptor_binding_flags.resize(config.vk_descriptor_set_layout_bindings.size(), VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT);
+    if (config.use_bindless) {
+        vk_descriptor_set_layout_create_info.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT_EXT;
 
-    VkDescriptorSetLayoutBindingFlagsCreateInfoEXT vk_descriptor_set_layout_binding_flags_create_info{ .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO_EXT };
-    vk_descriptor_set_layout_binding_flags_create_info.bindingCount = vk_descriptor_binding_flags.size();
-    vk_descriptor_set_layout_binding_flags_create_info.pBindingFlags = vk_descriptor_binding_flags.data();
+        vk_descriptor_binding_flags.resize(config.vk_descriptor_set_layout_bindings.size(), VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT_EXT | VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT_EXT);
 
-    vk_descriptor_set_layout_create_info.pNext = &vk_descriptor_set_layout_binding_flags_create_info;
+        vk_descriptor_set_layout_binding_flags_create_info.bindingCount = vk_descriptor_binding_flags.size();
+        vk_descriptor_set_layout_binding_flags_create_info.pBindingFlags = vk_descriptor_binding_flags.data();
+
+        vk_descriptor_set_layout_create_info.pNext = &vk_descriptor_set_layout_binding_flags_create_info;
+    }
 
     VkResult vk_result = vkCreateDescriptorSetLayout(_vkb_device, &vk_descriptor_set_layout_create_info, nullptr, &descriptor_set_layout.vk_descriptor_set_layout);
     check(vk_result == VK_SUCCESS, "Failed to create descriptor set layout");
 
     handle_descriptor_set_layout_t handle = utils::create_and_insert_new_handle<handle_descriptor_set_layout_t>(_descriptor_set_layouts, descriptor_set_layout);
-    horizon_trace("created descriptor set layout");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(descriptor_set_layout.vk_descriptor_set_layout);
+        vk_debug_utils_object_name_info.pObjectName = descriptor_set_layout.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created descriptor set layout {}", descriptor_set_layout.config.debug_name);
+    } else {
+        horizon_trace("created descriptor set layout");
+    }
     return handle;
 }
 
@@ -991,7 +1040,16 @@ handle_descriptor_set_t context_t::allocate_descriptor_set(const config_descript
     check(vk_result == VK_SUCCESS, "Failed to allocate descriptor set");
 
     handle_descriptor_set_t handle = utils::create_and_insert_new_handle<handle_descriptor_set_t>(_descriptor_sets, descriptor_set);
-    horizon_trace("allocated descriptor set");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_DESCRIPTOR_SET;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(descriptor_set.vk_descriptor_set);
+        vk_debug_utils_object_name_info.pObjectName = descriptor_set.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("allocated descriptor set {}", descriptor_set.config.debug_name);
+    } else {
+        horizon_trace("allocated descriptor set");
+    }
     return handle;
 }
 
@@ -1032,7 +1090,16 @@ handle_pipeline_layout_t context_t::create_pipeline_layout(const config_pipeline
         check(vk_result == VK_SUCCESS, "Failed to create pipeline layout");
     }
     handle_pipeline_layout_t handle = utils::create_and_insert_new_handle<handle_pipeline_layout_t>(_pipeline_layouts, pipeline_layout);
-    horizon_trace("created pipeline layout");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_PIPELINE_LAYOUT;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(pipeline_layout.vk_pipeline_layout);
+        vk_debug_utils_object_name_info.pObjectName = pipeline_layout.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created pipeline layout {}", pipeline_layout.config.debug_name);
+    } else {
+        horizon_trace("created pipeline layout");
+    }
     return handle;
 }
 
@@ -1306,7 +1373,16 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
     check(vk_result == VK_SUCCESS, "Failed to create shader");
 
     handle_shader_t handle = utils::create_and_insert_new_handle<handle_shader_t>(_shaders, shader);
-    horizon_trace("created shader module");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_SHADER_MODULE;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(shader.vk_shader);
+        vk_debug_utils_object_name_info.pObjectName = shader.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created shader {}", shader.config.debug_name);
+    } else {
+        horizon_trace("created shader");
+    }
     return handle;
 }
 
@@ -1337,7 +1413,16 @@ handle_pipeline_t context_t::create_compute_pipeline(const config_pipeline_t& co
     }
 
     handle_pipeline_t handle = utils::create_and_insert_new_handle<handle_pipeline_t>(_pipelines, pipeline);
-    horizon_trace("created compute pipeline");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_PIPELINE;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(pipeline.vk_pipeline);
+        vk_debug_utils_object_name_info.pObjectName = pipeline.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created compute pipeline {}", pipeline.config.debug_name);
+    } else {
+        horizon_trace("created compute pipeline");
+    }
     return handle;
 }
 
@@ -1464,7 +1549,16 @@ handle_pipeline_t context_t::create_graphics_pipeline(const config_pipeline_t& c
     check(vk_result == VK_SUCCESS, "Failed to create graphics pipeline");
 
     handle_pipeline_t handle = utils::create_and_insert_new_handle<handle_pipeline_t>(_pipelines, pipeline);
-    horizon_trace("created graphics pipeline");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_PIPELINE;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(pipeline.vk_pipeline);
+        vk_debug_utils_object_name_info.pObjectName = pipeline.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created graphics pipeline {}", pipeline.config.debug_name);
+    } else {
+        horizon_trace("created graphics pipeline");
+    }
     return handle;
 }
 
@@ -1483,7 +1577,16 @@ handle_fence_t context_t::create_fence(const config_fence_t& config) {
     VkResult vk_result = vkCreateFence(_vkb_device, &vk_fence_create_info, nullptr, &fence.vk_fence);
     check(vk_result == VK_SUCCESS, "Failed to create fence");
     handle_fence_t handle = utils::create_and_insert_new_handle<handle_fence_t>(_fences, fence);
-    horizon_trace("created fence");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_FENCE;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(fence.vk_fence);
+        vk_debug_utils_object_name_info.pObjectName = fence.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created fence {}", fence.config.debug_name);
+    } else {
+        horizon_trace("created fence");
+    }
     return handle;
 }
 
@@ -1515,7 +1618,16 @@ handle_semaphore_t context_t::create_semaphore(const config_semaphore_t& config)
     VkResult vk_result = vkCreateSemaphore(_vkb_device, &vk_semaphore_create_info, nullptr, &semaphore.vk_semaphore);
     check(vk_result == VK_SUCCESS, "Failed to create semaphore");
     handle_semaphore_t handle = utils::create_and_insert_new_handle<handle_semaphore_t>(_semaphores, semaphore);
-    horizon_trace("created semaphore");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_SEMAPHORE;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(semaphore.vk_semaphore);
+        vk_debug_utils_object_name_info.pObjectName = semaphore.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created semaphore {}", semaphore.config.debug_name);
+    } else {
+        horizon_trace("created semaphore");
+    }
     return handle;
 }
 
@@ -1535,7 +1647,16 @@ handle_command_pool_t context_t::create_command_pool(const config_command_pool_t
     VkResult vk_result = vkCreateCommandPool(_vkb_device, &vk_command_pool_create_info, nullptr, &command_pool.vk_command_pool);
     check(vk_result == VK_SUCCESS, "Failed to create command pool");
     handle_command_pool_t handle = utils::create_and_insert_new_handle<handle_command_pool_t>(_command_pools, command_pool);
-    horizon_trace("created command pool");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_COMMAND_POOL;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(command_pool.vk_command_pool);
+        vk_debug_utils_object_name_info.pObjectName = command_pool.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created command pool {}", command_pool.config.debug_name);
+    } else {
+        horizon_trace("created command pool");
+    }
     return handle;
 }
 
@@ -1556,7 +1677,16 @@ handle_commandbuffer_t context_t::allocate_commandbuffer(const config_commandbuf
     VkResult vk_result = vkAllocateCommandBuffers(_vkb_device, &vk_commandbuffer_allocate_info, &commandbuffer.vk_commandbuffer);
     check(vk_result == VK_SUCCESS, "Failed to allocate commandbuffer");
     handle_commandbuffer_t handle = utils::create_and_insert_new_handle<handle_commandbuffer_t>(_commandbuffers, commandbuffer);
-    horizon_trace("allocated commandbuffer");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_COMMAND_BUFFER;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(commandbuffer.vk_commandbuffer);
+        vk_debug_utils_object_name_info.pObjectName = commandbuffer.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("allocated commandbuffer {}", commandbuffer.config.debug_name);
+    } else {
+        horizon_trace("allocated commandbuffer");
+    }
     return handle;
 }
 
@@ -1624,7 +1754,16 @@ handle_timer_t context_t::create_timer(const config_timer_t& config) {
     VkResult vk_result = vkCreateQueryPool(_vkb_device, &vk_query_pool_create_info, nullptr, &timer.vk_query_pool);
     check(vk_result == VK_SUCCESS, "Failed to create query pool");
     handle_timer_t handle = utils::create_and_insert_new_handle<handle_timer_t>(_timers, timer);
-    horizon_trace("created timer");
+    if (config.debug_name != "") {
+        VkDebugUtilsObjectNameInfoEXT vk_debug_utils_object_name_info{ VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT };
+        vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_QUERY_POOL;
+        vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t>(timer.vk_query_pool);
+        vk_debug_utils_object_name_info.pObjectName = timer.config.debug_name.data();
+        vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
+        horizon_trace("created timer {}", timer.config.debug_name);
+    } else {
+        horizon_trace("created timer");
+    }
     return handle;
 }
 

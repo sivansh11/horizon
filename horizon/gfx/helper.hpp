@@ -41,7 +41,7 @@ handle_image_t load_image_from_path(context_t& context, handle_command_pool_t ha
 void cmd_generate_image_mip_maps(context_t& context, handle_commandbuffer_t handle_commandbuffer, handle_image_t handle, VkImageLayout vk_old_layout, VkImageLayout vk_new_layout, VkFilter vk_filter);
 void cmd_transition_image_layout(context_t& context, handle_commandbuffer_t handle_commandbuffer, handle_image_t handle, VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout, uint32_t base_mip_level = 0, uint32_t level_count = vk_auto_mips);
 
-std::pair<handle_image_t, handle_image_view_t> create_2D_image_and_image_view(context_t& context, uint32_t width, uint32_t height, VkFormat vk_format, VkImageUsageFlags vk_usage);
+std::pair<handle_image_t, handle_image_view_t> create_2D_image_and_image_view(context_t& context, uint32_t width, uint32_t height, VkFormat vk_format, VkImageUsageFlags vk_usage, std::string debug_name = "");
 
 template <typename T>
 void copy_mappable_buffer(context_t& context, handle_buffer_t handle, const std::vector<T>& data, uint32_t offset = 0) {

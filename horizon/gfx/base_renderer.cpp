@@ -90,7 +90,7 @@ base_renderer_t::base_renderer_t(const core::window_t& window, gfx::context_t& c
     swapchain = context.create_swapchain(window);
     command_pool = context.create_command_pool({});
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        commandbuffers[i] = context.allocate_commandbuffer({ .handle_command_pool = command_pool });
+        commandbuffers[i] = context.allocate_commandbuffer({ .handle_command_pool = command_pool, .debug_name = "commandbuffer " + std::to_string(i) });
     }
     for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
         in_flight_fences[i] = context.create_fence({});
