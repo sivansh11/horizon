@@ -488,7 +488,7 @@ void context_t::create_device() {
         auto result = vkb_physical_device_selector.select(vkb::DeviceSelectionMode::only_fully_suitable);
         check(result, "Failed to pick suitable device");
         _vkb_physical_device = result.value();
-        horizon_info("{}", _vkb_physical_device.name);
+        horizon_trace("{}", _vkb_physical_device.name);
     }
     vkb::DeviceBuilder vkb_device_builder{ _vkb_physical_device };
     {
@@ -1313,7 +1313,7 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
         for (uint32_t i = 0; i < parameter_count; i++) {
             slang::VariableLayoutReflection *parameter = program_layout->getParameterByIndex(i);
             unsigned index = parameter->getBindingIndex();
-            horizon_info("{} {}", parameter->getName(), index);
+            horizon_trace("{} {}", parameter->getName(), index);
         }
 
         vk_shader_module_create_info.codeSize = spirvCode->getBufferSize();
@@ -1364,7 +1364,7 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
         check(false, "unknown shader language");
     }
 
-    if (!config.is_code) horizon_info("{}", config.code_or_path);
+    if (!config.is_code) horizon_trace("reading file {}", config.code_or_path);
 
     internal::shader_t shader{ .config = config };
     VkResult vk_result = vkCreateShaderModule(_vkb_device, &vk_shader_module_create_info, nullptr, &shader.vk_shader);
