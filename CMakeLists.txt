@@ -8,11 +8,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_CXX_STANDARD 20)
 # set(CMAKE_VERBOSE_MAKEFILE ON)
 
-## options
+# # options
 option(HORIZON_BUILD_EXAMPLES "build EXAMPLES" OFF)
 
 
-## deps
+# # deps
 set(FETCHCONTENT_QUIET FALSE)
 
 set(SHADERC_SKIP_TESTS ON CACHE INTERNAL "Turn off shaderc testing")
@@ -43,6 +43,11 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
 )
 FetchContent_Declare(
+  imgui_cmake
+  GIT_REPOSITORY https://github.com/sivansh11/imgui_cmake.git
+  GIT_TAG 473c9212a05769ca0ac46f13108f0d1c0eda18a0
+)
+FetchContent_Declare(
   slang
   GIT_REPOSITORY https://github.com/shader-slang/slang.git
   GIT_TAG 5d8cf475b352ab517c565ccee59461640da63a2a
@@ -71,6 +76,9 @@ endif()
 if (NOT VulkanMemoryAllocator_POPULATED)
   FetchContent_MakeAvailable(VulkanMemoryAllocator)
 endif()
+if (NOT imgui_cmake_POPULATED)
+  FetchContent_MakeAvailable(imgui_cmake)
+endif()
 if (NOT slang_POPULATED)
   FetchContent_MakeAvailable(slang)
 endif()
@@ -78,20 +86,20 @@ if (NOT shaderc_POPULATED)
   FetchContent_MakeAvailable(shaderc)
 endif()
 
-## src
+# # src
 add_subdirectory(src)
 
 
-if (HORIZON_BUILD_EXAMPLES) 
+if (HORIZON_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
 
 # best practices, read https://cliutils.gitlab.io/modern-cmake/chapters/basics/structure.html bottom of the page
-### Require out-of-source builds
+# # # Require out-of-source builds
 file(TO_CMAKE_PATH "${PROJECT_BINARY_DIR}/CMakeLists.txt" LOC_PATH)
 if(EXISTS "${LOC_PATH}")
-    message(FATAL_ERROR "You cannot build in a source directory (or any directory with a CMakeLists.txt file). Please make a build subdirectory. Feel free to remove CMakeCache.txt and CMakeFiles.")
+  message(FATAL_ERROR "You cannot build in a source directory (or any directory with a CMakeLists.txt file). Please make a build subdirectory. Feel free to remove CMakeCache.txt and CMakeFiles.")
 endif()
 
 # default built type if CMAKE_BUILD_TYPE is not set

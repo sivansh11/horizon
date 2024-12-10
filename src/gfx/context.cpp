@@ -913,7 +913,7 @@ internal::image_t& context_t::get_image(handle_image_t handle) {
 
 handle_image_view_t context_t::create_image_view(const config_image_view_t& config) {
     horizon_profile();
-    internal::image_t image = utils::assert_and_get_data<internal::image_t>(config.handle_image, _images);
+    internal::image_t& image = utils::assert_and_get_data<internal::image_t>(config.handle_image, _images);
 
     internal::image_view_t image_view{ .config = config };
 

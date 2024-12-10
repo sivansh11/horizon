@@ -11,6 +11,7 @@ target_link_libraries(horizon
   PUBLIC VulkanMemoryAllocator
   PUBLIC slang
   PUBLIC shaderc
+  PUBLIC imgui_cmake
   PUBLIC glslc
   PUBLIC shaderc_util
 )
