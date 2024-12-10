@@ -1,4 +1,5 @@
 #include "horizon/core/core.hpp"
+#include "horizon/core/logger.hpp"
 #include "horizon/core/window.hpp"
 #include "horizon/core/model.hpp"
 
@@ -6,8 +7,9 @@
 #include "horizon/gfx/base.hpp"
 #include "horizon/gfx/helper.hpp"
 
-#include <GLFW/glfw3.h>
 #include <cstring>
+
+#include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
 
@@ -26,6 +28,8 @@ const std::vector<uint32_t> indices {
 };
 
 int main() {
+	core::log_t::set_log_level(core::log_level_t::e_info);
+
 	core::ref<core::window_t> win = core::make_ref<core::window_t>("test", 640, 420);
 	auto [width, height] = win->dimensions();
 	core::ref<gfx::context_t> ctx = core::make_ref<gfx::context_t>(true);
@@ -33,8 +37,8 @@ int main() {
 	gfx::handle_sampler_t sampler = ctx->create_sampler({});
 	gfx::config_image_t config_final_image{};
 	config_final_image.vk_width		= width;
-	config_final_image.vk_height 	= height;
-	config_final_image.vk_depth  	= 1;
+	config_final_image.vk_height	= height;
+	config_final_image.vk_depth		= 1;
 	config_final_image.vk_type		= VK_IMAGE_TYPE_2D;
 	config_final_image.vk_format	= VK_FORMAT_R8G8B8A8_SRGB;
 	config_final_image.vk_usage		= VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
