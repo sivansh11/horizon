@@ -17,6 +17,8 @@ struct vertex_t {
 
 [[vk::binding(0, 0)]] uniform StructuredBuffer<uint32_t> indices;
 [[vk::binding(1, 0)]] uniform StructuredBuffer<vertex_t> vertices;
+[[vk::binding(2, 0)]] uniform SamplerState sampler;
+[[vk::binding(3, 0)]] uniform Texture2D texture;
 
 [shader("vertex")]
 vertex_shader_output_t vertex_main(uint32_t index: SV_VertexID) {

@@ -57,7 +57,9 @@ int main() {
 
 	gfx::config_descriptor_set_layout_t cdsl{};
 	cdsl.add_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
-		.add_layout_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS);
+		.add_layout_binding(1, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.add_layout_binding(2, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL_GRAPHICS)
+		.add_layout_binding(3, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL_GRAPHICS);
 	gfx::handle_descriptor_set_layout_t dsl = ctx->create_descriptor_set_layout(cdsl);
 
 	gfx::config_pipeline_layout_t cpl{};
@@ -87,6 +89,9 @@ int main() {
 	);
 	gfx::handle_pipeline_t p = ctx->create_graphics_pipeline(cp);
 
+	gfx::handle_image_t image = gfx::helper::load_image_from_path_instant(*ctx, base._command_pool, "../../../horizon_cpy/assets/texture/noise.jpg", VK_FORMAT_R8G8B8A8_SRGB);
+	gfx::handle_image_view_t image_view = ctx->create_image_view({ .handle_image = image });
+
 	gfx::config_buffer_t cib{};
 	cib.vk_size = indices.size() * sizeof(indices[0]);
 	cib.vk_buffer_usage_flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
@@ -105,6 +110,8 @@ int main() {
 	ctx->update_descriptor_set(ds)
 		.push_buffer_write(0, { .handle_buffer = ib })
 		.push_buffer_write(1, { .handle_buffer = vb })
+		.push_image_write(2, { .handle_sampler = sampler })
+		.push_image_write(3, { .handle_image_view = image_view, .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL })
 		.commit();
 
 	while (!win->should_close()) {
