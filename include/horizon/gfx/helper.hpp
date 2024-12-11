@@ -4,6 +4,7 @@
 #include "context.hpp"
 
 #include <filesystem>
+#include <vulkan/vulkan_core.h>
 
 namespace gfx {
 
@@ -16,6 +17,7 @@ void end_single_use_command_buffer(context_t& context, handle_commandbuffer_t ha
 
 VkImageAspectFlags image_aspect_from_format(VkFormat vk_format);
 
+void cmd_transition_image_layout(context_t& context, handle_commandbuffer_t handle_commandbuffer, handle_image_t handle, VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout, uint32_t base_mip_level = 0, uint32_t level_count = vk_auto_mips);
 void cmd_generate_image_mip_maps(context_t& context, handle_commandbuffer_t handle_commandbuffer, handle_image_t handle_image, VkImageLayout vk_image_layout_old, VkImageLayout vk_image_layout_new, VkFilter vk_filter);
 handle_image_t load_image_from_path_instant(context_t& context, handle_command_pool_t handle_command_pool, const std::filesystem::path& path, VkFormat vk_format);
 // TODO: create a image loader or something

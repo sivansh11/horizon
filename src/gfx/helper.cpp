@@ -7,7 +7,9 @@
 
 
 #include <compare>
+#include <cstring>
 #include <set>
+#include <vulkan/vulkan_core.h>
 
 namespace gfx {
 
@@ -64,6 +66,123 @@ VkImageAspectFlags image_aspect_from_format(VkFormat vk_format) {
     return VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
+
+void cmd_transition_image_layout(context_t& context, handle_commandbuffer_t handle_commandbuffer, handle_image_t handle, VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout, uint32_t base_mip_level, uint32_t level_count) {
+    internal::image_t& image = context.get_image(handle);
+
+    VkImageMemoryBarrier vk_image_memory_barrier{};
+    vk_image_memory_barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    vk_image_memory_barrier.oldLayout = vk_old_image_layout;
+    vk_image_memory_barrier.newLayout = vk_new_image_layout;
+    vk_image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vk_image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    vk_image_memory_barrier.image = image;
+    vk_image_memory_barrier.subresourceRange.aspectMask = image_aspect_from_format(image.config.vk_format);
+    vk_image_memory_barrier.subresourceRange.baseMipLevel = base_mip_level;
+    if (level_count == vk_auto_mips) vk_image_memory_barrier.subresourceRange.levelCount = image.config.vk_mips - base_mip_level;
+    else vk_image_memory_barrier.subresourceRange.levelCount = level_count;
+    vk_image_memory_barrier.subresourceRange.baseArrayLayer = 0;
+    vk_image_memory_barrier.subresourceRange.layerCount = 1;
+    vk_image_memory_barrier.srcAccessMask = 0;
+    vk_image_memory_barrier.dstAccessMask = 0;
+
+    switch (vk_old_image_layout) {
+        case VK_IMAGE_LAYOUT_UNDEFINED:
+            // Image layout is undefined (or does not matter)
+            // Only valid as initial layout
+            // No flags required, listed only for completeness
+            vk_image_memory_barrier.srcAccessMask = 0;
+            break;
+
+        case VK_IMAGE_LAYOUT_PREINITIALIZED:
+            // Image is preinitialized
+            // Only valid as initial layout for linear images, preserves memory contents
+            // Make sure host writes have been finished
+            vk_image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            // Image is a color attachment
+            // Make sure any writes to the color buffer have been finished
+            vk_image_memory_barrier.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            // Image is a depth/stencil attachment
+            // Make sure any writes to the depth/stencil buffer have been finished
+            vk_image_memory_barrier.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            // Image is a transfer source
+            // Make sure any reads from the image have been finished
+            vk_image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            // Image is a transfer destination
+            // Make sure any writes to the image have been finished
+            vk_image_memory_barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            // Image is read by a shader
+            // Make sure any shader reads from the image have been finished
+            vk_image_memory_barrier.srcAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            break;
+        default:
+            // Other source layouts aren't handled (yet)
+            horizon_error("not handled transition");
+            break;
+    }
+
+    switch (vk_new_image_layout) {
+        case VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL:
+            // Image will be used as a transfer destination
+            // Make sure any writes to the image have been finished
+            vk_image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL:
+            // Image will be used as a transfer source
+            // Make sure any reads from the image have been finished
+            vk_image_memory_barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL:
+            // Image will be used as a color attachment
+            // Make sure any writes to the color buffer have been finished
+            vk_image_memory_barrier.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL:
+            // Image layout will be used as a depth/stencil attachment
+            // Make sure any writes to depth/stencil buffer have been finished
+            vk_image_memory_barrier.dstAccessMask = vk_image_memory_barrier.dstAccessMask | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL:
+            // Image will be read in a shader (sampler, input attachment)
+            // Make sure any writes to the image have been finished
+            if (vk_image_memory_barrier.srcAccessMask == 0) {
+                vk_image_memory_barrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT | VK_ACCESS_TRANSFER_WRITE_BIT;
+            }
+            vk_image_memory_barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+            break;
+
+        case VK_IMAGE_LAYOUT_GENERAL:
+            vk_image_memory_barrier.srcAccessMask = 0;
+            vk_image_memory_barrier.dstAccessMask = 0;
+            break;
+
+        default:
+            // Other source layouts aren't handled (yet)
+            horizon_error("not handled transition");
+            break;
+    };
+
+    context.cmd_pipeline_barrier(handle_commandbuffer, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, VK_PIPELINE_STAGE_ALL_COMMANDS_BIT, 0, {}, {}, { vk_image_memory_barrier });
+}
 
 void cmd_generate_image_mip_maps(context_t& context, handle_commandbuffer_t handle_commandbuffer, handle_image_t handle, VkImageLayout vk_old_layout, VkImageLayout vk_new_layout, VkFilter vk_filter) {
     horizon_profile();
@@ -149,12 +268,44 @@ handle_image_t load_image_from_path_instant(context_t& context, handle_command_p
     horizon_trace("{} image loaded, width: {} height: {} device memory: {}", path.string(), width, height, vk_image_size);
 
     config_buffer_t config_staging_buffer{};
+    config_staging_buffer.vk_size = vk_image_size;
+    config_staging_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    config_staging_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    handle_buffer_t staging_buffer = context.create_buffer(config_staging_buffer);
+    std::memcpy(context.map_buffer(staging_buffer), pixels, vk_image_size);
 
-    // handle_buffer_t staging_buffer = 
+    stbi_image_free(pixels);
 
-    check(false, "Not implemented!");
+    config_image_t config_image{};
+    config_image.vk_width = width;
+    config_image.vk_height = height;
+    config_image.vk_depth = 1;
+    config_image.vk_type = VK_IMAGE_TYPE_2D;
+    config_image.vk_format = vk_format;
+    config_image.vk_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+    handle_image_t image = context.create_image(config_image);
 
-    return {};
+    handle_commandbuffer_t cbuf = begin_single_use_commandbuffer(context, handle_command_pool);
+    cmd_transition_image_layout(context, cbuf, image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    context.cmd_copy_buffer_to_image(cbuf, staging_buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, {
+        .bufferOffset = 0,
+        .bufferRowLength = 0,
+        .bufferImageHeight = 0,
+        .imageSubresource = {
+            .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+            .mipLevel = 0,
+            .baseArrayLayer = 0,
+            .layerCount = 1
+        },
+        .imageOffset = { 0, 0, 0 },
+        .imageExtent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1u },
+    });
+    cmd_generate_image_mip_maps(context, cbuf, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_FILTER_LINEAR);
+    end_single_use_command_buffer(context, cbuf);
+
+    context.destroy_buffer(staging_buffer);
+
+    return image;
 }
 
 }
