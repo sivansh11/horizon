@@ -7,8 +7,6 @@
 #include "horizon/gfx/base.hpp"
 #include "horizon/gfx/helper.hpp"
 
-#include <cstring>
-
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_core.h>
 
@@ -46,14 +44,16 @@ int main() {
 	gfx::handle_image_t final_image = ctx->create_image(config_final_image);
 	gfx::handle_image_view_t final_image_view = ctx->create_image_view({ .handle_image = final_image });
 
-	gfx::base_info_t base_info{
+	gfx::base_config_t base_config{
 		.window					= *win.get(),
 		.context				= *ctx.get(),
 		.sampler				= sampler,
 		.final_image_view		= final_image_view,
 	};
 
-	gfx::base_t base{ base_info };
+	gfx::base_t base{ base_config };
+
+	gfx::helper::imgui_init(*win, *ctx, base._swapchain, VK_FORMAT_R8G8B8A8_SRGB);
 
 	gfx::config_descriptor_set_layout_t cdsl{};
 	cdsl.add_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_ALL_GRAPHICS)
@@ -132,7 +132,7 @@ int main() {
 		color_rendering_attachment.handle_image_view = final_image_view;
 		
 		ctx->cmd_image_memory_barrier(cbuf, final_image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-		
+
 		ctx->cmd_begin_rendering(cbuf, { color_rendering_attachment }, std::nullopt, VkRect2D{ VkOffset2D{}, { static_cast<uint32_t>(width), static_cast<uint32_t>(height) } });
 		ctx->cmd_bind_pipeline(cbuf, p);
 		ctx->cmd_bind_descriptor_sets(cbuf, p, 0, { ds });
@@ -140,10 +140,17 @@ int main() {
 		ctx->cmd_draw(cbuf, 6, 1, 0, 0);
 		ctx->cmd_end_rendering(cbuf);
 
+		gfx::helper::imgui_newframe();
+		ImGui::Begin("Test");
+		ImGui::End();
+		gfx::helper::imgui_endframe(*ctx, cbuf);
+
 		ctx->cmd_image_memory_barrier(cbuf, final_image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
 		base.end();
 	}
+
+	gfx::helper::imgui_shutdown();
 
 	return 0;
 }
