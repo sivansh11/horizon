@@ -12,7 +12,7 @@ namespace core {
 
 using namespace glm;
 
-static const float infinity = std::numeric_limits<float>::max();
+static constexpr float infinity = std::numeric_limits<float>::max();
 
 } // namespace core
 
