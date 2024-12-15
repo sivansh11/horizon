@@ -57,8 +57,8 @@ struct managed_descriptor_info_t {
 struct base_t;
 
 
-// NOTE: window and context are const refs
-struct base_info_t {
+// NOTE: window and context are refs
+struct base_config_t {
     const core::window_t& window;
     context_t& context;
     handle_sampler_t sampler;
@@ -73,7 +73,7 @@ struct base_t;
 struct base_t {
     constexpr static size_t MAX_FRAMES_IN_FLIGHT = 2;
 
-    base_t(const base_info_t& base_info);
+    base_t(const base_config_t& base_config);
     ~base_t();
 
     void begin(bool transition_swapchain_image = true);
@@ -92,7 +92,7 @@ struct base_t {
     handle_image_t current_swapchain_image();
     handle_image_view_t current_swapchain_image_view();
 
-    const base_info_t               _info;
+    const base_config_t               _info;
     handle_swapchain_t              _swapchain;
     handle_command_pool_t           _command_pool;
     handle_commandbuffer_t          _commandbuffers[MAX_FRAMES_IN_FLIGHT];

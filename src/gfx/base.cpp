@@ -6,7 +6,7 @@
 
 namespace gfx {
 
-base_t::base_t(const base_info_t& info) : _info(info) {
+base_t::base_t(const base_config_t& info) : _info(info) {
     horizon_profile();
     _swapchain          = _info.context.create_swapchain(_info.window);
     _command_pool       = _info.context.create_command_pool({});
