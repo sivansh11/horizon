@@ -4,7 +4,10 @@
 #include "context.hpp"
 
 #include <filesystem>
-#include <vulkan/vulkan_core.h>
+
+#include <imgui.h>
+#include <backends/imgui_impl_glfw.h>
+#include <backends/imgui_impl_vulkan.h>
 
 namespace gfx {
 
@@ -22,6 +25,13 @@ void cmd_generate_image_mip_maps(context_t& context, handle_commandbuffer_t hand
 handle_image_t load_image_from_path_instant(context_t& context, handle_command_pool_t handle_command_pool, const std::filesystem::path& path, VkFormat vk_format);
 // TODO: create a image loader or something
 // handle_image_t load_image_from_path(context_t& context, const std::filesystem::path& path, VkFormat vk_format);
+
+
+// TODO: take target image format
+void imgui_init(core::window_t& window, context_t& context, handle_swapchain_t handle_swapchain, VkFormat vk_color_format);
+void imgui_shutdown();
+void imgui_newframe();
+void imgui_endframe(context_t& context, gfx::handle_commandbuffer_t commandbuffer);
 
 }
 

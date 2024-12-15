@@ -1,10 +1,10 @@
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
 #include "horizon/core/stb_image.h"
+#include "horizon/core/window.hpp"
 
 #include "horizon/gfx/helper.hpp"
 #include "horizon/gfx/context.hpp"
-
 
 #include <compare>
 #include <cstring>
@@ -306,6 +306,80 @@ handle_image_t load_image_from_path_instant(context_t& context, handle_command_p
     context.destroy_buffer(staging_buffer);
 
     return image;
+}
+
+static void checkVkResult(VkResult error) {
+    if (error == 0) return;
+    horizon_error("imgui error: {}", uint64_t(error));
+    if (error < 0) abort();
+}
+
+void imgui_init(core::window_t& window, context_t& context, handle_swapchain_t handle_swapchain, VkFormat vk_color_format) {
+    horizon_profile();
+
+    IMGUI_CHECKVERSION();
+
+    ImGui::CreateContext();
+
+    ImGuiIO& IO = ImGui::GetIO();
+    IO.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
+    ImGui::StyleColorsDark();
+
+    ImGui_ImplGlfw_InitForVulkan(window, true);
+
+    ImGui_ImplVulkan_InitInfo initInfo{};
+    initInfo.Instance = context.instance();
+    initInfo.PhysicalDevice = context.physical_device();
+    initInfo.Device = context.device();
+    initInfo.QueueFamily = context.graphics_queue().vk_index;
+    initInfo.Queue = context.graphics_queue();
+
+    initInfo.PipelineCache = VK_NULL_HANDLE;
+    initInfo.DescriptorPool = context.descriptor_pool();
+
+    initInfo.Allocator = VK_NULL_HANDLE;
+    initInfo.MinImageCount = 2;
+    initInfo.ImageCount = context.get_swapchain_images(handle_swapchain).size();
+    initInfo.CheckVkResultFn = checkVkResult;
+    initInfo.Subpass = 0;
+
+    initInfo.UseDynamicRendering = true;
+    std::vector<VkFormat> vk_color_formats{
+        vk_color_format,
+    };
+    VkPipelineRenderingCreateInfo vk_pipeline_rendering_create{ .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO };
+    vk_pipeline_rendering_create.pNext                   = nullptr;
+    vk_pipeline_rendering_create.colorAttachmentCount    = vk_color_formats.size();
+    vk_pipeline_rendering_create.pColorAttachmentFormats = vk_color_formats.data();
+    vk_pipeline_rendering_create.depthAttachmentFormat   = VK_FORMAT_UNDEFINED;
+    vk_pipeline_rendering_create.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+    initInfo.PipelineRenderingCreateInfo = vk_pipeline_rendering_create;
+
+    ImGui_ImplVulkan_LoadFunctions([](const char *function_name, void *vulkan_instance) {
+        return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance *>(vulkan_instance)), function_name);
+    }, &context.instance().instance);
+
+    ImGui_ImplVulkan_Init(&initInfo);
+
+    ImGui_ImplVulkan_CreateFontsTexture();
+}
+
+void imgui_shutdown() {
+    ImGui_ImplVulkan_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
+}
+
+void imgui_newframe() {
+    ImGui_ImplVulkan_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+}
+
+void imgui_endframe(context_t& context, gfx::handle_commandbuffer_t commandbuffer) {
+    ImGui::Render();
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), context.get_commandbuffer(commandbuffer));
 }
 
 }
