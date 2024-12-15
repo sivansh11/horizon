@@ -19,7 +19,7 @@ std::optional<texture_info_t> process_texture(model_loading_info_t& model_loadin
     for (uint32_t i = 0; i < material->GetTextureCount(type); i++) {
         aiString name;
         material->GetTexture(type, i, &name);
-        
+
         texture_info_t texture_info{};
         texture_info.file_path = model_loading_info.file_path.parent_path();
         texture_info.file_path /= name.C_Str();
@@ -92,7 +92,7 @@ mesh_t process_mesh(model_loading_info_t& model_loading_info, aiMesh *mesh, cons
 
         loaded_mesh.vertices.push_back(vertex);
     }
-    
+
     for (uint32_t i = 0; i < mesh->mNumFaces; i++) {
         aiFace& face = mesh->mFaces[i];
         // model_loading_info.model.primitive_count += face.mNumIndices;
