@@ -16,6 +16,10 @@ option(HORIZON_BUILD_EXAMPLES "build EXAMPLES" OFF)
 set(FETCHCONTENT_QUIET FALSE)
 
 set(SHADERC_SKIP_TESTS ON CACHE INTERNAL "Turn off shaderc testing")
+set(IMGUI_VULKAN_BACKEND ON CACHE INTERNAL "Imgui vulkan backend")
+set(IMGUI_GLFW_BACKEND ON CACHE INTERNAL "Imgui glfw backend")
+set(IMGUI_IMPL_VULKAN_USE_LOADER ON CACHE INTERNAL "Imgui vulkan use loader")
+set(IMGUI_IMPL_VULKAN_NO_PROTOTYPES ON CACHE INTERNAL "Imgui vulkan no prototypes")
 
 FetchContent_Declare(
   glm
@@ -45,7 +49,8 @@ FetchContent_Declare(
 FetchContent_Declare(
   imgui_cmake
   GIT_REPOSITORY https://github.com/sivansh11/imgui_cmake.git
-  GIT_TAG 473c9212a05769ca0ac46f13108f0d1c0eda18a0
+  GIT_TAG main
+  # GIT_TAG c63ccd36f8c843270a5184f3016971d729bbabf8
 )
 FetchContent_Declare(
   slang
@@ -63,6 +68,7 @@ if (NOT glm_POPULATED)
 endif()
 if (NOT glfw_POPULATED)
   FetchContent_MakeAvailable(glfw)
+  set (IMGUI_GLFW_PATH ${glfw_SOURCE_DIR}/include)
 endif()
 if (NOT assimp_POPULATED)
   FetchContent_MakeAvailable(assimp)
