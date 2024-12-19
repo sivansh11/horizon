@@ -1,5 +1,6 @@
 #include "horizon/gfx/context.hpp"
 
+#include "glm/fwd.hpp"
 #include "horizon/core/window.hpp"
 
 #define GLFW_INCLUDE_NONE
@@ -425,6 +426,7 @@ void context_t::create_instance() {
     horizon_profile();
     vkb::InstanceBuilder vkb_instance_builder{};
     vkb_instance_builder.set_debug_callback(debug_callback)
+                       .set_app_name("horizon")
                        .desire_api_version(VK_API_VERSION_1_3)
                        .enable_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
                        .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
@@ -1026,7 +1028,7 @@ handle_descriptor_set_t context_t::allocate_descriptor_set(const config_descript
     vk_descriptor_set_allocate_info.descriptorSetCount = 1;
     vk_descriptor_set_allocate_info.pSetLayouts = &descriptor_set_layout.vk_descriptor_set_layout;
 
-    uint32_t descriptor_count = 1;
+    uint32_t descriptor_count = std::min(size_t(1), descriptor_set_layout.config.vk_descriptor_set_layout_bindings.size());
 
     VkDescriptorSetVariableDescriptorCountAllocateInfo vk_descriptor_set_variable_descriptor_count_allocate_info{ VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO };
     vk_descriptor_set_variable_descriptor_count_allocate_info.descriptorSetCount = 1;

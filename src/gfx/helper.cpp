@@ -34,7 +34,7 @@ std::pair<VkViewport, VkRect2D> fill_viewport_and_scissor_structs(uint32_t width
 handle_commandbuffer_t begin_single_use_commandbuffer(context_t& context, handle_command_pool_t command_pool) {
     horizon_profile();
     handle_commandbuffer_t cbuf = context.allocate_commandbuffer({ .handle_command_pool = command_pool });
-    context.begin_commandbuffer(cbuf);
+    context.begin_commandbuffer(cbuf, true);
     return cbuf;
 }
 
@@ -307,6 +307,32 @@ handle_image_t load_image_from_path_instant(context_t& context, handle_command_p
 
     return image;
 }
+
+handle_buffer_t create_buffer_staged(context_t& context, handle_command_pool_t handle_command_pool, config_buffer_t config, void *data, size_t size) {
+    horizon_assert(size <= config.vk_size, "copying more than allocated");
+
+    config.vk_buffer_usage_flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    handle_buffer_t buffer = context.create_buffer(config);
+
+    config_buffer_t config_staging_buffer{};
+    config_staging_buffer.vk_size = config.vk_size;
+    config_staging_buffer.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    config_staging_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    handle_buffer_t staging_buffer = context.create_buffer(config_staging_buffer);
+
+    std::memcpy(context.map_buffer(staging_buffer), data, size);
+
+    handle_commandbuffer_t cbuf = begin_single_use_commandbuffer(context, handle_command_pool);
+    context.cmd_copy_buffer(cbuf, staging_buffer, buffer, {
+        .vk_src_offset = 0,
+        .vk_dst_offset = 0,
+        .vk_size = size
+    });
+    end_single_use_command_buffer(context, cbuf);
+
+    return buffer;
+}
+
 
 static void checkVkResult(VkResult error) {
     if (error == 0) return;
