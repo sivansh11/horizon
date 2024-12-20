@@ -78,6 +78,8 @@ public struct hit_t {
     uint32_t primitive_id = invalid_index;
     float t = infinity;
     float u = 0, v = 0, w = 0;
+    uint32_t node_intersection_count = 0;
+    uint32_t primitive_intersection_count = 0;
 };
 
 float4 operator *(float4x4 m, float4 v) {
@@ -167,11 +169,14 @@ public hit_t intersect(const bvh_t bvh, ray_data_t ray, triangle_t *p_triangles,
     // uint32_t stack[STACK_SIZE];
     uint32_t stack_top = 0;
 
+    hit.node_intersection_count++;
+
     node_t root = bvh.nodes[0];
     if (!aabb_intersect(ray, root.aabb).did_intersect()) return hit;
 
     if (bool(root.is_leaf)) {
-      for (uint32_t i = 0; i < root.primitive_count; i++) {
+        for (uint32_t i = 0; i < root.primitive_count; i++) {
+            hit.primitive_intersection_count++;
         uint32_t primitive_index = bvh.primitive_indices[root.first_primitive_index_or_first_child_index + i];
         triangle_t triangle = p_triangles[primitive_index];
         triangle_intersection_t intersection = triangle_intersect(ray, triangle);
@@ -192,6 +197,7 @@ public hit_t intersect(const bvh_t bvh, ray_data_t ray, triangle_t *p_triangles,
       const node_t left  = bvh.nodes[current];
       const node_t right = bvh.nodes[current + 1];
 
+      hit.node_intersection_count += 2;
       aabb_intersection_t left_intersect = aabb_intersect(ray, left.aabb);
       aabb_intersection_t right_intersect = aabb_intersect(ray, right.aabb);
 
@@ -210,6 +216,7 @@ public hit_t intersect(const bvh_t bvh, ray_data_t ray, triangle_t *p_triangles,
           end = right.first_primitive_index_or_first_child_index + right.primitive_count;
       }
       for (uint32_t i = start; i < end; i++) {
+          hit.primitive_intersection_count++;
         const uint32_t primitive_index = bvh.primitive_indices[i];
         triangle_t triangle = p_triangles[primitive_index];
         triangle_intersection_t intersection = triangle_intersect(ray, triangle);

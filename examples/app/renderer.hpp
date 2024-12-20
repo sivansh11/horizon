@@ -9,6 +9,7 @@
 namespace renderer {
 
 struct push_constant_t {
+    VkDeviceAddress ray_datas;
     VkDeviceAddress bvh;
     VkDeviceAddress triangles;
     VkDeviceAddress camera;
@@ -17,10 +18,65 @@ struct push_constant_t {
     uint32_t height;
 };
 
+struct raygen {
+    raygen(gfx::base_t& base) : base(base) {
+        gfx::config_shader_t cs{
+            .code_or_path = "../../assets/shaders/app/raygen.slang",
+            .is_code = false,
+            .name = "rayraygen compute",
+            .type = gfx::shader_type_t::e_compute,
+            .language = gfx::shader_language_t::e_slang,
+            .debug_name = "rayraygen compute",
+        };
+        s = base._info.context.create_shader(cs);
+
+        gfx::config_pipeline_layout_t cpl{};
+        cpl.add_push_constant(sizeof(push_constant_t), VK_SHADER_STAGE_ALL);
+        pl = base._info.context.create_pipeline_layout(cpl);
+
+        gfx::config_pipeline_t cp{};
+        cp.handle_pipeline_layout = pl;
+        cp.add_shader(s);
+        p = base._info.context.create_compute_pipeline(cp);
+
+        t = base._info.context.create_timer({});
+    }
+
+    ~raygen() {
+        base._info.context.destroy_pipeline(p);
+        base._info.context.destroy_pipeline_layout(pl);
+        base._info.context.destroy_shader(s);
+    }
+
+    void render(gfx::handle_commandbuffer_t cbuf, push_constant_t push_constant) {
+        base._info.context.cmd_begin_timer(cbuf, t);
+        base._info.context.cmd_bind_pipeline(cbuf, p);
+        base._info.context.cmd_push_constants(cbuf, p, VK_SHADER_STAGE_ALL, 0, sizeof(push_constant_t), &push_constant);
+        base._info.context.cmd_dispatch(cbuf, (push_constant.width + 8 - 1) / 8, (push_constant.height + 8 - 1) / 8, 1);
+        base._info.context.cmd_end_timer(cbuf, t);
+
+        static int i = 0;
+        i++;
+        if (i == 25) {
+            i = 0;
+            if (auto time = base._info.context.timer_get_time(t)) {
+                horizon_info("raygen took: {}", *time);
+            }
+        }
+    }
+
+    gfx::base_t& base;
+
+    gfx::handle_shader_t s;
+    gfx::handle_pipeline_layout_t pl;
+    gfx::handle_pipeline_t p;
+    gfx::handle_timer_t t;
+};
+
 struct trace {
     trace(gfx::base_t& base) : base(base) {
         gfx::config_shader_t cs{
-            .code_or_path = "../../assets/shaders/app/raytrace.slang",
+            .code_or_path = "../../assets/shaders/app/trace.slang",
             .is_code = false,
             .name = "raytrace compute",
             .type = gfx::shader_type_t::e_compute,
@@ -59,7 +115,7 @@ struct trace {
         if (i == 25) {
             i = 0;
             if (auto time = base._info.context.timer_get_time(t)) {
-                horizon_info("raytrace took: {}", *time);
+                horizon_info("trace took: {}", *time);
             }
         }
     }

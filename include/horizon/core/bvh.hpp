@@ -62,6 +62,7 @@ float cost_of_bvh(const bvh_t& bvh, const options_t& options);
 uint32_t depth_of_bvh(const bvh_t& bvh);
 
 bvh_t build_bvh2(aabb_t *aabbs, vec3 *centers, uint32_t primitive_count, const options_t& options);
+void collapse_nodes(bvh_t& bvh, const options_t& options);
 
 }
 

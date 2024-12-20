@@ -16,6 +16,8 @@ option(HORIZON_BUILD_EXAMPLES "build EXAMPLES" OFF)
 set(FETCHCONTENT_QUIET FALSE)
 
 set(SHADERC_SKIP_TESTS ON CACHE INTERNAL "Turn off shaderc testing")
+set(ASSIMP_INSTALL OFF CACHE INTERNAL "turns off assimp install")
+set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE INTERNAL "assimp warnings as error")
 set(IMGUI_VULKAN_BACKEND ON CACHE INTERNAL "Imgui vulkan backend")
 set(IMGUI_GLFW_BACKEND ON CACHE INTERNAL "Imgui glfw backend")
 set(IMGUI_IMPL_VULKAN_USE_LOADER ON CACHE INTERNAL "Imgui vulkan use loader")

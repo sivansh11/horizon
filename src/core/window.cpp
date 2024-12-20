@@ -5,8 +5,6 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include <iostream>
-
 namespace core {
 
 struct glfw_initializer_t {
@@ -18,7 +16,7 @@ struct glfw_initializer_t {
         }
 
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    }    
+    }
 
     ~glfw_initializer_t() {
         horizon_profile();
@@ -35,7 +33,7 @@ void window_t::poll_events() {
 
 window_t::window_t(const std::string& title, uint32_t width, uint32_t height) {
     horizon_profile();
-    
+
     // glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
     _p_window = glfwCreateWindow(width, height, _title.c_str(), NULL, NULL);

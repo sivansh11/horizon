@@ -1,7 +1,6 @@
 #include "horizon/core/bvh.hpp"
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
-#include "horizon/core/math.hpp"
 #include "horizon/core/model.hpp"
 #include "horizon/core/window.hpp"
 
@@ -21,6 +20,13 @@ struct ray_t {
   core::vec3 direction;
 };
 static_assert(sizeof(ray_t) == 24, "sizeof(ray_t) != 24");
+
+struct ray_data_t {
+  core::vec3 origin, direction;
+  core::vec3 inverse_direction;
+  float tmin, tmax;
+};
+static_assert(sizeof(ray_data_t) == 44, "sizeof(ray_data_t) != 44");
 
 struct triangle_t {
   core::vec3 v0, v1, v2;
@@ -156,7 +162,7 @@ int main() {
   core::window_t window{"app", 640, 420};
   auto [width, height] = window.dimensions();
 
-  gfx::context_t context{true};
+  gfx::context_t context{false};
 
   gfx::handle_sampler_t sampler = context.create_sampler({});
 
@@ -202,8 +208,9 @@ int main() {
   //     triangles.push_back(triangle);
   //     aabbs.push_back(aabb);
 
-  core::model_t model = core::load_model_from_path(
-      "../../../horizon_cpy/assets/models/sponza_bbk/SponzaMerged/SponzaMerged.obj");
+  core::model_t model =
+      core::load_model_from_path("../../../horizon_cpy/assets/models/"
+                                 "sponza_bbk/SponzaMerged/SponzaMerged.obj");
   // core::model_t model = core::load_model_from_path(
   //     "../../../horizon_cpy/assets/models/corenl_box.obj");
 
@@ -227,7 +234,7 @@ int main() {
 
   core::bvh::options_t options{
       .o_min_primitive_count = 1, // TODO: try 0
-      .o_max_primitive_count = 8,
+      .o_max_primitive_count = 1,
       .o_object_split_search_type =
           core::bvh::object_split_search_type_t::e_binned_sah,
       .o_primitive_intersection_cost = 1.1f,
@@ -241,10 +248,28 @@ int main() {
   horizon_info("cost of bvh {}", core::bvh::cost_of_bvh(bvh, options));
   horizon_info("depth of bvh {}", core::bvh::depth_of_bvh(bvh));
   horizon_info("nodes {}", bvh.nodes.size());
+  horizon_info("{}", uint32_t(bvh.nodes[0].primitive_count));
 
+  core::bvh::collapse_nodes(bvh, options);
+
+  horizon_info("cost of bvh {}", core::bvh::cost_of_bvh(bvh, options));
+  horizon_info("depth of bvh {}", core::bvh::depth_of_bvh(bvh));
+  horizon_info("nodes {}", bvh.nodes.size());
+  horizon_info("{}", uint32_t(bvh.nodes[0].primitive_count));
+
+  renderer::raygen raygen{base};
   renderer::trace trace{base};
   renderer::shade shade{base};
   shade.update_descriptor_set(final_image_view);
+
+  gfx::config_buffer_t config_ray_datas_buffer{};
+  config_ray_datas_buffer.vk_size = sizeof(ray_data_t) * width * height;
+  config_ray_datas_buffer.vma_allocation_create_flags =
+      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+  config_ray_datas_buffer.vk_buffer_usage_flags =
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  gfx::handle_buffer_t ray_datas_buffer =
+      context.create_buffer(config_ray_datas_buffer);
 
   gfx::config_buffer_t config_bvh_buffer{};
   config_bvh_buffer.vk_size = sizeof(bvh_t);
@@ -301,7 +326,8 @@ int main() {
       gfx::resource_update_policy_t::e_every_frame, config_camera_buffer);
 
   gfx::config_buffer_t config_hits_buffer{};
-  config_hits_buffer.vk_size = sizeof(hit_t) * width * height;
+  config_hits_buffer.vk_size =
+      sizeof(hit_t) * width * height * 1.5f; // 1.5f for extra debug info
   config_hits_buffer.vma_allocation_create_flags =
       VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
   config_hits_buffer.vk_buffer_usage_flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
@@ -347,6 +373,7 @@ int main() {
 
     // TODO: clear image
     renderer::push_constant_t push_constant{};
+    push_constant.ray_datas = context.get_buffer_device_address(ray_datas_buffer);
     push_constant.bvh = context.get_buffer_device_address(bvh_buffer);
     push_constant.triangles =
         context.get_buffer_device_address(triangles_buffer);
@@ -356,6 +383,12 @@ int main() {
     push_constant.width = width;
     push_constant.height = height;
 
+    raygen.render(cbuf, push_constant);
+    context.cmd_buffer_memory_barrier(
+        cbuf, ray_datas_buffer, context.get_buffer(ray_datas_buffer).config.vk_size, 0,
+        VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
     trace.render(cbuf, push_constant);
     context.cmd_buffer_memory_barrier(
         cbuf, hits_buffer, context.get_buffer(hits_buffer).config.vk_size, 0,
