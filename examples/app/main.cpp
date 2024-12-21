@@ -208,11 +208,11 @@ int main() {
   //     triangles.push_back(triangle);
   //     aabbs.push_back(aabb);
 
-  core::model_t model =
-      core::load_model_from_path("../../../horizon_cpy/assets/models/"
-                                 "sponza_bbk/SponzaMerged/SponzaMerged.obj");
-  // core::model_t model = core::load_model_from_path(
-  //     "../../../horizon_cpy/assets/models/corenl_box.obj");
+  // core::model_t model =
+  //     core::load_model_from_path("../../../horizon_cpy/assets/models/"
+  //                                "sponza_bbk/SponzaMerged/SponzaMerged.obj");
+  core::model_t model = core::load_model_from_path(
+      "../../../horizon_cpy/assets/models/corenl_box.obj");
 
   for (auto mesh : model.meshes) {
     for (uint32_t i = 0; i < mesh.indices.size(); i += 3) {
