@@ -5,11 +5,12 @@
 [vk::push_constant] push_constant_t pc;
 
 [shader("compute")]
-[numthreads(work_group_width, work_group_height, 1)]
+[numthreads(32, 1, 1)]
 void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_index: SV_GroupIndex) {
+    uint32_t id = dispatch_thread_id.x;
     // i * width + j;
-    uint32_t px_i = dispatch_thread_id.x;
-    uint32_t px_j = dispatch_thread_id.y;
+    uint32_t px_i = id % pc.width;
+    uint32_t px_j = id / pc.width;
 
     if (px_i >= pc.width) return;
     if (px_j >= pc.height) return;
