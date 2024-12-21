@@ -17,4 +17,11 @@ void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_inde
 
     ray_data_t ray_data = pc.camera.ray_gen(float2(u, v));
     pc.ray_datas[px_j * pc.width + px_i] = ray_data;
+
+    if (px_i == 0 && px_j == 0) {
+        *pc.num_rays = pc.width * pc.height;
+        pc.dispatch_indirect_cmd.x = (pc.width + 8 - 1) / 8;
+        pc.dispatch_indirect_cmd.y = (pc.height + 8 - 1) / 8;
+        pc.dispatch_indirect_cmd.z = 1;
+    }
 }

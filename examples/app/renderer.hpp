@@ -9,6 +9,8 @@
 namespace renderer {
 
 struct push_constant_t {
+  VkDeviceAddress num_rays;
+  VkDeviceAddress trace_indirect_cmd;
   VkDeviceAddress ray_datas;
   VkDeviceAddress bvh;
   VkDeviceAddress triangles;
@@ -106,15 +108,17 @@ struct trace {
     base._info.context.destroy_shader(s);
   }
 
-  void render(gfx::handle_commandbuffer_t cbuf, push_constant_t push_constant) {
+  void render(gfx::handle_commandbuffer_t cbuf, gfx::handle_buffer_t buffer,
+              push_constant_t push_constant) {
     base._info.context.cmd_begin_timer(cbuf, t);
     base._info.context.cmd_bind_pipeline(cbuf, p);
     base._info.context.cmd_push_constants(cbuf, p, VK_SHADER_STAGE_ALL, 0,
                                           sizeof(push_constant_t),
                                           &push_constant);
-    base._info.context.cmd_dispatch(
-        cbuf, ((push_constant.width * push_constant.height) + 32 - 1) / 32, 1,
-        1);
+    base._info.context.cmd_dispatch_indirect(cbuf, buffer, 0);
+    // base._info.context.cmd_dispatch(
+    //     cbuf, ((push_constant.width * push_constant.height) + 32 - 1) / 32,
+    //     1, 1);
     base._info.context.cmd_end_timer(cbuf, t);
 
     static int i = 0;
