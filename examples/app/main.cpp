@@ -157,7 +157,11 @@ void editor_camera_t::update(float ts) {
   _view = core::lookAt(_position, _position + _front, core::vec3{0, 1, 0});
 }
 
-int main() {
+int main(int argc, char **argv) {
+  if (argc != 2) {
+    std::cout << "./app [model file]\n";
+    exit(EXIT_FAILURE);
+  }
   //  core::log_t::set_log_level(core::log_level_t::e_info);
 
   core::window_t window{"app", 640, 420};
@@ -212,8 +216,10 @@ int main() {
   // core::model_t model =
   //     core::load_model_from_path("../../../horizon_cpy/assets/models/"
   //                                "sponza_bbk/SponzaMerged/SponzaMerged.obj");
-  core::model_t model = core::load_model_from_path(
-      "../../../horizon_cpy/assets/models/corenl_box.obj");
+  // core::model_t model = core::load_model_from_path(
+  //     "../../../horizon_cpy/assets/models/corenl_box.obj");
+
+  core::model_t model = core::load_model_from_path(argv[1]);
 
   for (auto mesh : model.meshes) {
     for (uint32_t i = 0; i < mesh.indices.size(); i += 3) {
