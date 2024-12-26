@@ -55,11 +55,13 @@ public struct ray_data_t {
         );
         ray_data.tmin = epsilon;
         ray_data.tmax = infinity;
+        ray_data.should_trace = true;
         return ray_data;
     }
     float3 origin, direction;
     float3 inverse_direction;
     float tmin, tmax;
+    bool should_trace;
 }
 
 public struct triangle_intersection_t {

@@ -19,6 +19,9 @@ void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_inde
     if (px_j >= pc.height) return;
 
     ray_data_t ray_data = pc.ray_datas[px_j * pc.width + px_i];
+
+    if (!ray_data.should_trace) return;
+
     hit_t hit = intersect(*pc.bvh, ray_data, pc.triangles, group_index);
     pc.hits[px_j * pc.width + px_i] = hit;
 

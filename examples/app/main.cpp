@@ -25,8 +25,9 @@ struct ray_data_t {
   core::vec3 origin, direction;
   core::vec3 inverse_direction;
   float tmin, tmax;
+  bool should_trace;
 };
-static_assert(sizeof(ray_data_t) == 44, "sizeof(ray_data_t) != 44");
+static_assert(sizeof(ray_data_t) == 48, "sizeof(ray_data_t) != 48");
 
 struct triangle_t {
   core::vec3 v0, v1, v2;
