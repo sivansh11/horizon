@@ -2,6 +2,7 @@
 
 #include "glm/fwd.hpp"
 #include "horizon/core/window.hpp"
+#include <vulkan/vulkan_core.h>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -1820,6 +1821,13 @@ void context_t::cmd_dispatch(handle_commandbuffer_t handle_commandbuffer, uint32
     horizon_profile();
     internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
     vkCmdDispatch(commandbuffer, vk_group_count_x, vk_group_count_y, vk_group_count_z);
+}
+
+void context_t::cmd_dispatch_indirect(handle_commandbuffer_t handle_commandbuffer, handle_buffer_t handle_buffer, uint32_t offset) {
+    horizon_profile();
+    internal::commandbuffer_t& commandbuffer = utils::assert_and_get_data<internal::commandbuffer_t>(handle_commandbuffer, _commandbuffers);
+    internal::buffer_t& buffer = utils::assert_and_get_data<internal::buffer_t>(handle_buffer, _buffers);
+    vkCmdDispatchIndirect(commandbuffer, buffer, offset);
 }
 
 void context_t::cmd_set_viewport_and_scissor(handle_commandbuffer_t handle_commandbuffer, VkViewport vk_viewport, VkRect2D vk_scissor) {

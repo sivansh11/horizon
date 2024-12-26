@@ -262,6 +262,24 @@ int main() {
   renderer::shade shade{base};
   shade.update_descriptor_set(final_image_view);
 
+  gfx::config_buffer_t config_num_rays_buffer{};
+  config_num_rays_buffer.vk_size = sizeof(uint32_t);
+  config_num_rays_buffer.vma_allocation_create_flags =
+      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+  config_num_rays_buffer.vk_buffer_usage_flags =
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  gfx::handle_buffer_t num_rays_buffer =
+      context.create_buffer(config_num_rays_buffer);
+
+  gfx::config_buffer_t config_dispatch_indirect_buffer{};
+  config_dispatch_indirect_buffer.vk_size = sizeof(VkDispatchIndirectCommand);
+  config_dispatch_indirect_buffer.vma_allocation_create_flags =
+      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+  config_dispatch_indirect_buffer.vk_buffer_usage_flags =
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  gfx::handle_buffer_t dispatch_indirect_buffer =
+      context.create_buffer(config_dispatch_indirect_buffer);
+
   gfx::config_buffer_t config_ray_datas_buffer{};
   config_ray_datas_buffer.vk_size = sizeof(ray_data_t) * width * height;
   config_ray_datas_buffer.vma_allocation_create_flags =
@@ -373,7 +391,11 @@ int main() {
 
     // TODO: clear image
     renderer::push_constant_t push_constant{};
-    push_constant.ray_datas = context.get_buffer_device_address(ray_datas_buffer);
+    push_constant.num_rays = context.get_buffer_device_address(num_rays_buffer);
+    push_constant.trace_indirect_cmd =
+        context.get_buffer_device_address(dispatch_indirect_buffer);
+    push_constant.ray_datas =
+        context.get_buffer_device_address(ray_datas_buffer);
     push_constant.bvh = context.get_buffer_device_address(bvh_buffer);
     push_constant.triangles =
         context.get_buffer_device_address(triangles_buffer);
@@ -385,11 +407,12 @@ int main() {
 
     raygen.render(cbuf, push_constant);
     context.cmd_buffer_memory_barrier(
-        cbuf, ray_datas_buffer, context.get_buffer(ray_datas_buffer).config.vk_size, 0,
+        cbuf, ray_datas_buffer,
+        context.get_buffer(ray_datas_buffer).config.vk_size, 0,
         VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-    trace.render(cbuf, push_constant);
+    trace.render(cbuf, dispatch_indirect_buffer, push_constant);
     context.cmd_buffer_memory_barrier(
         cbuf, hits_buffer, context.get_buffer(hits_buffer).config.vk_size, 0,
         VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
