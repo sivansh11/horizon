@@ -59,14 +59,11 @@ struct raygen {
     base._info.context.cmd_dispatch(cbuf, (push_constant.width + 8 - 1) / 8,
                                     (push_constant.height + 8 - 1) / 8, 1);
     base._info.context.cmd_end_timer(cbuf, t);
+  }
 
-    static int i = 0;
-    i++;
-    if (i == 25) {
-      i = 0;
-      if (auto time = base._info.context.timer_get_time(t)) {
-        horizon_info("raygen took: {}", *time);
-      }
+  auto get_time() {
+    if (auto time = base._info.context.timer_get_time(t)) {
+      horizon_info("raygen took: {}", *time);
     }
   }
 
@@ -120,14 +117,11 @@ struct trace {
     //     cbuf, ((push_constant.width * push_constant.height) + 32 - 1) / 32,
     //     1, 1);
     base._info.context.cmd_end_timer(cbuf, t);
+  }
 
-    static int i = 0;
-    i++;
-    if (i == 25) {
-      i = 0;
-      if (auto time = base._info.context.timer_get_time(t)) {
-        horizon_info("trace took: {}", *time);
-      }
+  auto get_time() {
+    if (auto time = base._info.context.timer_get_time(t)) {
+      horizon_info("trace took: {}", *time);
     }
   }
 
@@ -199,14 +193,11 @@ struct shade {
     base._info.context.cmd_dispatch(cbuf, (push_constant.width + 8 - 1) / 8,
                                     (push_constant.height + 8 - 1) / 8, 1);
     base._info.context.cmd_end_timer(cbuf, t);
+  }
 
-    static int i = 0;
-    i++;
-    if (i == 25) {
-      i = 0;
-      if (auto time = base._info.context.timer_get_time(t)) {
-        horizon_info("shade took: {}", *time);
-      }
+  auto get_time() {
+    if (auto time = base._info.context.timer_get_time(t)) {
+      horizon_info("shade took: {}", *time);
     }
   }
 

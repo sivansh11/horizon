@@ -436,6 +436,9 @@ int main() {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
     base.end();
+    raygen.get_time();
+    trace.get_time();
+    shade.get_time();
   }
   context.wait_idle();
 
