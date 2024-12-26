@@ -14,5 +14,6 @@ struct push_constant_t {
     hit_t *hits;
     uint32_t width;
     uint32_t height;
+    uint32_t bounce_id;
 };
 

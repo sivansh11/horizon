@@ -30,9 +30,9 @@ struct ray_data_t {
 static_assert(sizeof(ray_data_t) == 48, "sizeof(ray_data_t) != 48");
 
 struct triangle_t {
-  core::vec3 v0, v1, v2;
+  // core::vec3 v0, v1, v2;
+  core::vertex_t v0, v1, v2;
 };
-static_assert(sizeof(triangle_t) == 36, "sizeof(triangle_t) != 36");
 
 struct bvh_t {
   VkDeviceAddress nodes;
@@ -171,7 +171,7 @@ int main(int argc, char **argv) {
 
   gfx::handle_sampler_t sampler = context.create_sampler({});
 
-  VkFormat final_image_format = VK_FORMAT_R8G8B8A8_UNORM;
+  VkFormat final_image_format = VK_FORMAT_R32G32B32A32_SFLOAT;
   gfx::config_image_t config_final_image{};
   config_final_image.vk_width = width;
   config_final_image.vk_height = height;
@@ -224,14 +224,14 @@ int main(int argc, char **argv) {
   for (auto mesh : model.meshes) {
     for (uint32_t i = 0; i < mesh.indices.size(); i += 3) {
       triangle_t triangle{
-          .v0 = mesh.vertices[mesh.indices[i + 0]].position,
-          .v1 = mesh.vertices[mesh.indices[i + 1]].position,
-          .v2 = mesh.vertices[mesh.indices[i + 2]].position,
+          .v0 = mesh.vertices[mesh.indices[i + 0]],
+          .v1 = mesh.vertices[mesh.indices[i + 1]],
+          .v2 = mesh.vertices[mesh.indices[i + 2]],
       };
       core::aabb_t aabb{};
-      aabb.grow(triangle.v0).grow(triangle.v1).grow(triangle.v2);
+      aabb.grow(triangle.v0.position).grow(triangle.v1.position).grow(triangle.v2.position);
       core::vec3 center{};
-      center = (triangle.v0 + triangle.v1 + triangle.v2) / 3.f;
+      center = (triangle.v0.position + triangle.v1.position + triangle.v2.position) / 3.f;
 
       triangles.push_back(triangle);
       aabbs.push_back(aabb);
@@ -411,6 +411,7 @@ int main(int argc, char **argv) {
     push_constant.hits = context.get_buffer_device_address(hits_buffer);
     push_constant.width = width;
     push_constant.height = height;
+    push_constant.bounce_id = 0;
 
     raygen.render(cbuf, push_constant);
     context.cmd_buffer_memory_barrier(
