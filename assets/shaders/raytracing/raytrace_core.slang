@@ -26,8 +26,26 @@ public struct bvh_t {
     uint32_t *primitive_indices;
 };
 
+public struct vertex_t {
+    float3 position;
+    float3 normal;
+    float2 uv;
+    float3 tangent;
+    float3 bi_tangent;
+};
+
 public struct triangle_t {
-    float3 v0, v1, v2;
+    // float3 v0, v1, v2;
+    vertex_t v0, v1, v2;
+    vertex_t from_barry(float u, float v, float w) {
+        vertex_t vertex;
+        vertex.position = u * v0.position + v * v1.position + w * v2.position;
+        vertex.normal = u * v0.normal + v * v1.normal + w * v2.normal;
+        vertex.uv = u * v0.uv + v * v1.uv + w * v2.uv;
+        vertex.tangent = u * v0.tangent + v * v1.tangent + w * v2.tangent;
+        vertex.bi_tangent = u * v0.bi_tangent + v * v1.bi_tangent + w * v2.bi_tangent;
+        return vertex;
+    }
 };
 
 public float safe_inverse(float x) {
@@ -116,11 +134,11 @@ public struct camera_t {
 };
 
 public triangle_intersection_t triangle_intersect(const ray_data_t ray_data, const triangle_t triangle) {
-    float3 e1 = triangle.v0- triangle.v1;
-    float3 e2 = triangle.v2- triangle.v0;
+    float3 e1 = triangle.v0.position - triangle.v1.position;
+    float3 e2 = triangle.v2.position - triangle.v0.position;
     float3 n = cross(e1, e2);
 
-    float3 c = triangle.v0- ray_data.origin;
+    float3 c = triangle.v0.position - ray_data.origin;
     float3 r = cross(ray_data.direction, c);
     float inverse_det = 1.0f / dot(n, ray_data.direction);
 
