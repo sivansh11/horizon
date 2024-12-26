@@ -8,6 +8,7 @@
 #include "horizon/gfx/context.hpp"
 #include "horizon/gfx/helper.hpp"
 
+#include "imgui.h"
 #include "renderer.hpp"
 
 #include <GLFW/glfw3.h>
@@ -229,9 +230,13 @@ int main(int argc, char **argv) {
           .v2 = mesh.vertices[mesh.indices[i + 2]],
       };
       core::aabb_t aabb{};
-      aabb.grow(triangle.v0.position).grow(triangle.v1.position).grow(triangle.v2.position);
+      aabb.grow(triangle.v0.position)
+          .grow(triangle.v1.position)
+          .grow(triangle.v2.position);
       core::vec3 center{};
-      center = (triangle.v0.position + triangle.v1.position + triangle.v2.position) / 3.f;
+      center =
+          (triangle.v0.position + triangle.v1.position + triangle.v2.position) /
+          3.f;
 
       triangles.push_back(triangle);
       aabbs.push_back(aabb);
@@ -267,7 +272,17 @@ int main(int argc, char **argv) {
   renderer::raygen raygen{base};
   renderer::trace trace{base};
   renderer::shade shade{base};
+  raygen.update_descriptor_set(final_image_view);
   shade.update_descriptor_set(final_image_view);
+
+  gfx::config_buffer_t config_throughput_buffer{};
+  config_throughput_buffer.vk_size = sizeof(glm::vec3) * width * height;
+  config_throughput_buffer.vma_allocation_create_flags =
+      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+  config_throughput_buffer.vk_buffer_usage_flags =
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  gfx::handle_buffer_t throughput_buffer =
+      context.create_buffer(config_throughput_buffer);
 
   gfx::config_buffer_t config_num_rays_buffer{};
   config_num_rays_buffer.vk_size = sizeof(uint32_t);
@@ -398,6 +413,8 @@ int main(int argc, char **argv) {
 
     // TODO: clear image
     renderer::push_constant_t push_constant{};
+    push_constant.throughput =
+        context.get_buffer_device_address(throughput_buffer);
     push_constant.num_rays = context.get_buffer_device_address(num_rays_buffer);
     push_constant.trace_indirect_cmd =
         context.get_buffer_device_address(dispatch_indirect_buffer);
@@ -420,13 +437,25 @@ int main(int argc, char **argv) {
         VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-    trace.render(cbuf, dispatch_indirect_buffer, push_constant);
-    context.cmd_buffer_memory_barrier(
-        cbuf, hits_buffer, context.get_buffer(hits_buffer).config.vk_size, 0,
-        VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-    shade.render(cbuf, push_constant);
+
+    static int32_t max_bounces = 4;
+
+    for (uint32_t bounce_id = 0; bounce_id < max_bounces; bounce_id++) {
+      push_constant.bounce_id = bounce_id;
+      trace.render(cbuf, dispatch_indirect_buffer, push_constant);
+      context.cmd_buffer_memory_barrier(
+          cbuf, hits_buffer, context.get_buffer(hits_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      shade.render(cbuf, push_constant);
+      context.cmd_buffer_memory_barrier(
+          cbuf, ray_datas_buffer,
+          context.get_buffer(ray_datas_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    }
 
     // Transition image to color attachment optimal
     context.cmd_image_memory_barrier(
@@ -449,10 +478,9 @@ int main(int argc, char **argv) {
                                 std::nullopt,
                                 VkRect2D{VkOffset2D{},
                                          {static_cast<uint32_t>(width),
-                                          static_cast<uint32_t>(height)}});
-
-    gfx::helper::imgui_newframe();
-    ImGui::Begin("test");
+                                          static_cast<uint32_t>(height)}}); gfx::helper::imgui_newframe();
+    ImGui::Begin("debug");
+    ImGui::SliderInt("bounces", &max_bounces, 1, 100);
     ImGui::End();
     gfx::helper::imgui_endframe(context, cbuf);
 
@@ -467,9 +495,6 @@ int main(int argc, char **argv) {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
     base.end();
-    raygen.get_time();
-    trace.get_time();
-    shade.get_time();
   }
   context.wait_idle();
 

@@ -5,6 +5,7 @@ struct DispatchIndirectCmd {
 }
 
 struct push_constant_t {
+    float3 *throughput;
     uint32_t *num_rays;
     DispatchIndirectCmd *dispatch_indirect_cmd;
     ray_data_t *ray_datas;

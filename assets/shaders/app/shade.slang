@@ -29,6 +29,15 @@ float3 lerp_f3(float3 start, float3 end, float t) {
     return start + (end - start) * t;
 }
 
+bool russian_roulette_terminate_ray(inout float3 throughput, inout uint seed) {
+    float p = max(throughput.x, max(throughput.y, throughput.z));
+    if (rand(seed) > p) {
+        return true;
+    }
+    throughput *= 1 / p;
+    return false;
+}
+
 [shader("compute")]
 [numthreads(work_group_width, work_group_height, 1)]
 void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_index: SV_GroupIndex) {
@@ -36,30 +45,46 @@ void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_inde
     uint32_t px_i = dispatch_thread_id.x;
     uint32_t px_j = dispatch_thread_id.y;
 
+    uint32_t current_px = px_j * pc.width + px_i;
+
     if (px_i >= pc.width) return;
     if (px_j >= pc.height) return;
 
-    // uint seed = (dispatch_thread_id.x + pc.width * (dispatch_thread_id.y + pc.height * pc.samples));
     uint seed = (dispatch_thread_id.x + pc.width * (dispatch_thread_id.y + pc.height * (pc.bounce_id + 1)));
 
-    hit_t hit = pc.hits[px_j * pc.width + px_i];
+    hit_t hit = pc.hits[current_px];
 
     const float u = float(px_i) / float(pc.width - 1);
     const float v = 1 - float(px_j) / float(pc.height - 1);
 
-    if (hit.did_intersect()) {
-        o_color[uint2(px_i, px_j)] = color(hit.primitive_id);
-        // o_color[uint2(px_i, px_j)] = float4(heatmap(hit.node_intersection_count / 100.f), 1);
-    } else {
-        o_color[uint2(px_i, px_j)] = float4(u, v, 0, 1);
-    }
+    float3 throughput = pc.throughput[current_px];
 
-    if (true) {
-        ray_data_t ray_in = pc.ray_datas[px_j * pc.width + px_i];
-        vertex_t vertex = pc.triangles[hit.primitive_id].from_barry(hit.u, hit.v, hit.w);
-        float3 N = vertex.normal;
-        float3 scattered_direction = vertex.normal + rand_float3_unit_sphere(seed);
-        if (near_zero(scattered_direction)) scattered_direction = vertex.normal;
-        pc.ray_datas[px_j * pc.width + px_i] = ray_data_t::create(ray_in.origin + hit.t * ray_in.direction, scattered_direction);
+    ray_data_t ray_in = pc.ray_datas[current_px];
+    if (ray_in.is_trace) {
+        if (hit.did_intersect()) {
+            // calculate color
+            float3 emmision = 0;
+            o_color[uint2(px_i, px_j)] += float4(throughput * emmision, 1);
+            
+            // next ray
+            vertex_t vertex = pc.triangles[hit.primitive_id].from_barry(hit.u, hit.v, hit.w);
+            float3 N = vertex.normal;
+            float3 scattered_direction = vertex.normal + rand_float3_unit_sphere(seed);
+            if (near_zero(scattered_direction)) scattered_direction = vertex.normal;
+            float3 attenuation = color(hit.primitive_id).xyz;
+
+            pc.throughput[current_px] = throughput * attenuation;
+            pc.ray_datas[current_px] = ray_data_t::create(ray_in.origin + hit.t * ray_in.direction, scattered_direction);
+
+            // termiate ray 
+            if (russian_roulette_terminate_ray(throughput, seed)) {
+                pc.ray_datas[current_px].is_trace = false;
+            }
+
+        } else {
+            float3 background_color = float3(1, 1, 1);
+            o_color[uint2(px_i, px_j)] += float4(throughput * background_color, 1);
+            pc.ray_datas[current_px].is_trace = false;
+        }
     }
 }
