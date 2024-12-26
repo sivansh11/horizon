@@ -478,8 +478,10 @@ int main(int argc, char **argv) {
                                 std::nullopt,
                                 VkRect2D{VkOffset2D{},
                                          {static_cast<uint32_t>(width),
-                                          static_cast<uint32_t>(height)}}); gfx::helper::imgui_newframe();
+                                          static_cast<uint32_t>(height)}});
+    gfx::helper::imgui_newframe();
     ImGui::Begin("debug");
+    ImGui::Text("%f", ImGui::GetIO().Framerate);
     ImGui::SliderInt("bounces", &max_bounces, 1, 100);
     ImGui::End();
     gfx::helper::imgui_endframe(context, cbuf);
