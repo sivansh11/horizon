@@ -4,7 +4,6 @@
 #include "horizon/core/core.hpp"
 #include "horizon/core/window.hpp"
 #include "horizon/gfx/context.hpp"
-#include <functional>
 
 namespace gfx {
 
