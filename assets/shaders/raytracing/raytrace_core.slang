@@ -59,10 +59,10 @@ public struct ray_t {
 };
 
 public struct ray_data_t {
-    static ray_data_t create(ray_t ray) {
-        return create(ray.origin, ray.direction);
+    static ray_data_t create(ray_t ray, uint32_t px_id) {
+        return create(ray.origin, ray.direction, px_id);
     }
-    static ray_data_t create(float3 origin, float3 direction) {
+    static ray_data_t create(float3 origin, float3 direction, uint32_t px_id) {
         ray_data_t ray_data;
         ray_data.origin = origin;
         ray_data.direction = direction;
@@ -73,13 +73,13 @@ public struct ray_data_t {
         );
         ray_data.tmin = epsilon;
         ray_data.tmax = infinity;
-        ray_data.is_trace = true;
+        ray_data.px_id = px_id;
         return ray_data;
     }
     float3 origin, direction;
     float3 inverse_direction;
     float tmin, tmax;
-    bool is_trace;
+    uint32_t px_id;
 }
 
 public struct triangle_intersection_t {
@@ -119,7 +119,7 @@ extension float3 {
 };
                         
 public struct camera_t {
-    ray_data_t ray_gen(float2 uv) {
+    ray_data_t ray_gen(float2 uv, uint32_t px_id) {
         float2 px_nds = uv * 2.f - 1.f;
         float3 point_nds = float3(px_nds, -1);
         float4 point_ndsh = float4(point_nds, 1);
@@ -127,7 +127,7 @@ public struct camera_t {
         dir_eye.w = 0;
         float3 dir_world = float3(dir_eye * inverse_view);
         float3 eye = { inverse_view[3][0], inverse_view[3][1], inverse_view[3][2] };
-        return ray_data_t::create(eye, dir_world);
+        return ray_data_t::create(eye, dir_world, px_id);
     }
     float4x4 inverse_projection;
     float4x4 inverse_view;

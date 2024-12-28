@@ -7,8 +7,10 @@ struct DispatchIndirectCmd {
 struct push_constant_t {
     float3 *throughput;
     uint32_t *num_rays;
+    uint32_t *new_num_rays;
     DispatchIndirectCmd *dispatch_indirect_cmd;
     ray_data_t *ray_datas;
+    ray_data_t *new_ray_datas;
     bvh_t *bvh;
     triangle_t *triangles;
     camera_t *camera;

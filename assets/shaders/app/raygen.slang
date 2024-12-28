@@ -16,7 +16,8 @@ void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_inde
     const float u = float(px_i) / float(pc.width - 1);
     const float v = 1 - float(px_j) / float(pc.height - 1);
 
-    ray_data_t ray_data = pc.camera.ray_gen(float2(u, v));
+    ray_data_t ray_data = pc.camera.ray_gen(float2(u, v), px_j * pc.width + px_i);
+    ray_data.px_id = px_j * pc.width + px_i;
     pc.ray_datas[px_j * pc.width + px_i] = ray_data;
 
     o_color[uint2(px_i, px_j)] = float4(0, 0, 0, 0);
@@ -24,8 +25,11 @@ void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_inde
 
     if (px_i == 0 && px_j == 0) {
         *pc.num_rays = pc.width * pc.height;
-        pc.dispatch_indirect_cmd.x = (pc.width + 8 - 1) / 8;
-        pc.dispatch_indirect_cmd.y = (pc.height + 8 - 1) / 8;
+        pc.dispatch_indirect_cmd.x = ((*pc.num_rays) + 64 - 1) / 64;
+        pc.dispatch_indirect_cmd.y = 1;
         pc.dispatch_indirect_cmd.z = 1;
+        // pc.dispatch_indirect_cmd.x = (pc.width + 8 - 1) / 8;
+        // pc.dispatch_indirect_cmd.y = (pc.height + 8 - 1) / 8;
+        // pc.dispatch_indirect_cmd.z = 1;
     }
 }

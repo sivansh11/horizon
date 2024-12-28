@@ -11,8 +11,10 @@ namespace renderer {
 struct push_constant_t {
   VkDeviceAddress throughput;
   VkDeviceAddress num_rays;
+  VkDeviceAddress new_num_rays;
   VkDeviceAddress trace_indirect_cmd;
   VkDeviceAddress ray_datas;
+  VkDeviceAddress new_ray_datas;
   VkDeviceAddress bvh;
   VkDeviceAddress triangles;
   VkDeviceAddress camera;
@@ -121,9 +123,6 @@ struct trace {
                                           sizeof(push_constant_t),
                                           &push_constant);
     base._info.context.cmd_dispatch_indirect(cbuf, buffer, 0);
-    // base._info.context.cmd_dispatch(
-    //     cbuf, ((push_constant.width * push_constant.height) + 32 - 1) / 32,
-    //     1, 1);
   }
 
   gfx::base_t &base;
@@ -133,7 +132,6 @@ struct trace {
   gfx::handle_pipeline_t p;
 };
 
-// TODO: maybe make this a full screen pass ?
 struct shade {
   shade(gfx::base_t &base) : base(base) {
     gfx::config_shader_t cs{
@@ -181,14 +179,14 @@ struct shade {
         .commit();
   }
 
-  void render(gfx::handle_commandbuffer_t cbuf, push_constant_t push_constant) {
+  void render(gfx::handle_commandbuffer_t cbuf, gfx::handle_buffer_t buffer,
+              push_constant_t push_constant) {
     base._info.context.cmd_bind_pipeline(cbuf, p);
     base._info.context.cmd_bind_descriptor_sets(cbuf, p, 0, {ds});
     base._info.context.cmd_push_constants(cbuf, p, VK_SHADER_STAGE_ALL, 0,
                                           sizeof(push_constant_t),
                                           &push_constant);
-    base._info.context.cmd_dispatch(cbuf, (push_constant.width + 8 - 1) / 8,
-                                    (push_constant.height + 8 - 1) / 8, 1);
+    base._info.context.cmd_dispatch_indirect(cbuf, buffer, 0);
   }
 
   gfx::base_t &base;
@@ -198,6 +196,50 @@ struct shade {
   gfx::handle_pipeline_layout_t pl;
   gfx::handle_pipeline_t p;
   gfx::handle_descriptor_set_t ds;
+};
+
+struct write_indirect_dispatch {
+  write_indirect_dispatch(gfx::base_t &base) : base(base) {
+    gfx::config_shader_t cs{
+        .code_or_path =
+            "../../assets/shaders/app/write_indirect_dispatch.slang",
+        .is_code = false,
+        .name = "raytrace compute",
+        .type = gfx::shader_type_t::e_compute,
+        .language = gfx::shader_language_t::e_slang,
+        .debug_name = "raytrace compute",
+    };
+    s = base._info.context.create_shader(cs);
+
+    gfx::config_pipeline_layout_t cpl{};
+    cpl.add_push_constant(sizeof(push_constant_t), VK_SHADER_STAGE_ALL);
+    pl = base._info.context.create_pipeline_layout(cpl);
+
+    gfx::config_pipeline_t cp{};
+    cp.handle_pipeline_layout = pl;
+    cp.add_shader(s);
+    p = base._info.context.create_compute_pipeline(cp);
+  }
+
+  ~write_indirect_dispatch() {
+    base._info.context.destroy_pipeline(p);
+    base._info.context.destroy_pipeline_layout(pl);
+    base._info.context.destroy_shader(s);
+  }
+
+  void render(gfx::handle_commandbuffer_t cbuf, push_constant_t push_constant) {
+    base._info.context.cmd_bind_pipeline(cbuf, p);
+    base._info.context.cmd_push_constants(cbuf, p, VK_SHADER_STAGE_ALL, 0,
+                                          sizeof(push_constant_t),
+                                          &push_constant);
+    base._info.context.cmd_dispatch(cbuf, 1, 1, 1);
+  }
+
+  gfx::base_t &base;
+
+  gfx::handle_shader_t s;
+  gfx::handle_pipeline_layout_t pl;
+  gfx::handle_pipeline_t p;
 };
 
 } // namespace renderer
