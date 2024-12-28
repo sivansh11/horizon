@@ -71,7 +71,7 @@ struct update_managed_descriptor_set_t;
 struct base_t;
 
 struct base_t {
-    constexpr static size_t MAX_FRAMES_IN_FLIGHT = 2;
+    constexpr static size_t MAX_FRAMES_IN_FLIGHT = 1;
 
     base_t(const base_config_t& base_config);
     ~base_t();
