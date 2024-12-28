@@ -14,8 +14,8 @@
 #include <GLFW/glfw3.h>
 #include <cassert>
 #include <cstdint>
-#include <string>
 #include <map>
+#include <string>
 #include <vulkan/vulkan_core.h>
 
 #include <vector>
@@ -163,14 +163,13 @@ void editor_camera_t::update(float ts) {
 }
 
 struct gpu_timer_t {
-  gpu_timer_t(gfx::base_t& base, bool enable) : _base(base), _enable(enable) {}
+  gpu_timer_t(gfx::base_t &base, bool enable) : _base(base), enable(enable) {}
 
-  void clear() {
-    timers.clear();
-  }
+  void clear() { timers.clear(); }
 
   void start(gfx::handle_commandbuffer_t cbuf, std::string name) {
-    if (!_enable) return;
+    if (!enable)
+      return;
     if (!timers.contains(name)) {
       timers[name] = _base._info.context.create_timer({});
     }
@@ -178,22 +177,25 @@ struct gpu_timer_t {
   }
 
   void end(gfx::handle_commandbuffer_t cbuf, std::string name) {
-    if (!_enable) return;
+    if (!enable)
+      return;
     _base._info.context.cmd_end_timer(cbuf, timers[name]);
   }
 
   std::map<std::string, float> get_times() {
-    if (!_enable) return {};
+    if (!enable)
+      return {};
     std::map<std::string, float> res{};
     for (auto [name, handle] : timers) {
       auto time = _base._info.context.timer_get_time(handle);
-      if (time) res[name] = *time;
+      if (time)
+        res[name] = *time;
     }
     return res;
   }
 
-  gfx::base_t& _base;
-  bool _enable;
+  gfx::base_t &_base;
+  bool enable;
   std::map<std::string, gfx::handle_timer_t> timers{};
 };
 
@@ -571,9 +573,11 @@ int main(int argc, char **argv) {
           VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-      gpu_timer.start(cbuf, "write_indirect_dispatch" + std::to_string(bounce_id));
+      gpu_timer.start(cbuf,
+                      "write_indirect_dispatch" + std::to_string(bounce_id));
       write_indirect_dispatch.render(cbuf, push_constant);
-      gpu_timer.end(cbuf, "write_indirect_dispatch" + std::to_string(bounce_id));
+      gpu_timer.end(cbuf,
+                    "write_indirect_dispatch" + std::to_string(bounce_id));
       context.cmd_buffer_memory_barrier(
           cbuf, dispatch_indirect_buffer,
           context.get_buffer(dispatch_indirect_buffer).config.vk_size, 0,
@@ -612,19 +616,21 @@ int main(int argc, char **argv) {
     if (ImGui::Button("-")) {
       gpu_timer.clear();
       max_bounces -= 1;
-      if (max_bounces <= 1) max_bounces = 1;
+      if (max_bounces <= 1)
+        max_bounces = 1;
     }
     ImGui::SameLine();
     if (ImGui::Button("+")) {
       gpu_timer.clear();
       max_bounces += 1;
-      if (max_bounces >= 100) max_bounces = 100;
+      if (max_bounces >= 100)
+        max_bounces = 100;
     }
     ImGui::SameLine();
     if (ImGui::SliderInt("bounces", &max_bounces, 1, 100)) {
       gpu_timer.clear();
     }
-    if (ImGui::Checkbox("enable timer", &gpu_timer._enable)) {
+    if (ImGui::Checkbox("enable timer", &gpu_timer.enable)) {
       gpu_timer.clear();
     }
     for (auto [name, time] : gpu_times) {
