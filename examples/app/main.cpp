@@ -198,9 +198,8 @@ struct gpu_timer_t {
 };
 
 int main(int argc, char **argv) {
-  if (argc != 3) {
-    std::cout << "./app [model file] {1-0}\n";
-    std::cout << "1 for enabling gpu timing, 0 for disabling gpu timing\n";
+  if (argc != 2) {
+    std::cout << "./app [model file]\n";
     exit(EXIT_FAILURE);
   }
   //  core::log_t::set_log_level(core::log_level_t::e_info);
@@ -418,7 +417,7 @@ int main(int argc, char **argv) {
   auto last_time = std::chrono::system_clock::now();
   core::frame_timer_t frame_timer{60.f};
 
-  gpu_timer_t gpu_timer(base, std::stoi(argv[2]));
+  gpu_timer_t gpu_timer(base, false);
   std::map<std::string, float> gpu_times{};
 
   while (!window.should_close()) {
@@ -623,6 +622,9 @@ int main(int argc, char **argv) {
     }
     ImGui::SameLine();
     if (ImGui::SliderInt("bounces", &max_bounces, 1, 100)) {
+      gpu_timer.clear();
+    }
+    if (ImGui::Checkbox("enable timer", &gpu_timer._enable)) {
       gpu_timer.clear();
     }
     for (auto [name, time] : gpu_times) {
