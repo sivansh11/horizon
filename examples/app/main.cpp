@@ -12,6 +12,10 @@
 #include "renderer.hpp"
 
 #include <GLFW/glfw3.h>
+#include <cassert>
+#include <cstdint>
+#include <string>
+#include <map>
 #include <vulkan/vulkan_core.h>
 
 #include <vector>
@@ -26,7 +30,7 @@ struct ray_data_t {
   core::vec3 origin, direction;
   core::vec3 inverse_direction;
   float tmin, tmax;
-  bool should_trace;
+  uint32_t px_id;
 };
 static_assert(sizeof(ray_data_t) == 48, "sizeof(ray_data_t) != 48");
 
@@ -158,9 +162,45 @@ void editor_camera_t::update(float ts) {
   _view = core::lookAt(_position, _position + _front, core::vec3{0, 1, 0});
 }
 
+struct gpu_timer_t {
+  gpu_timer_t(gfx::base_t& base, bool enable) : _base(base), _enable(enable) {}
+
+  void clear() {
+    timers.clear();
+  }
+
+  void start(gfx::handle_commandbuffer_t cbuf, std::string name) {
+    if (!_enable) return;
+    if (!timers.contains(name)) {
+      timers[name] = _base._info.context.create_timer({});
+    }
+    _base._info.context.cmd_begin_timer(cbuf, timers[name]);
+  }
+
+  void end(gfx::handle_commandbuffer_t cbuf, std::string name) {
+    if (!_enable) return;
+    _base._info.context.cmd_end_timer(cbuf, timers[name]);
+  }
+
+  std::map<std::string, float> get_times() {
+    if (!_enable) return {};
+    std::map<std::string, float> res{};
+    for (auto [name, handle] : timers) {
+      auto time = _base._info.context.timer_get_time(handle);
+      if (time) res[name] = *time;
+    }
+    return res;
+  }
+
+  gfx::base_t& _base;
+  bool _enable;
+  std::map<std::string, gfx::handle_timer_t> timers{};
+};
+
 int main(int argc, char **argv) {
-  if (argc != 2) {
-    std::cout << "./app [model file]\n";
+  if (argc != 3) {
+    std::cout << "./app [model file] {1-0}\n";
+    std::cout << "1 for enabling gpu timing, 0 for disabling gpu timing\n";
     exit(EXIT_FAILURE);
   }
   //  core::log_t::set_log_level(core::log_level_t::e_info);
@@ -200,25 +240,6 @@ int main(int argc, char **argv) {
   std::vector<core::aabb_t> aabbs{};
   std::vector<core::vec3> centers{};
   std::vector<triangle_t> triangles{};
-
-  //     triangle_t triangle{
-  //         core::vec3{-0.5, -0.5, 0},
-  //         core::vec3{ 0.5, -0.5, 0},
-  //         core::vec3{ 0  ,  0.5, 0},
-  //     };
-  //     core::aabb_t aabb{};
-  //     aabb.grow(triangle.v0).grow(triangle.v1).grow(triangle.v2);
-  //     core::vec3 center{};
-  //     center = (triangle.v0 + triangle.v1 + triangle.v2) / 3.f;
-  //     aabbs.push_back(aabb);
-  //     triangles.push_back(triangle);
-  //     aabbs.push_back(aabb);
-
-  // core::model_t model =
-  //     core::load_model_from_path("../../../horizon_cpy/assets/models/"
-  //                                "sponza_bbk/SponzaMerged/SponzaMerged.obj");
-  // core::model_t model = core::load_model_from_path(
-  //     "../../../horizon_cpy/assets/models/corenl_box.obj");
 
   core::model_t model = core::load_model_from_path(argv[1]);
 
@@ -272,6 +293,7 @@ int main(int argc, char **argv) {
   renderer::raygen raygen{base};
   renderer::trace trace{base};
   renderer::shade shade{base};
+  renderer::write_indirect_dispatch write_indirect_dispatch{base};
   raygen.update_descriptor_set(final_image_view);
   shade.update_descriptor_set(final_image_view);
 
@@ -293,12 +315,21 @@ int main(int argc, char **argv) {
   gfx::handle_buffer_t num_rays_buffer =
       context.create_buffer(config_num_rays_buffer);
 
+  gfx::config_buffer_t config_new_num_rays_buffer{};
+  config_new_num_rays_buffer.vk_size = sizeof(uint32_t);
+  config_new_num_rays_buffer.vma_allocation_create_flags =
+      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+  config_new_num_rays_buffer.vk_buffer_usage_flags =
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  gfx::handle_buffer_t new_num_rays_buffer =
+      context.create_buffer(config_new_num_rays_buffer);
+
   gfx::config_buffer_t config_dispatch_indirect_buffer{};
   config_dispatch_indirect_buffer.vk_size = sizeof(VkDispatchIndirectCommand);
   config_dispatch_indirect_buffer.vma_allocation_create_flags =
       VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
   config_dispatch_indirect_buffer.vk_buffer_usage_flags =
-      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
   gfx::handle_buffer_t dispatch_indirect_buffer =
       context.create_buffer(config_dispatch_indirect_buffer);
 
@@ -310,6 +341,15 @@ int main(int argc, char **argv) {
       VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
   gfx::handle_buffer_t ray_datas_buffer =
       context.create_buffer(config_ray_datas_buffer);
+
+  gfx::config_buffer_t config_new_ray_datas_buffer{};
+  config_new_ray_datas_buffer.vk_size = sizeof(ray_data_t) * width * height;
+  config_new_ray_datas_buffer.vma_allocation_create_flags =
+      VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
+  config_new_ray_datas_buffer.vk_buffer_usage_flags =
+      VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+  gfx::handle_buffer_t new_ray_datas_buffer =
+      context.create_buffer(config_new_ray_datas_buffer);
 
   gfx::config_buffer_t config_bvh_buffer{};
   config_bvh_buffer.vk_size = sizeof(bvh_t);
@@ -378,6 +418,9 @@ int main(int argc, char **argv) {
   auto last_time = std::chrono::system_clock::now();
   core::frame_timer_t frame_timer{60.f};
 
+  gpu_timer_t gpu_timer(base, std::stoi(argv[2]));
+  std::map<std::string, float> gpu_times{};
+
   while (!window.should_close()) {
     core::clear_frame_function_times();
     core::window_t::poll_events();
@@ -416,10 +459,14 @@ int main(int argc, char **argv) {
     push_constant.throughput =
         context.get_buffer_device_address(throughput_buffer);
     push_constant.num_rays = context.get_buffer_device_address(num_rays_buffer);
+    push_constant.new_num_rays =
+        context.get_buffer_device_address(new_num_rays_buffer);
     push_constant.trace_indirect_cmd =
         context.get_buffer_device_address(dispatch_indirect_buffer);
     push_constant.ray_datas =
         context.get_buffer_device_address(ray_datas_buffer);
+    push_constant.new_ray_datas =
+        context.get_buffer_device_address(new_ray_datas_buffer);
     push_constant.bvh = context.get_buffer_device_address(bvh_buffer);
     push_constant.triangles =
         context.get_buffer_device_address(triangles_buffer);
@@ -430,31 +477,112 @@ int main(int argc, char **argv) {
     push_constant.height = height;
     push_constant.bounce_id = 0;
 
+    gpu_timer.start(cbuf, "raygen");
     raygen.render(cbuf, push_constant);
+    gpu_timer.end(cbuf, "raygen");
     context.cmd_buffer_memory_barrier(
         cbuf, ray_datas_buffer,
         context.get_buffer(ray_datas_buffer).config.vk_size, 0,
         VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    context.cmd_buffer_memory_barrier(
+        cbuf, new_num_rays_buffer,
+        context.get_buffer(new_num_rays_buffer).config.vk_size, 0,
+        VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    context.cmd_buffer_memory_barrier(
+        cbuf, num_rays_buffer,
+        context.get_buffer(num_rays_buffer).config.vk_size, 0,
+        VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    context.cmd_buffer_memory_barrier(
+        cbuf, dispatch_indirect_buffer,
+        context.get_buffer(dispatch_indirect_buffer).config.vk_size, 0,
+        VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
+    context.cmd_image_memory_barrier(
+        cbuf, final_image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+        VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
-    static int32_t max_bounces = 4;
+    static int32_t max_bounces = 3;
 
-    for (uint32_t bounce_id = 0; bounce_id < max_bounces; bounce_id++) {
+    for (uint32_t bounce_id = 0; bounce_id <= max_bounces; bounce_id++) {
       push_constant.bounce_id = bounce_id;
+      gpu_timer.start(cbuf, "trace" + std::to_string(bounce_id));
       trace.render(cbuf, dispatch_indirect_buffer, push_constant);
+      gpu_timer.end(cbuf, "trace" + std::to_string(bounce_id));
+      context.cmd_buffer_memory_barrier(
+          cbuf, new_num_rays_buffer,
+          context.get_buffer(new_num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      context.cmd_buffer_memory_barrier(
+          cbuf, num_rays_buffer,
+          context.get_buffer(num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
       context.cmd_buffer_memory_barrier(
           cbuf, hits_buffer, context.get_buffer(hits_buffer).config.vk_size, 0,
           VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-      shade.render(cbuf, push_constant);
+      gpu_timer.start(cbuf, "shade" + std::to_string(bounce_id));
+      shade.render(cbuf, dispatch_indirect_buffer, push_constant);
+      gpu_timer.end(cbuf, "shade" + std::to_string(bounce_id));
       context.cmd_buffer_memory_barrier(
           cbuf, ray_datas_buffer,
           context.get_buffer(ray_datas_buffer).config.vk_size, 0,
           VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      context.cmd_buffer_memory_barrier(
+          cbuf, new_ray_datas_buffer,
+          context.get_buffer(new_ray_datas_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      context.cmd_buffer_memory_barrier(
+          cbuf, throughput_buffer,
+          context.get_buffer(throughput_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      context.cmd_buffer_memory_barrier(
+          cbuf, new_num_rays_buffer,
+          context.get_buffer(new_num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      context.cmd_buffer_memory_barrier(
+          cbuf, num_rays_buffer,
+          context.get_buffer(num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      context.cmd_image_memory_barrier(
+          cbuf, final_image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      gpu_timer.start(cbuf, "write_indirect_dispatch" + std::to_string(bounce_id));
+      write_indirect_dispatch.render(cbuf, push_constant);
+      gpu_timer.end(cbuf, "write_indirect_dispatch" + std::to_string(bounce_id));
+      context.cmd_buffer_memory_barrier(
+          cbuf, dispatch_indirect_buffer,
+          context.get_buffer(dispatch_indirect_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
+      std::swap(push_constant.ray_datas, push_constant.new_ray_datas);
+      std::swap(push_constant.num_rays, push_constant.new_num_rays);
     }
 
     // Transition image to color attachment optimal
@@ -482,7 +610,24 @@ int main(int argc, char **argv) {
     gfx::helper::imgui_newframe();
     ImGui::Begin("debug");
     ImGui::Text("%f", ImGui::GetIO().Framerate);
-    ImGui::SliderInt("bounces", &max_bounces, 1, 100);
+    if (ImGui::Button("-")) {
+      gpu_timer.clear();
+      max_bounces -= 1;
+      if (max_bounces <= 1) max_bounces = 1;
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("+")) {
+      gpu_timer.clear();
+      max_bounces += 1;
+      if (max_bounces >= 100) max_bounces = 100;
+    }
+    ImGui::SameLine();
+    if (ImGui::SliderInt("bounces", &max_bounces, 1, 100)) {
+      gpu_timer.clear();
+    }
+    for (auto [name, time] : gpu_times) {
+      ImGui::Text("%s took %fms", name.c_str(), time);
+    }
     ImGui::End();
     gfx::helper::imgui_endframe(context, cbuf);
 
@@ -497,10 +642,13 @@ int main(int argc, char **argv) {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
     base.end();
+
+    gpu_times = gpu_timer.get_times();
   }
   context.wait_idle();
 
   gfx::helper::imgui_shutdown();
 
+  core::log_t::set_log_level(core::log_level_t::e_info);
   return 0;
 }
