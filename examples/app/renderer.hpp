@@ -11,6 +11,7 @@
 #include "horizon/gfx/base.hpp"
 #include "horizon/gfx/context.hpp"
 #include "horizon/gfx/helper.hpp"
+#include "imgui.h"
 
 #include <vulkan/vulkan_core.h>
 
@@ -242,6 +243,206 @@ struct shade_t {
   gfx::handle_descriptor_set_t ds;
 };
 
+struct debug_color_t {
+  debug_color_t(gfx::base_t &base) : base(base) {
+    gfx::config_shader_t cs{
+        .code_or_path = "../../assets/shaders/app/debug_shade_color.slang",
+        .is_code = false,
+        .name = "raytrace compute",
+        .type = gfx::shader_type_t::e_compute,
+        .language = gfx::shader_language_t::e_slang,
+        .debug_name = "raytrace compute",
+    };
+    s = base._info.context.create_shader(cs);
+
+    gfx::config_descriptor_set_layout_t cdsl{};
+    cdsl.add_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                            VK_SHADER_STAGE_ALL);
+    dsl = base._info.context.create_descriptor_set_layout(cdsl);
+
+    gfx::config_pipeline_layout_t cpl{};
+    cpl.add_descriptor_set_layout(dsl);
+    cpl.add_push_constant(sizeof(push_constant_t), VK_SHADER_STAGE_ALL);
+    pl = base._info.context.create_pipeline_layout(cpl);
+
+    gfx::config_pipeline_t cp{};
+    cp.handle_pipeline_layout = pl;
+    cp.add_shader(s);
+    p = base._info.context.create_compute_pipeline(cp);
+
+    ds = base._info.context.allocate_descriptor_set(
+        {.handle_descriptor_set_layout = dsl});
+  }
+
+  ~debug_color_t() {
+    base._info.context.free_descriptor_set(ds);
+    base._info.context.destroy_pipeline(p);
+    base._info.context.destroy_pipeline_layout(pl);
+    base._info.context.destroy_descriptor_set_layout(dsl);
+    base._info.context.destroy_shader(s);
+  }
+
+  void update_descriptor_set(gfx::handle_image_view_t image_view) {
+    base._info.context.update_descriptor_set(ds)
+        .push_image_write(0, {.handle_sampler = gfx::null_handle,
+                              .handle_image_view = image_view,
+                              .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL})
+        .commit();
+  }
+
+  void render(gfx::handle_commandbuffer_t cbuf, gfx::handle_buffer_t buffer,
+              push_constant_t push_constant) {
+    base._info.context.cmd_bind_pipeline(cbuf, p);
+    base._info.context.cmd_bind_descriptor_sets(cbuf, p, 0, {ds});
+    base._info.context.cmd_push_constants(cbuf, p, VK_SHADER_STAGE_ALL, 0,
+                                          sizeof(push_constant_t),
+                                          &push_constant);
+    base._info.context.cmd_dispatch_indirect(cbuf, buffer, 0);
+  }
+
+  gfx::base_t &base;
+
+  gfx::handle_shader_t s;
+  gfx::handle_descriptor_set_layout_t dsl;
+  gfx::handle_pipeline_layout_t pl;
+  gfx::handle_pipeline_t p;
+  gfx::handle_descriptor_set_t ds;
+};
+
+struct debug_heatmap_node_intersections_t {
+  debug_heatmap_node_intersections_t(gfx::base_t &base) : base(base) {
+    gfx::config_shader_t cs{
+        .code_or_path = "../../assets/shaders/app/"
+                        "debug_shade_heatmap_node_intersections.slang",
+        .is_code = false,
+        .name = "raytrace compute",
+        .type = gfx::shader_type_t::e_compute,
+        .language = gfx::shader_language_t::e_slang,
+        .debug_name = "raytrace compute",
+    };
+    s = base._info.context.create_shader(cs);
+
+    gfx::config_descriptor_set_layout_t cdsl{};
+    cdsl.add_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                            VK_SHADER_STAGE_ALL);
+    dsl = base._info.context.create_descriptor_set_layout(cdsl);
+
+    gfx::config_pipeline_layout_t cpl{};
+    cpl.add_descriptor_set_layout(dsl);
+    cpl.add_push_constant(sizeof(push_constant_t), VK_SHADER_STAGE_ALL);
+    pl = base._info.context.create_pipeline_layout(cpl);
+
+    gfx::config_pipeline_t cp{};
+    cp.handle_pipeline_layout = pl;
+    cp.add_shader(s);
+    p = base._info.context.create_compute_pipeline(cp);
+
+    ds = base._info.context.allocate_descriptor_set(
+        {.handle_descriptor_set_layout = dsl});
+  }
+
+  ~debug_heatmap_node_intersections_t() {
+    base._info.context.free_descriptor_set(ds);
+    base._info.context.destroy_pipeline(p);
+    base._info.context.destroy_pipeline_layout(pl);
+    base._info.context.destroy_descriptor_set_layout(dsl);
+    base._info.context.destroy_shader(s);
+  }
+
+  void update_descriptor_set(gfx::handle_image_view_t image_view) {
+    base._info.context.update_descriptor_set(ds)
+        .push_image_write(0, {.handle_sampler = gfx::null_handle,
+                              .handle_image_view = image_view,
+                              .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL})
+        .commit();
+  }
+
+  void render(gfx::handle_commandbuffer_t cbuf, gfx::handle_buffer_t buffer,
+              push_constant_t push_constant) {
+    base._info.context.cmd_bind_pipeline(cbuf, p);
+    base._info.context.cmd_bind_descriptor_sets(cbuf, p, 0, {ds});
+    base._info.context.cmd_push_constants(cbuf, p, VK_SHADER_STAGE_ALL, 0,
+                                          sizeof(push_constant_t),
+                                          &push_constant);
+    base._info.context.cmd_dispatch_indirect(cbuf, buffer, 0);
+  }
+
+  gfx::base_t &base;
+
+  gfx::handle_shader_t s;
+  gfx::handle_descriptor_set_layout_t dsl;
+  gfx::handle_pipeline_layout_t pl;
+  gfx::handle_pipeline_t p;
+  gfx::handle_descriptor_set_t ds;
+};
+
+struct debug_heatmap_primitive_intersections_t {
+  debug_heatmap_primitive_intersections_t(gfx::base_t &base) : base(base) {
+    gfx::config_shader_t cs{
+        .code_or_path = "../../assets/shaders/app/"
+                        "debug_shade_heatmap_primitive_intersections.slang",
+        .is_code = false,
+        .name = "raytrace compute",
+        .type = gfx::shader_type_t::e_compute,
+        .language = gfx::shader_language_t::e_slang,
+        .debug_name = "raytrace compute",
+    };
+    s = base._info.context.create_shader(cs);
+
+    gfx::config_descriptor_set_layout_t cdsl{};
+    cdsl.add_layout_binding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                            VK_SHADER_STAGE_ALL);
+    dsl = base._info.context.create_descriptor_set_layout(cdsl);
+
+    gfx::config_pipeline_layout_t cpl{};
+    cpl.add_descriptor_set_layout(dsl);
+    cpl.add_push_constant(sizeof(push_constant_t), VK_SHADER_STAGE_ALL);
+    pl = base._info.context.create_pipeline_layout(cpl);
+
+    gfx::config_pipeline_t cp{};
+    cp.handle_pipeline_layout = pl;
+    cp.add_shader(s);
+    p = base._info.context.create_compute_pipeline(cp);
+
+    ds = base._info.context.allocate_descriptor_set(
+        {.handle_descriptor_set_layout = dsl});
+  }
+
+  ~debug_heatmap_primitive_intersections_t() {
+    base._info.context.free_descriptor_set(ds);
+    base._info.context.destroy_pipeline(p);
+    base._info.context.destroy_pipeline_layout(pl);
+    base._info.context.destroy_descriptor_set_layout(dsl);
+    base._info.context.destroy_shader(s);
+  }
+
+  void update_descriptor_set(gfx::handle_image_view_t image_view) {
+    base._info.context.update_descriptor_set(ds)
+        .push_image_write(0, {.handle_sampler = gfx::null_handle,
+                              .handle_image_view = image_view,
+                              .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL})
+        .commit();
+  }
+
+  void render(gfx::handle_commandbuffer_t cbuf, gfx::handle_buffer_t buffer,
+              push_constant_t push_constant) {
+    base._info.context.cmd_bind_pipeline(cbuf, p);
+    base._info.context.cmd_bind_descriptor_sets(cbuf, p, 0, {ds});
+    base._info.context.cmd_push_constants(cbuf, p, VK_SHADER_STAGE_ALL, 0,
+                                          sizeof(push_constant_t),
+                                          &push_constant);
+    base._info.context.cmd_dispatch_indirect(cbuf, buffer, 0);
+  }
+
+  gfx::base_t &base;
+
+  gfx::handle_shader_t s;
+  gfx::handle_descriptor_set_layout_t dsl;
+  gfx::handle_pipeline_layout_t pl;
+  gfx::handle_pipeline_t p;
+  gfx::handle_descriptor_set_t ds;
+};
+
 struct write_indirect_dispatch_t {
   write_indirect_dispatch_t(gfx::base_t &base) : base(base) {
     gfx::config_shader_t cs{
@@ -327,6 +528,13 @@ struct gpu_timer_t {
   gfx::base_t &_base;
   bool enable;
   std::map<std::string, gfx::handle_timer_t> timers{};
+};
+
+enum class renderer_type_t : int32_t {
+  e_normal = 0,
+  e_debug_color,
+  e_debug_heatmap_node_intersections,
+  e_debug_heatmap_primitive_intersections,
 };
 
 struct renderer_t {
@@ -420,10 +628,19 @@ struct renderer_t {
     _raygen = core::make_ref<raygen_t>(*_base);
     _trace = core::make_ref<trace_t>(*_base);
     _shade = core::make_ref<shade_t>(*_base);
+    _debug_color = core::make_ref<debug_color_t>(*_base);
+    _debug_heatmap_node_intersections =
+        core::make_ref<debug_heatmap_node_intersections_t>(*_base);
+    _debug_heatmap_primitive_intersections =
+        core::make_ref<debug_heatmap_primitive_intersections_t>(*_base);
     _write_indirect_dispatch =
         core::make_ref<write_indirect_dispatch_t>(*_base);
     _raygen->update_descriptor_set(_final_image_view);
     _shade->update_descriptor_set(_final_image_view);
+    _debug_color->update_descriptor_set(_final_image_view);
+    _debug_heatmap_node_intersections->update_descriptor_set(_final_image_view);
+    _debug_heatmap_primitive_intersections->update_descriptor_set(
+        _final_image_view);
 
     gfx::config_buffer_t config_throughput_buffer{};
     config_throughput_buffer.vk_size = sizeof(glm::vec3) * width * height;
@@ -475,15 +692,6 @@ struct renderer_t {
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     _new_ray_datas_buffer = _ctx->create_buffer(config_new_ray_datas_buffer);
 
-    // TODO: make this device local
-    gfx::config_buffer_t config_bvh_buffer{};
-    config_bvh_buffer.vk_size = sizeof(bvh_t);
-    config_bvh_buffer.vma_allocation_create_flags =
-        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-    config_bvh_buffer.vk_buffer_usage_flags =
-        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
-    _bvh_buffer = _ctx->create_buffer(config_bvh_buffer);
-
     gfx::config_buffer_t config_nodes_buffer{};
     config_nodes_buffer.vk_size = sizeof(core::bvh::node_t) * bvh.nodes.size();
     config_nodes_buffer.vma_allocation_create_flags =
@@ -506,11 +714,18 @@ struct renderer_t {
         bvh.primitive_indices.data(),
         sizeof(uint32_t) * bvh.primitive_indices.size());
 
-    reinterpret_cast<bvh_t *>(_ctx->map_buffer(_bvh_buffer))->nodes =
-        _ctx->get_buffer_device_address(_nodes_buffer);
-    reinterpret_cast<bvh_t *>(_ctx->map_buffer(_bvh_buffer))
-        ->primitive_indices =
+    bvh_t _bvh{};
+    _bvh.nodes = _ctx->get_buffer_device_address(_nodes_buffer);
+    _bvh.primitive_indices =
         _ctx->get_buffer_device_address(_primitive_indices_buffer);
+    gfx::config_buffer_t config_bvh_buffer{};
+    config_bvh_buffer.vk_size = sizeof(bvh_t);
+    config_bvh_buffer.vma_allocation_create_flags =
+        VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    config_bvh_buffer.vk_buffer_usage_flags =
+        VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    _bvh_buffer = gfx::helper::create_buffer_staged(
+        *_ctx, _base->_command_pool, config_bvh_buffer, &_bvh, sizeof(bvh_t));
 
     gfx::config_buffer_t config_triangles_buffer{};
     config_triangles_buffer.vk_size = sizeof(triangle_t) * triangles.size();
@@ -625,11 +840,88 @@ struct renderer_t {
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
         VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 
-    for (uint32_t bounce_id = 0; bounce_id <= _max_bounces; bounce_id++) {
-      push_constant.bounce_id = bounce_id;
-      _gpu_timer->start(cbuf, "trace" + std::to_string(bounce_id));
+    switch (type) {
+    case renderer_type_t::e_normal: {
+      for (uint32_t bounce_id = 0; bounce_id <= _max_bounces; bounce_id++) {
+        push_constant.bounce_id = bounce_id;
+        _gpu_timer->start(cbuf, "trace" + std::to_string(bounce_id));
+        _trace->render(cbuf, _dispatch_indirect_buffer, push_constant);
+        _gpu_timer->end(cbuf, "trace" + std::to_string(bounce_id));
+        _ctx->cmd_buffer_memory_barrier(
+            cbuf, _new_num_rays_buffer,
+            _ctx->get_buffer(_new_num_rays_buffer).config.vk_size, 0,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        _ctx->cmd_buffer_memory_barrier(
+            cbuf, _num_rays_buffer,
+            _ctx->get_buffer(_num_rays_buffer).config.vk_size, 0,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        _ctx->cmd_buffer_memory_barrier(
+            cbuf, _hits_buffer, _ctx->get_buffer(_hits_buffer).config.vk_size,
+            0, VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        _gpu_timer->start(cbuf, "shade" + std::to_string(bounce_id));
+        _shade->render(cbuf, _dispatch_indirect_buffer, push_constant);
+        _gpu_timer->end(cbuf, "shade" + std::to_string(bounce_id));
+        _ctx->cmd_buffer_memory_barrier(
+            cbuf, _ray_datas_buffer,
+            _ctx->get_buffer(_ray_datas_buffer).config.vk_size, 0,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        _ctx->cmd_buffer_memory_barrier(
+            cbuf, _new_ray_datas_buffer,
+            _ctx->get_buffer(_new_ray_datas_buffer).config.vk_size, 0,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        _ctx->cmd_buffer_memory_barrier(
+            cbuf, _throughput_buffer,
+            _ctx->get_buffer(_throughput_buffer).config.vk_size, 0,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        _ctx->cmd_buffer_memory_barrier(
+            cbuf, _new_num_rays_buffer,
+            _ctx->get_buffer(_new_num_rays_buffer).config.vk_size, 0,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        _ctx->cmd_buffer_memory_barrier(
+            cbuf, _num_rays_buffer,
+            _ctx->get_buffer(_num_rays_buffer).config.vk_size, 0,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        _ctx->cmd_image_memory_barrier(
+            cbuf, _final_image, VK_IMAGE_LAYOUT_GENERAL,
+            VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_SHADER_WRITE_BIT,
+            VK_ACCESS_SHADER_READ_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+        _gpu_timer->start(cbuf, "write_indirect_dispatch" +
+                                    std::to_string(bounce_id));
+        _write_indirect_dispatch->render(cbuf, push_constant);
+        _gpu_timer->end(cbuf,
+                        "write_indirect_dispatch" + std::to_string(bounce_id));
+        _ctx->cmd_buffer_memory_barrier(
+            cbuf, _dispatch_indirect_buffer,
+            _ctx->get_buffer(_dispatch_indirect_buffer).config.vk_size, 0,
+            VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+            VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+            VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
+        std::swap(push_constant.ray_datas, push_constant.new_ray_datas);
+        std::swap(push_constant.num_rays, push_constant.new_num_rays);
+      }
+    } break;
+
+    case renderer_type_t::e_debug_color: {
+      _gpu_timer->start(cbuf, "trace");
       _trace->render(cbuf, _dispatch_indirect_buffer, push_constant);
-      _gpu_timer->end(cbuf, "trace" + std::to_string(bounce_id));
+      _gpu_timer->end(cbuf, "trace");
       _ctx->cmd_buffer_memory_barrier(
           cbuf, _new_num_rays_buffer,
           _ctx->get_buffer(_new_num_rays_buffer).config.vk_size, 0,
@@ -647,9 +939,9 @@ struct renderer_t {
           VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-      _gpu_timer->start(cbuf, "shade" + std::to_string(bounce_id));
-      _shade->render(cbuf, _dispatch_indirect_buffer, push_constant);
-      _gpu_timer->end(cbuf, "shade" + std::to_string(bounce_id));
+      _gpu_timer->start(cbuf, "shade");
+      _debug_color->render(cbuf, _dispatch_indirect_buffer, push_constant);
+      _gpu_timer->end(cbuf, "shade");
       _ctx->cmd_buffer_memory_barrier(
           cbuf, _ray_datas_buffer,
           _ctx->get_buffer(_ray_datas_buffer).config.vk_size, 0,
@@ -685,19 +977,131 @@ struct renderer_t {
           VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
-      _gpu_timer->start(cbuf,
-                        "write_indirect_dispatch" + std::to_string(bounce_id));
-      _write_indirect_dispatch->render(cbuf, push_constant);
-      _gpu_timer->end(cbuf,
-                      "write_indirect_dispatch" + std::to_string(bounce_id));
+    } break;
+
+    case renderer_type_t::e_debug_heatmap_node_intersections: {
+      _gpu_timer->start(cbuf, "trace");
+      _trace->render(cbuf, _dispatch_indirect_buffer, push_constant);
+      _gpu_timer->end(cbuf, "trace");
       _ctx->cmd_buffer_memory_barrier(
-          cbuf, _dispatch_indirect_buffer,
-          _ctx->get_buffer(_dispatch_indirect_buffer).config.vk_size, 0,
-          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_INDIRECT_COMMAND_READ_BIT,
+          cbuf, _new_num_rays_buffer,
+          _ctx->get_buffer(_new_num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
           VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
-          VK_PIPELINE_STAGE_DRAW_INDIRECT_BIT);
-      std::swap(push_constant.ray_datas, push_constant.new_ray_datas);
-      std::swap(push_constant.num_rays, push_constant.new_num_rays);
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _num_rays_buffer,
+          _ctx->get_buffer(_num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _hits_buffer, _ctx->get_buffer(_hits_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _gpu_timer->start(cbuf, "shade");
+      _debug_heatmap_node_intersections->render(cbuf, _dispatch_indirect_buffer,
+                                                push_constant);
+      _gpu_timer->end(cbuf, "shade");
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _ray_datas_buffer,
+          _ctx->get_buffer(_ray_datas_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _new_ray_datas_buffer,
+          _ctx->get_buffer(_new_ray_datas_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _throughput_buffer,
+          _ctx->get_buffer(_throughput_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _new_num_rays_buffer,
+          _ctx->get_buffer(_new_num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _num_rays_buffer,
+          _ctx->get_buffer(_num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_image_memory_barrier(
+          cbuf, _final_image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    } break;
+
+    case renderer_type_t::e_debug_heatmap_primitive_intersections: {
+      _gpu_timer->start(cbuf, "trace");
+      _trace->render(cbuf, _dispatch_indirect_buffer, push_constant);
+      _gpu_timer->end(cbuf, "trace");
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _new_num_rays_buffer,
+          _ctx->get_buffer(_new_num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _num_rays_buffer,
+          _ctx->get_buffer(_num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _hits_buffer, _ctx->get_buffer(_hits_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _gpu_timer->start(cbuf, "shade");
+      _debug_heatmap_primitive_intersections->render(
+          cbuf, _dispatch_indirect_buffer, push_constant);
+      _gpu_timer->end(cbuf, "shade");
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _ray_datas_buffer,
+          _ctx->get_buffer(_ray_datas_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _new_ray_datas_buffer,
+          _ctx->get_buffer(_new_ray_datas_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _throughput_buffer,
+          _ctx->get_buffer(_throughput_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _new_num_rays_buffer,
+          _ctx->get_buffer(_new_num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_buffer_memory_barrier(
+          cbuf, _num_rays_buffer,
+          _ctx->get_buffer(_num_rays_buffer).config.vk_size, 0,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+      _ctx->cmd_image_memory_barrier(
+          cbuf, _final_image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_GENERAL,
+          VK_ACCESS_SHADER_WRITE_BIT, VK_ACCESS_SHADER_READ_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
+          VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
+    } break;
     }
 
     // Transition image to color attachment optimal
@@ -742,6 +1146,13 @@ struct renderer_t {
     if (ImGui::SliderInt("bounces", &_max_bounces, 1, 100)) {
       clear_gpu_timer = true;
     }
+    const char *items[] = {"normal", "debug_color",
+                           "debug_heatmap_node_intersections",
+                           "debug_heatmap_primitive_intersections"};
+    if (ImGui::Combo("select renderer", reinterpret_cast<int *>(&type), items,
+                     4)) {
+      clear_gpu_timer = true;
+    }
     if (ImGui::Checkbox("enable timer", &_gpu_timer->enable)) {
       clear_gpu_timer = true;
     }
@@ -763,7 +1174,8 @@ struct renderer_t {
         VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
     _base->end();
 
-    if (clear_gpu_timer) _gpu_timer->clear();
+    if (clear_gpu_timer)
+      _gpu_timer->clear();
 
     _gpu_times = _gpu_timer->get_times();
   }
@@ -785,6 +1197,11 @@ private:
   core::ref<raygen_t> _raygen;
   core::ref<trace_t> _trace;
   core::ref<shade_t> _shade;
+  core::ref<debug_color_t> _debug_color;
+  core::ref<debug_heatmap_node_intersections_t>
+      _debug_heatmap_node_intersections;
+  core::ref<debug_heatmap_primitive_intersections_t>
+      _debug_heatmap_primitive_intersections;
   core::ref<write_indirect_dispatch_t> _write_indirect_dispatch;
 
   gfx::handle_buffer_t _throughput_buffer;
@@ -805,6 +1222,7 @@ private:
 
   // options
   int32_t _max_bounces = 3;
+  renderer_type_t type = renderer_type_t::e_normal;
 };
 
 } // namespace renderer
