@@ -20,7 +20,7 @@ void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_inde
     ray_data.px_id = px_j * pc.width + px_i;
     pc.ray_datas[px_j * pc.width + px_i] = ray_data;
 
-    o_color[uint2(px_i, px_j)] = float4(0, 0, 0, 0);
+    o_color[uint2(px_i, px_j)] = float4(0, 0, 0, 1);
     pc.throughput[px_j * pc.width + px_i] = float3(1, 1, 1);
 
     if (px_i == 0 && px_j == 0) {

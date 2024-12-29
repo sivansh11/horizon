@@ -60,12 +60,6 @@ void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_inde
         o_color[uint2(px_i, px_j)] += throughput * emmision;
         
         // next ray
-        vertex_t vertex = pc.triangles[hit.primitive_id].from_barry(hit.u, hit.v, hit.w);
-        float3 N = vertex.normal;
-        float3 scattered_direction = vertex.normal + rand_float3_unit_sphere(seed);
-        if (near_zero(scattered_direction)) scattered_direction = vertex.normal;
-        float3 attenuation = color(hit.primitive_id).xyz;
-
         bool shouldAppendRay = !russian_roulette_terminate_ray(throughput, seed);
         uint32_t laneAppendOffset = WavePrefixCountBits(shouldAppendRay);
         uint32_t appendCount = WaveActiveCountBits(shouldAppendRay);
@@ -76,8 +70,14 @@ void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_inde
         }
         appendOffset = WaveReadLaneFirst(appendOffset);
         if (shouldAppendRay) {
+            vertex_t vertex = pc.triangles[hit.primitive_id].from_barry(hit.u, hit.v, hit.w);
+            float3 N = vertex.normal;
+            float3 scattered_direction = vertex.normal + rand_float3_unit_sphere(seed);
+            float3 reflected_direction = reflect(normalize(ray_in.direction), N);
+            if (near_zero(scattered_direction)) scattered_direction = vertex.normal;
+            float3 attenuation = color(hit.primitive_id).xyz;
             uint32_t index = appendOffset + laneAppendOffset;
-            ray_data_t new_ray_data = ray_data_t::create(ray_in.origin + hit.t * ray_in.direction, scattered_direction, ray_in.px_id);
+            ray_data_t new_ray_data = ray_data_t::create(ray_in.origin + hit.t * ray_in.direction, scattered_direction /* reflected_direction */, ray_in.px_id);
             pc.new_ray_datas[index] = new_ray_data;
             pc.throughput[ray_in.px_id] = throughput * attenuation;
         }
