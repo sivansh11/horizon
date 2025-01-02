@@ -113,16 +113,18 @@ void editor_camera_t::update(float ts) {
 }
 
 int main(int argc, char **argv) {
-  if (argc != 2) {
-    std::cout << "./app [model file]\n";
+  core::log_t::set_log_level(core::log_level_t::e_info);
+
+  if (argc != 5) {
+    std::cout << "./app [width] [height] [validation] [model file]\n";
     exit(EXIT_FAILURE);
   }
   //  core::log_t::set_log_level(core::log_level_t::e_info);
 
-  core::window_t window{"app", 640, 420};
+  core::window_t window{"app", (uint32_t)std::stoi(argv[1]), (uint32_t)std::stoi(argv[2])};
   auto [width, height] = window.dimensions();
 
-  renderer::renderer_t renderer{window, true, std::filesystem::path(argv[1])};
+  renderer::renderer_t renderer{window, (bool)std::stoi(argv[3]), std::filesystem::path(argv[4])};
 
   editor_camera_t editor_camera{window};
   float target_fps = 10000000.f;
@@ -151,8 +153,6 @@ int main(int argc, char **argv) {
     camera.inverse_projection = editor_camera.inverse_projection();
     renderer.render_frame(camera);
   }
-
-  core::log_t::set_log_level(core::log_level_t::e_info);
 
   return 0;
 }

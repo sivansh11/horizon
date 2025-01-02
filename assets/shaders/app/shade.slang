@@ -72,7 +72,9 @@ void compute_main(uint3 dispatch_thread_id: SV_DispatchThreadID, uint group_inde
         if (shouldAppendRay) {
             vertex_t vertex = pc.triangles[hit.primitive_id].from_barry(hit.u, hit.v, hit.w);
             float3 N = vertex.normal;
-            float3 scattered_direction = vertex.normal + rand_float3_unit_sphere(seed);
+            bool front_face = dot(ray_in.direction, N) < 0;
+            N = front_face ? N : -N;
+            float3 scattered_direction = N + rand_float3_unit_sphere(seed);
             float3 reflected_direction = reflect(normalize(ray_in.direction), N);
             if (near_zero(scattered_direction)) scattered_direction = vertex.normal;
             float3 attenuation = color(hit.primitive_id).xyz;

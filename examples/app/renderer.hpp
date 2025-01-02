@@ -4,7 +4,6 @@
 #include "horizon/core/bvh.hpp"
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
-#include "horizon/core/math.hpp"
 #include "horizon/core/model.hpp"
 #include "horizon/core/window.hpp"
 
@@ -16,7 +15,6 @@
 #include <vulkan/vulkan_core.h>
 
 #include <filesystem>
-#include <memory>
 #include <vector>
 
 namespace renderer {
