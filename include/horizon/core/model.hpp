@@ -38,7 +38,7 @@ struct material_description_t {
 //     vertex_t v0{}, v1{}, v2{};
 // };
 
-struct mesh_t {
+struct raw_mesh_t {
     std::vector<vertex_t> vertices{};
     std::vector<uint32_t> indices{}; 
     material_description_t material_description{};
@@ -46,16 +46,16 @@ struct mesh_t {
     std::string name{};
 };
 
-struct model_t {
-    std::vector<mesh_t> meshes;
+struct raw_model_t {
+    std::vector<raw_mesh_t> meshes;
 };
 
 struct model_loading_info_t {
     std::filesystem::path file_path;
-    model_t model;
+    raw_model_t model;
 };
 
-model_t load_model_from_path(const std::filesystem::path& file_path);
+raw_model_t load_model_from_path(const std::filesystem::path& file_path);
 
 } // namespace core
 

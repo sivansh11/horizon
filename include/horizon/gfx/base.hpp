@@ -33,7 +33,7 @@ struct managed_descriptor_set_t {
 }
 
 struct managed_buffer_descriptor_info_t {
-    handle_managed_buffer_t handle = null_handle;
+    handle_managed_buffer_t handle = core::null_handle;
     VkDeviceSize vk_offset = 0;
     VkDeviceSize vk_range = VK_WHOLE_SIZE;
 };
@@ -191,7 +191,7 @@ struct update_managed_descriptor_set_t {
     }
 
     base_t& base;
-    handle_managed_descriptor_set_t handle = null_handle;
+    handle_managed_descriptor_set_t handle = core::null_handle;
     std::vector<managed_descriptor_info_t> infos;
 };
 

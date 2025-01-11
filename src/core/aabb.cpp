@@ -1,6 +1,7 @@
 #include "horizon/core/aabb.hpp"
 
 #include "horizon/core/core.hpp"
+#include "horizon/core/math.hpp"
 
 namespace core {
 
@@ -37,3 +38,8 @@ aabb_t& aabb_t::grow(const aabb_t& aabb) {
 }
 
 } // namespace core
+
+std::ostream& operator << (std::ostream& o, const core::aabb_t& aabb) {
+  std::cout << "min:" << core::to_string(aabb.min) << " max:" << core::to_string(aabb.max);
+  return o;
+}

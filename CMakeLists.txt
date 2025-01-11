@@ -34,6 +34,7 @@ FetchContent_Declare(
 FetchContent_Declare(
   assimp
   GIT_REPOSITORY https://github.com/assimp/assimp.git
+  GIT_TAG a4d8a5fec3fc42b17c6411b68035017c7d797298
 )
 FetchContent_Declare(
   volk
@@ -57,7 +58,7 @@ FetchContent_Declare(
 FetchContent_Declare(
   slang
   GIT_REPOSITORY https://github.com/shader-slang/slang.git
-  GIT_TAG 5d8cf475b352ab517c565ccee59461640da63a2a
+  GIT_TAG 772c48af91951bda9ff7064fc7a089550c759f76
 )
 FetchContent_Declare(
   shaderc

@@ -1,6 +1,7 @@
 #include "horizon/gfx/context.hpp"
 
 #include "glm/fwd.hpp"
+#include "horizon/core/core.hpp"
 #include "horizon/core/window.hpp"
 #include <vulkan/vulkan_core.h>
 
@@ -271,8 +272,8 @@ update_descriptor_set_t& update_descriptor_set_t::push_image_write(uint32_t bind
     vk_write.descriptorCount = 1;  // this is 1 as I am only updating 1 buffer descriptor per write
     vk_write.dstSet = descriptor_set;
     VkDescriptorImageInfo *vk_image_info = new VkDescriptorImageInfo;
-    vk_image_info->sampler = info.handle_sampler != null_handle ? utils::assert_and_get_data<internal::sampler_t>(info.handle_sampler, context._samplers).vk_sampler : VK_NULL_HANDLE;
-    vk_image_info->imageView = info.handle_image_view != null_handle ? utils::assert_and_get_data<internal::image_view_t>(info.handle_image_view, context._image_views).vk_image_view : VK_NULL_HANDLE;
+    vk_image_info->sampler = info.handle_sampler != core::null_handle ? utils::assert_and_get_data<internal::sampler_t>(info.handle_sampler, context._samplers).vk_sampler : VK_NULL_HANDLE;
+    vk_image_info->imageView = info.handle_image_view != core::null_handle ? utils::assert_and_get_data<internal::image_view_t>(info.handle_image_view, context._image_views).vk_image_view : VK_NULL_HANDLE;
     vk_image_info->imageLayout = info.vk_image_layout;
 
     internal::descriptor_set_layout_t& descriptor_set_layout = utils::assert_and_get_data<internal::descriptor_set_layout_t>(descriptor_set.config.handle_descriptor_set_layout, context._descriptor_set_layouts);
@@ -690,10 +691,10 @@ std::optional<uint32_t> context_t::get_swapchain_next_image_index(handle_swapcha
     internal::swapchain_t& swapchain = utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
     VkSemaphore vk_semaphore = VK_NULL_HANDLE;
     VkFence vk_fence = VK_NULL_HANDLE;
-    if (handle_semaphore != null_handle) {
+    if (handle_semaphore != core::null_handle) {
         vk_semaphore = utils::assert_and_get_data<internal::semaphore_t>(handle_semaphore, _semaphores);
     }
-    if (handle_fence != null_handle) {
+    if (handle_fence != core::null_handle) {
         vk_fence = utils::assert_and_get_data<internal::fence_t>(handle_fence, _fences);
     }
     uint32_t next_image;
@@ -803,6 +804,15 @@ void context_t::flush_buffer(handle_buffer_t handle) {
     horizon_profile();
     auto buffer = get_buffer(handle);
     vmaFlushAllocation(_vma_allocator, buffer.vma_allocation, 0, VK_WHOLE_SIZE);
+}
+
+uint64_t context_t::get_total_buffer_memory_allocated() {
+    horizon_profile();
+    uint64_t allocations = 0;
+    for (auto [handle, buffer] : _buffers) {
+        allocations += buffer.config.vk_size;
+    }
+    return allocations;
 }
 
 handle_sampler_t context_t::create_sampler(const config_sampler_t& config) {
@@ -1208,17 +1218,16 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
         // };
         // compiler_options.push_back(compiler_option);
 
-        compiler_option.name = slang::CompilerOptionName::DebugInformation;
-        compiler_value.intValue0 = SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL;
-        compiler_option.value = compiler_value;
-        compiler_options.push_back(compiler_option);
-
 
         compiler_option.name = slang::CompilerOptionName::Optimization;
         compiler_value.intValue0 = SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_NONE;
         compiler_option.value = compiler_value;
         compiler_options.push_back(compiler_option);
 
+        compiler_option.name = slang::CompilerOptionName::DebugInformation;
+        compiler_value.intValue0 = SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL;
+        compiler_option.value = compiler_value;
+        compiler_options.push_back(compiler_option);
 
         compiler_option.name = slang::CompilerOptionName::GLSLForceScalarLayout;
         compiler_value.kind = slang::CompilerOptionValueKind::Int;
@@ -1264,20 +1273,25 @@ handle_shader_t context_t::create_shader(const config_shader_t& config) {
             check(slangModule, "Failed to create module");
         }
 
+        Slang::ComPtr<slang::IBlob> diagnosticBlob;
         switch (config.type) {
             case shader_type_t::e_vertex:
-                slangModule->findEntryPointByName("vertex_main", entryPoint.writeRef());
+                // slangModule->findEntryPointByName("vertex_main", entryPoint.writeRef());
+                slangModule->findAndCheckEntryPoint("vertex_main", SlangStage::SLANG_STAGE_VERTEX, entryPoint.writeRef(), diagnosticBlob.writeRef());
                 break;
             case shader_type_t::e_fragment:
-                slangModule->findEntryPointByName("fragment_main", entryPoint.writeRef());
+                // slangModule->findEntryPointByName("fragment_main", entryPoint.writeRef());
+                slangModule->findAndCheckEntryPoint("fragment_main", SlangStage::SLANG_STAGE_FRAGMENT, entryPoint.writeRef(), diagnosticBlob.writeRef());
                 break;
             case shader_type_t::e_compute:
-                slangModule->findEntryPointByName("compute_main", entryPoint.writeRef());
+                // slangModule->findEntryPointByName("compute_main", entryPoint.writeRef());
+                slangModule->findAndCheckEntryPoint("compute_main", SlangStage::SLANG_STAGE_COMPUTE, entryPoint.writeRef(), diagnosticBlob.writeRef());
                 break;
             default:
                 horizon_error("unknown shader type");
                 std::terminate();
         }
+        utils::diagnose_if_needed(diagnosticBlob);
         check(entryPoint, "failed to find entrypoint in {}", path);
 
         componentTypes.push_back(slangModule);
@@ -1430,7 +1444,7 @@ handle_pipeline_t context_t::create_compute_pipeline(const config_pipeline_t& co
 handle_pipeline_t context_t::create_graphics_pipeline(const config_pipeline_t& config) {
     horizon_profile();
 
-    check(config.handle_pipeline_layout != null_handle, "pipeline layout is null");
+    check(config.handle_pipeline_layout != core::null_handle, "pipeline layout is null");
 
     internal::pipeline_t pipeline{ .vk_pipeline_bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS, .config = config };
 

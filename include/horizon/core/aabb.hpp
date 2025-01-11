@@ -3,6 +3,8 @@
 
 #include "horizon/core/math.hpp"
 
+#include <ostream>
+
 namespace core {
 
 struct aabb_t {
@@ -23,5 +25,7 @@ struct aabb_t {
 };
 
 } // namespace core
+
+std::ostream& operator << (std::ostream& o, const core::aabb_t& aabb);
 
 #endif

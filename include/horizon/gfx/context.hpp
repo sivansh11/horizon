@@ -3,6 +3,9 @@
 
 #include "horizon/core/core.hpp"
 
+#include "horizon/gfx/types.hpp"
+
+#include <cstdint>
 #include <volk.h>
 #include "VkBootstrap.h"
 #define VMA_STATIC_VULKAN_FUNCTIONS 0
@@ -26,9 +29,7 @@ template <typename handle_t, typename map_t, typename data_t>
 inline handle_t create_and_insert_new_handle(map_t& map, data_t& data) {
     handle_t handle = map.size() ? map.size() : 1;
     while (map.contains(handle)) { handle++; }
-    map.insert({handle, data});
-    return handle;
-}
+    map.insert({handle, data}); return handle; }
 
 template <typename data_t, typename handle_t, typename map_t> 
 inline data_t& assert_and_get_data(handle_t handle, map_t& map) {
@@ -38,42 +39,7 @@ inline data_t& assert_and_get_data(handle_t handle, map_t& map) {
 
 } // namespace utils
 
-using handle_t = uint32_t;
-
-#define define_handle(name) \
-struct name { \
-    handle_t val; \
-    name() = default; \
-    name(handle_t val) : val(val) {} \
-    constexpr name& operator = (const name& new_val) = default; \
-    bool operator<(const name& other) const { return val < other.val; } \
-    bool operator==(const name& other) const { return val == other.val; } \
-    bool operator==(const handle_t& other) const { return val == other; } \
-    operator handle_t() { return val; } \
-    name& operator++(int) { val++; return *this; } \
-    name& operator++() { val++; return *this; } \
-    std::ostream& operator<<(std::ostream& o) { o << val; return o; } \
-}
-
 namespace gfx {
-
-constexpr handle_t null_handle = 0;
-
-define_handle(handle_swapchain_t);
-define_handle(handle_buffer_t);
-define_handle(handle_sampler_t);
-define_handle(handle_image_t);
-define_handle(handle_image_view_t);
-define_handle(handle_descriptor_set_layout_t);
-define_handle(handle_descriptor_set_t);
-define_handle(handle_shader_t);
-define_handle(handle_pipeline_layout_t);
-define_handle(handle_pipeline_t);
-define_handle(handle_fence_t);
-define_handle(handle_semaphore_t);
-define_handle(handle_command_pool_t);
-define_handle(handle_commandbuffer_t);
-define_handle(handle_timer_t);
 
 constexpr VmaMemoryUsage default_vma_memory_usage = VmaMemoryUsage::VMA_MEMORY_USAGE_AUTO;
 struct config_buffer_t {
@@ -128,7 +94,7 @@ constexpr uint32_t        vk_auto_layers = 0x7FFFFFFF;   // this should work I g
 constexpr uint32_t        vk_default_base_mip_level = 0;
 constexpr uint32_t        vk_default_base_array_layer = 0;
 struct config_image_view_t {
-    handle_image_t  handle_image = null_handle;
+    handle_image_t  handle_image = core::null_handle;
     VkImageViewType vk_image_view_type = vk_auto_image_view_type;
     VkFormat        vk_format = vk_auto_image_format;
     uint32_t        vk_base_mip_level = vk_default_base_mip_level;
@@ -147,7 +113,7 @@ struct config_descriptor_set_layout_t {
 };
 
 struct config_descriptor_set_t {
-    handle_descriptor_set_layout_t handle_descriptor_set_layout = null_handle;
+    handle_descriptor_set_layout_t handle_descriptor_set_layout = core::null_handle;
     std::string                    debug_name = "";   
 };
 
@@ -200,7 +166,7 @@ struct config_pipeline_t {
     config_pipeline_t& set_pipeline_rasterization_state(const VkPipelineRasterizationStateCreateInfo& vk_pipeline_rasterization_state);
     config_pipeline_t& set_pipeline_multisample_state(const VkPipelineMultisampleStateCreateInfo& vk_pipeline_multisample_state);
 
-    handle_pipeline_layout_t                         handle_pipeline_layout = null_handle;
+    handle_pipeline_layout_t                         handle_pipeline_layout = core::null_handle;
     std::vector<handle_shader_t>                     handle_shaders{};
     std::vector<VkFormat>                            vk_color_formats{};
     VkFormat                                         vk_depth_format{};
@@ -348,14 +314,14 @@ struct timer_t {
 class context_t;
 
 struct buffer_descriptor_info_t {
-    handle_buffer_t handle_buffer = null_handle;
+    handle_buffer_t handle_buffer = core::null_handle;
     VkDeviceSize    vk_offset = 0;
     VkDeviceSize    vk_range = VK_WHOLE_SIZE;
 };
 
 struct image_descriptor_info_t {
-    handle_sampler_t    handle_sampler = null_handle;
-    handle_image_view_t handle_image_view = null_handle;
+    handle_sampler_t    handle_sampler = core::null_handle;
+    handle_image_view_t handle_image_view = core::null_handle;
     VkImageLayout       vk_image_layout = VK_IMAGE_LAYOUT_MAX_ENUM;
 };
 
@@ -365,12 +331,12 @@ struct update_descriptor_set_t {
     void commit();
 
     context_t& context;
-    handle_descriptor_set_t handle = null_handle;
+    handle_descriptor_set_t handle = core::null_handle;
     std::vector<VkWriteDescriptorSet> vk_writes;
 };
 
 struct rendering_attachment_t {
-    handle_image_view_t handle_image_view = null_handle;
+    handle_image_view_t handle_image_view = core::null_handle;
     VkImageLayout       image_layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     VkAttachmentLoadOp  load_op = VK_ATTACHMENT_LOAD_OP_CLEAR;
     VkAttachmentStoreOp store_op = VK_ATTACHMENT_STORE_OP_STORE;
@@ -405,6 +371,8 @@ public:
     VkDeviceAddress get_buffer_device_address(handle_buffer_t handle);
     internal::buffer_t& get_buffer(handle_buffer_t handle);
     void flush_buffer(handle_buffer_t handle);
+    // This iterates over all active handles and returns the final size, shouldnt be used in performance critical paths
+    uint64_t get_total_buffer_memory_allocated();
 
     handle_sampler_t create_sampler(const config_sampler_t& config);
     void destroy_sampler(handle_sampler_t handle);

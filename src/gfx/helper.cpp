@@ -408,6 +408,16 @@ void imgui_endframe(context_t& context, gfx::handle_commandbuffer_t commandbuffe
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), context.get_commandbuffer(commandbuffer));
 }
 
+gfx::handle_shader_t create_slang_shader(context_t& context, const std::filesystem::path& file_path, shader_type_t type) {
+  config_shader_t cs{};
+  cs.code_or_path = file_path.string();
+  cs.is_code = false;
+  cs.name = file_path.filename();
+  cs.type = type;
+  cs.language = shader_language_t::e_slang;
+  return context.create_shader(cs);
+}
+
 }
 
 }

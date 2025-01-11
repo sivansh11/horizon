@@ -35,7 +35,25 @@ check(truthy, fail_msg)
 #define horizon_assert(truthy, fail_msg...) 
 #endif
 
+#define define_handle(name) \
+struct name { \
+    core::handle_t val; \
+    name() = default; \
+    name(core::handle_t val) : val(val) {} \
+    constexpr name& operator = (const name& new_val) = default; \
+    bool operator<(const name& other) const { return val < other.val; } \
+    bool operator==(const name& other) const { return val == other.val; } \
+    bool operator==(const core::handle_t& other) const { return val == other; } \
+    operator core::handle_t() { return val; } \
+    name& operator++(int) { val++; return *this; } \
+    name& operator++() { val++; return *this; } \
+    std::ostream& operator<<(std::ostream& o) { o << val; return o; } \
+}
+
 namespace core {
+
+using handle_t = uint32_t;
+constexpr handle_t null_handle = 0;
 
 template <typename type>
 using ref = std::shared_ptr<type>;

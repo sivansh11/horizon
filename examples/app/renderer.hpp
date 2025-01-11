@@ -10,6 +10,7 @@
 #include "horizon/gfx/base.hpp"
 #include "horizon/gfx/context.hpp"
 #include "horizon/gfx/helper.hpp"
+#include "horizon/gfx/types.hpp"
 #include "imgui.h"
 
 #include <vulkan/vulkan_core.h>
@@ -72,10 +73,10 @@ struct raygen_t {
     gfx::config_shader_t cs{
         .code_or_path = "../../assets/shaders/app/raygen.slang",
         .is_code = false,
-        .name = "rayraygen compute",
+        .name = "raygen",
         .type = gfx::shader_type_t::e_compute,
         .language = gfx::shader_language_t::e_slang,
-        .debug_name = "rayraygen compute",
+        .debug_name = "raygen",
     };
     s = base._info.context.create_shader(cs);
 
@@ -106,7 +107,7 @@ struct raygen_t {
 
   void update_descriptor_set(gfx::handle_image_view_t image_view) {
     base._info.context.update_descriptor_set(ds)
-        .push_image_write(0, {.handle_sampler = gfx::null_handle,
+        .push_image_write(0, {.handle_sampler = core::null_handle,
                               .handle_image_view = image_view,
                               .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL})
         .commit();
@@ -136,10 +137,10 @@ struct trace_t {
     gfx::config_shader_t cs{
         .code_or_path = "../../assets/shaders/app/trace.slang",
         .is_code = false,
-        .name = "raytrace compute",
+        .name = "trace",
         .type = gfx::shader_type_t::e_compute,
         .language = gfx::shader_language_t::e_slang,
-        .debug_name = "raytrace compute",
+        .debug_name = "trace",
     };
     s = base._info.context.create_shader(cs);
 
@@ -180,10 +181,10 @@ struct shade_t {
     gfx::config_shader_t cs{
         .code_or_path = "../../assets/shaders/app/shade.slang",
         .is_code = false,
-        .name = "raytrace compute",
+        .name = "shade",
         .type = gfx::shader_type_t::e_compute,
         .language = gfx::shader_language_t::e_slang,
-        .debug_name = "raytrace compute",
+        .debug_name = "shade",
     };
     s = base._info.context.create_shader(cs);
 
@@ -216,7 +217,7 @@ struct shade_t {
 
   void update_descriptor_set(gfx::handle_image_view_t image_view) {
     base._info.context.update_descriptor_set(ds)
-        .push_image_write(0, {.handle_sampler = gfx::null_handle,
+        .push_image_write(0, {.handle_sampler = core::null_handle,
                               .handle_image_view = image_view,
                               .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL})
         .commit();
@@ -246,10 +247,10 @@ struct debug_color_t {
     gfx::config_shader_t cs{
         .code_or_path = "../../assets/shaders/app/debug_shade_color.slang",
         .is_code = false,
-        .name = "raytrace compute",
+        .name = "debug_color",
         .type = gfx::shader_type_t::e_compute,
         .language = gfx::shader_language_t::e_slang,
-        .debug_name = "raytrace compute",
+        .debug_name = "debug_color",
     };
     s = base._info.context.create_shader(cs);
 
@@ -282,7 +283,7 @@ struct debug_color_t {
 
   void update_descriptor_set(gfx::handle_image_view_t image_view) {
     base._info.context.update_descriptor_set(ds)
-        .push_image_write(0, {.handle_sampler = gfx::null_handle,
+        .push_image_write(0, {.handle_sampler = core::null_handle,
                               .handle_image_view = image_view,
                               .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL})
         .commit();
@@ -313,10 +314,10 @@ struct debug_heatmap_node_intersections_t {
         .code_or_path = "../../assets/shaders/app/"
                         "debug_shade_heatmap_node_intersections.slang",
         .is_code = false,
-        .name = "raytrace compute",
+        .name = "debug_heatmap_node_intersections",
         .type = gfx::shader_type_t::e_compute,
         .language = gfx::shader_language_t::e_slang,
-        .debug_name = "raytrace compute",
+        .debug_name = "debug_heatmap_node_intersections",
     };
     s = base._info.context.create_shader(cs);
 
@@ -349,7 +350,7 @@ struct debug_heatmap_node_intersections_t {
 
   void update_descriptor_set(gfx::handle_image_view_t image_view) {
     base._info.context.update_descriptor_set(ds)
-        .push_image_write(0, {.handle_sampler = gfx::null_handle,
+        .push_image_write(0, {.handle_sampler = core::null_handle,
                               .handle_image_view = image_view,
                               .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL})
         .commit();
@@ -380,10 +381,10 @@ struct debug_heatmap_primitive_intersections_t {
         .code_or_path = "../../assets/shaders/app/"
                         "debug_shade_heatmap_primitive_intersections.slang",
         .is_code = false,
-        .name = "raytrace compute",
+        .name = "debug_heatmap_primitive_intersections",
         .type = gfx::shader_type_t::e_compute,
         .language = gfx::shader_language_t::e_slang,
-        .debug_name = "raytrace compute",
+        .debug_name = "debug_heatmap_primitive_intersections",
     };
     s = base._info.context.create_shader(cs);
 
@@ -416,7 +417,7 @@ struct debug_heatmap_primitive_intersections_t {
 
   void update_descriptor_set(gfx::handle_image_view_t image_view) {
     base._info.context.update_descriptor_set(ds)
-        .push_image_write(0, {.handle_sampler = gfx::null_handle,
+        .push_image_write(0, {.handle_sampler = core::null_handle,
                               .handle_image_view = image_view,
                               .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL})
         .commit();
@@ -447,10 +448,10 @@ struct write_indirect_dispatch_t {
         .code_or_path =
             "../../assets/shaders/app/write_indirect_dispatch.slang",
         .is_code = false,
-        .name = "raytrace compute",
+        .name = "write_indirect_dispatch",
         .type = gfx::shader_type_t::e_compute,
         .language = gfx::shader_language_t::e_slang,
-        .debug_name = "raytrace compute",
+        .debug_name = "write_indirect_dispatch",
     };
     s = base._info.context.create_shader(cs);
 
@@ -572,7 +573,7 @@ struct renderer_t {
     std::vector<core::vec3> centers{};
     std::vector<triangle_t> triangles{};
 
-    core::model_t model = core::load_model_from_path(model_path);
+    core::raw_model_t model = core::load_model_from_path(model_path);
 
     // TODO: cache the bvh creation, create an asset loader with a common cached
     // asset folder
@@ -623,6 +624,18 @@ struct renderer_t {
     horizon_info("nodes {}", bvh.nodes.size());
     horizon_info("{}", uint32_t(bvh.nodes[0].primitive_count));
 
+    gfx::config_image_t config_low_res_image{};
+    config_low_res_image.vk_width = width / 2;
+    config_low_res_image.vk_height = height / 2;
+    config_low_res_image.vk_depth = 1;
+    config_low_res_image.vk_type = VK_IMAGE_TYPE_2D;
+    config_low_res_image.vk_format = _final_image_format;
+    config_low_res_image.vk_usage = VK_IMAGE_USAGE_SAMPLED_BIT |
+                                    VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT |
+                                    VK_IMAGE_USAGE_STORAGE_BIT;
+    config_low_res_image.vk_mips = 1;
+    config_low_res_image.debug_name = "low res image";
+
     _raygen = core::make_ref<raygen_t>(*_base);
     _trace = core::make_ref<trace_t>(*_base);
     _shade = core::make_ref<shade_t>(*_base);
@@ -646,6 +659,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     config_throughput_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_throughput_buffer.debug_name = "throughput_buffer";
     _throughput_buffer = _ctx->create_buffer(config_throughput_buffer);
 
     gfx::config_buffer_t config_num_rays_buffer{};
@@ -654,6 +668,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     config_num_rays_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_num_rays_buffer.debug_name = "num_rays";
     _num_rays_buffer = _ctx->create_buffer(config_num_rays_buffer);
 
     gfx::config_buffer_t config_new_num_rays_buffer{};
@@ -662,6 +677,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     config_new_num_rays_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_new_num_rays_buffer.debug_name = "new_num_rays";
     _new_num_rays_buffer = _ctx->create_buffer(config_new_num_rays_buffer);
 
     gfx::config_buffer_t config_dispatch_indirect_buffer{};
@@ -671,6 +687,7 @@ struct renderer_t {
     config_dispatch_indirect_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
         VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT;
+    config_dispatch_indirect_buffer.debug_name = "dispatch_indirect";
     _dispatch_indirect_buffer =
         _ctx->create_buffer(config_dispatch_indirect_buffer);
 
@@ -680,6 +697,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     config_ray_datas_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_ray_datas_buffer.debug_name = "ray_datas";
     _ray_datas_buffer = _ctx->create_buffer(config_ray_datas_buffer);
 
     gfx::config_buffer_t config_new_ray_datas_buffer{};
@@ -688,6 +706,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     config_new_ray_datas_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_new_ray_datas_buffer.debug_name = "new_ray_datas";
     _new_ray_datas_buffer = _ctx->create_buffer(config_new_ray_datas_buffer);
 
     gfx::config_buffer_t config_nodes_buffer{};
@@ -696,6 +715,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     config_nodes_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_nodes_buffer.debug_name = "nodes";
     _nodes_buffer = gfx::helper::create_buffer_staged(
         *_ctx, _base->_command_pool, config_nodes_buffer, bvh.nodes.data(),
         sizeof(core::bvh::node_t) * bvh.nodes.size());
@@ -707,6 +727,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     config_primitive_indices_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_primitive_indices_buffer.debug_name = "primitive_indices";
     _primitive_indices_buffer = gfx::helper::create_buffer_staged(
         *_ctx, _base->_command_pool, config_primitive_indices_buffer,
         bvh.primitive_indices.data(),
@@ -722,6 +743,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     config_bvh_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_bvh_buffer.debug_name = "bvh";
     _bvh_buffer = gfx::helper::create_buffer_staged(
         *_ctx, _base->_command_pool, config_bvh_buffer, &_bvh, sizeof(bvh_t));
 
@@ -731,6 +753,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     config_triangles_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_triangles_buffer.debug_name = "triangles";
     _triangles_buffer = gfx::helper::create_buffer_staged(
         *_ctx, _base->_command_pool, config_triangles_buffer, triangles.data(),
         sizeof(triangle_t) * triangles.size());
@@ -741,6 +764,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     config_camera_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_camera_buffer.debug_name = "camera";
     _camera_buffer = _base->create_buffer(
         gfx::resource_update_policy_t::e_every_frame, config_camera_buffer);
 
@@ -751,6 +775,7 @@ struct renderer_t {
         VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
     config_hits_buffer.vk_buffer_usage_flags =
         VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    config_hits_buffer.debug_name = "hits";
     _hits_buffer = _ctx->create_buffer(config_hits_buffer);
 
     _gpu_timer = core::make_ref<gpu_timer_t>(*_base, false);
@@ -1202,6 +1227,7 @@ private:
       _debug_heatmap_primitive_intersections;
   core::ref<write_indirect_dispatch_t> _write_indirect_dispatch;
 
+  // push constant's data
   gfx::handle_buffer_t _throughput_buffer;
   gfx::handle_buffer_t _num_rays_buffer;
   gfx::handle_buffer_t _new_num_rays_buffer;

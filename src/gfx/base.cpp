@@ -105,7 +105,7 @@ void base_t::begin(bool transition_swapchain_image) {
     handle_semaphore_t image_available_semaphore = _image_available_semaphores[_current_frame];
     handle_semaphore_t render_finished_semaphore = _render_finished_semaphores[_current_frame];
     _info.context.wait_fence(in_flight_fence);
-    auto swapchain_image = _info.context.get_swapchain_next_image_index(_swapchain, image_available_semaphore, null_handle);
+    auto swapchain_image = _info.context.get_swapchain_next_image_index(_swapchain, image_available_semaphore, core::null_handle);
     check(swapchain_image, "Failed to get next image");
     _next_image = *swapchain_image;
     _info.context.reset_fence(in_flight_fence);

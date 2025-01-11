@@ -2,6 +2,7 @@
 #define GFX_HELPER_HPP
 
 #include "context.hpp"
+#include "horizon/gfx/types.hpp"
 
 #include <filesystem>
 
@@ -34,6 +35,8 @@ void imgui_init(core::window_t& window, context_t& context, handle_swapchain_t h
 void imgui_shutdown();
 void imgui_newframe();
 void imgui_endframe(context_t& context, gfx::handle_commandbuffer_t commandbuffer);
+
+gfx::handle_shader_t create_slang_shader(context_t& context, const std::filesystem::path& file_path, shader_type_t type);
 
 }
 

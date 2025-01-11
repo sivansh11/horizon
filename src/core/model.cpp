@@ -58,9 +58,9 @@ material_description_t process_material(model_loading_info_t& model_loading_info
     return loaded_material_description;
 }
 
-mesh_t process_mesh(model_loading_info_t& model_loading_info, aiMesh *mesh, const aiScene *scene) {
+raw_mesh_t process_mesh(model_loading_info_t& model_loading_info, aiMesh *mesh, const aiScene *scene) {
     horizon_profile();
-    mesh_t loaded_mesh;
+    raw_mesh_t loaded_mesh;
     loaded_mesh.name = mesh->mName.C_Str();
     loaded_mesh.vertices.reserve(mesh->mNumVertices);
     for (uint32_t i = 0; i < mesh->mNumVertices; i++) {
@@ -115,7 +115,7 @@ void process_node(model_loading_info_t& model_loading_info, aiNode *node, const 
     }
 }
 
-model_t load_model_from_path(const std::filesystem::path& file_path) {
+raw_model_t load_model_from_path(const std::filesystem::path& file_path) {
     horizon_profile();
     Assimp::Importer importer{};
     const aiScene *scene = importer.ReadFile(file_path.string(),
