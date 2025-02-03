@@ -380,7 +380,10 @@ public:
 
     handle_image_t create_image(const config_image_t& config);
     void destroy_image(handle_image_t handle);
+    void *map_image(handle_image_t handle);
+    void unmap_image(handle_image_t handle);
     internal::image_t& get_image(handle_image_t handle);
+    void flush_image(handle_image_t handle);
 
     handle_image_view_t create_image_view(const config_image_view_t& config);
     void destroy_image_view(handle_image_view_t handle);

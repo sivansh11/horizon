@@ -68,9 +68,108 @@ component_id_t _get_component_id_for(component_id_t &component_id_counter) {
   return s_component_id;
 }
 
+static constexpr uint32_t invalid_index = std::numeric_limits<uint32_t>::max();
+
+template <typename value_t, size_t page_size> struct sparse_map {
+  using page_t = std::array<uint32_t, page_size>;
+
+  value_t *get(uint32_t id) {
+    uint32_t page_index = id / page_size;
+    uint32_t in_page_index = id % page_size;
+
+    assert(page_index < sparse.size());
+
+    uint32_t dense_index = sparse[page_index][in_page_index];
+
+    assert(dense_index != invalid_index);
+
+    return dense.data() + sparse[page_index][in_page_index];
+  }
+
+  bool check_if_value_exist(uint32_t id) {
+    uint32_t page_index = id / page_size;
+    uint32_t in_page_index = id % page_size;
+
+    if (page_index >= sparse.size())
+      return false;
+
+    uint32_t dense_index = sparse[page_index][in_page_index];
+
+    if (dense_index == invalid_index)
+      return false;
+
+    return true;
+  }
+
+  template <typename... args_t>
+  value_t *construct(uint32_t id, args_t &&...args) {
+    uint32_t page_index = id / page_size;
+    uint32_t in_page_index = id % page_size;
+
+    while (page_index >= sparse.size()) {
+      uint32_t current_page_index = sparse.size();
+      sparse.emplace_back();
+      sparse[current_page_index].fill(invalid_index);
+    }
+
+    uint32_t dense_index = sparse[page_index][in_page_index];
+
+    assert(dense_index == invalid_index);
+
+    dense_index = dense.size();
+
+    while (dense.size() < (dense_index + 1)) {
+      dense.emplace_back();
+    }
+
+    while (dense_to_id.size() <= dense_index) {
+      dense_to_id.emplace_back(invalid_index);
+    }
+
+    value_t *component =
+        reinterpret_cast<value_t *>(dense.data() + (dense_index));
+
+    new (component) value_t{std::forward<args_t>(args)...};
+
+    dense_to_id[dense_index] = id;
+    sparse[page_index][in_page_index] = dense_index;
+
+    return component;
+  }
+
+  void destroy(uint32_t id) {
+    uint32_t page_index = id / page_size;
+    uint32_t in_page_index = id % page_size;
+
+    uint32_t dense_index = sparse[page_index][in_page_index];
+
+    assert(dense_index != invalid_index);
+
+    uint32_t top_dense_index = dense.size() - 1;
+
+    uint32_t top_id = dense_to_id[top_dense_index];
+
+    uint32_t top_page_index = top_id / page_size;
+    uint32_t top_in_page_index = top_id % page_size;
+
+    std::swap(dense[dense_index], dense[top_dense_index]);
+    std::swap(dense_to_id[dense_index], dense_to_id[top_dense_index]);
+    std::swap(sparse[page_index][in_page_index],
+              sparse[top_page_index][top_in_page_index]);
+
+    dense.pop_back();
+
+    dense_to_id.pop_back();
+
+    sparse[page_index][in_page_index] = invalid_index;
+  }
+  std::vector<page_t> sparse;
+  std::vector<value_t> dense;
+  std::vector<uint32_t> dense_to_id;
+};
+
 template <size_t page_size> struct base_component_pool_t {
-  static constexpr uint32_t invalid_index =
-      std::numeric_limits<uint32_t>::max();
+  using page_t = std::array<uint32_t, page_size>;
 
   base_component_pool_t(component_id_t id, uint32_t component_size)
       : _id(id), _component_size(component_size) {}
@@ -81,20 +180,20 @@ template <size_t page_size> struct base_component_pool_t {
     uint32_t page_index = id / page_size;
     uint32_t in_page_index = id % page_size;
 
-    assert(page_index < sparse.size());
+    page_t &page = *sparse.get(page_index);
 
-    uint32_t dense_index = sparse[page_index][in_page_index];
+    uint32_t dense_index = page[in_page_index];
 
     assert(dense_index != invalid_index);
 
-    return dense.data() + (sparse[page_index][in_page_index] * _component_size);
+    return dense.data() + (dense_index * _component_size);
   }
 
   virtual void destroy(entity_id_t id) = 0;
 
   component_id_t _id;
   uint32_t _component_size;
-  std::vector<std::array<entity_id_t, page_size>> sparse;
+  sparse_map<page_t, 1> sparse;
   std::vector<uint8_t> dense;
   std::vector<entity_id_t> dense_index_to_entity_id;
 };
@@ -110,14 +209,15 @@ struct component_pool_t : public base_component_pool_t<page_size> {
     uint32_t page_index = id / page_size;
     uint32_t in_page_index = id % page_size;
 
-    if (page_index >= this->sparse.size()) {
-      this->sparse.resize(page_index + 1);
-      this->sparse[page_index].fill(this->invalid_index);
+    if (!this->sparse.check_if_value_exist(page_index)) {
+      this->sparse.construct(page_index)->fill(invalid_index);
     }
 
-    uint32_t dense_index = this->sparse[page_index][in_page_index];
+    auto &page = *this->sparse.get(page_index);
 
-    assert(dense_index == this->invalid_index);
+    uint32_t dense_index = page[in_page_index];
+
+    assert(dense_index == invalid_index);
 
     dense_index = this->dense.size() / sizeof(T);
 
@@ -135,7 +235,7 @@ struct component_pool_t : public base_component_pool_t<page_size> {
     new (component) T{std::forward<args_t>(args)...};
 
     this->dense_index_to_entity_id[dense_index] = id;
-    this->sparse[page_index][in_page_index] = dense_index;
+    page[in_page_index] = dense_index;
 
     return component;
   }
@@ -144,9 +244,11 @@ struct component_pool_t : public base_component_pool_t<page_size> {
     uint32_t page_index = id / page_size;
     uint32_t in_page_index = id % page_size;
 
-    uint32_t dense_index = this->sparse[page_index][in_page_index];
+    auto &page = *this->sparse.get(page_index);
 
-    assert(dense_index != this->invalid_index);
+    uint32_t dense_index = page[in_page_index];
+
+    assert(dense_index != invalid_index);
 
     uint32_t top_dense_index = this->dense.size() / sizeof(T) - 1;
 
@@ -155,19 +257,27 @@ struct component_pool_t : public base_component_pool_t<page_size> {
     uint32_t top_page_index = top_id / page_size;
     uint32_t top_in_page_index = top_id % page_size;
 
+    auto &top_page = *this->sparse.get(top_page_index);
+
     std::swap(*(T *)(&this->dense[dense_index * this->_component_size]),
               *(T *)(&this->dense[top_dense_index * this->_component_size]));
     std::swap(this->dense_index_to_entity_id[dense_index],
               this->dense_index_to_entity_id[top_dense_index]);
-    std::swap(this->sparse[page_index][in_page_index],
-              this->sparse[top_page_index][top_in_page_index]);
+    std::swap(page[in_page_index], top_page[top_in_page_index]);
 
     for (uint32_t i = 0; i < sizeof(T); i++)
       this->dense.pop_back();
 
     this->dense_index_to_entity_id.pop_back();
 
-    this->sparse[page_index][in_page_index] = this->invalid_index;
+    page[in_page_index] = invalid_index;
+
+    // check if page is empty, destroy page
+    for (uint32_t i = 0; i < page_size; i++) {
+      if (page[i] != invalid_index) return;
+    }
+
+    this->sparse.destroy(page_index);
   }
 };
 

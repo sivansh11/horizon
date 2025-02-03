@@ -70,7 +70,7 @@ struct update_managed_descriptor_set_t;
 struct base_t;
 
 struct base_t {
-    constexpr static size_t MAX_FRAMES_IN_FLIGHT = 1;
+    constexpr static size_t MAX_FRAMES_IN_FLIGHT = 2;
 
     base_t(const base_config_t& base_config);
     ~base_t();
@@ -88,6 +88,7 @@ struct base_t {
     rendering_attachment_t swapchain_rendering_attachment(VkClearValue vk_clear_value, VkImageLayout vk_layout, VkAttachmentLoadOp vk_load_op, VkAttachmentStoreOp vk_store_op);
 
     handle_commandbuffer_t current_commandbuffer();
+    uint32_t current_frame();
     handle_image_t current_swapchain_image();
     handle_image_view_t current_swapchain_image_view();
 

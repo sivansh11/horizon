@@ -308,7 +308,7 @@ handle_image_t load_image_from_path_instant(context_t& context, handle_command_p
     return image;
 }
 
-handle_buffer_t create_buffer_staged(context_t& context, handle_command_pool_t handle_command_pool, config_buffer_t config, void *data, size_t size) {
+handle_buffer_t create_buffer_staged(context_t& context, handle_command_pool_t handle_command_pool, config_buffer_t config, const void *data, size_t size) {
     horizon_assert(size <= config.vk_size, "copying more than allocated");
 
     config.vk_buffer_usage_flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -329,6 +329,8 @@ handle_buffer_t create_buffer_staged(context_t& context, handle_command_pool_t h
         .vk_size = size
     });
     end_single_use_command_buffer(context, cbuf);
+
+  context.destroy_buffer(staging_buffer);
 
     return buffer;
 }

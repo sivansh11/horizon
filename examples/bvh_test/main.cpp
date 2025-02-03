@@ -94,8 +94,8 @@ struct aabb_intersection_t {
 };
 
 struct hit_t {
-  bool did_intersect() { return primitive_id != bvh::invalid_index; }
-  uint32_t primitive_id;
+  bool did_intersect() { return primitive_index != bvh::invalid_index; }
+  uint32_t primitive_index;
   f32 t = infinity;
   f32 u, v, w;
 };
@@ -180,7 +180,7 @@ void editor_camera_t::update(float ts, float aspect) {
 
   _view = core::lookAt(_position, _position + _front, core::vec3{0, 1, 0});
 }
-static constexpr hit_t null_hit{.primitive_id = bvh::invalid_index};
+static constexpr hit_t null_hit{.primitive_index = bvh::invalid_index};
 static constexpr u32 STACK_SIZE = 16;
 
 inline triangle_intersection_t triangle_intersect(const ray_data_t &ray,
@@ -251,7 +251,7 @@ inline hit_t intersect(const bvh::bvh_t &bvh, ray_data_t &ray,
       triangle_intersection_t intersection = triangle_intersect(ray, triangle);
       if (intersection.did_intersect()) {
         ray.tmax = intersection.t;
-        hit.primitive_id = primitive_index;
+        hit.primitive_index = primitive_index;
         hit.t = intersection.t;
         hit.u = intersection.u;
         hit.v = intersection.v;
@@ -289,7 +289,7 @@ inline hit_t intersect(const bvh::bvh_t &bvh, ray_data_t &ray,
       triangle_intersection_t intersection = triangle_intersect(ray, triangle);
       if (intersection.did_intersect()) {
         ray.tmax = intersection.t;
-        hit.primitive_id = primitive_index;
+        hit.primitive_index = primitive_index;
         hit.t = intersection.t;
         hit.u = intersection.u;
         hit.v = intersection.v;
@@ -396,7 +396,7 @@ int main() {
           float(i) / float(image._width), float(j) / float(image._height)));
       auto hit = intersect(bvh, ray, triangles.data());
       if (hit.did_intersect()) {
-        image.at(i, j) = color(hit.primitive_id);
+        image.at(i, j) = color(hit.primitive_index);
       } else {
         image.at(i, j) = vec4{0, 0, 0, 1};
       }

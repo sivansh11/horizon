@@ -28,7 +28,7 @@ handle_image_t load_image_from_path_instant(context_t& context, handle_command_p
 // TODO: create a image loader or something
 // handle_image_t load_image_from_path(context_t& context, const std::filesystem::path& path, VkFormat vk_format);
 
-handle_buffer_t create_buffer_staged(context_t& context, handle_command_pool_t handle_command_pool, config_buffer_t config, void *data, size_t size);
+handle_buffer_t create_buffer_staged(context_t& context, handle_command_pool_t handle_command_pool, config_buffer_t config, const void *data, size_t size);
 
 // TODO: take target image format
 void imgui_init(core::window_t& window, context_t& context, handle_swapchain_t handle_swapchain, VkFormat vk_color_format);

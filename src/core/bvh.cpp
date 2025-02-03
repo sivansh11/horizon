@@ -100,8 +100,9 @@ struct bin_t {
   uint32_t primitive_count = 0;
 };
 
-split_t find_best_split(const bvh_t &bvh, uint32_t node_index, aabb_t *aabbs,
-                        vec3 *centers, const options_t &options) {
+split_t find_best_object_split(const bvh_t &bvh, uint32_t node_index,
+                               aabb_t *aabbs, vec3 *centers,
+                               const options_t &options) {
   const node_t &node = bvh.nodes[node_index];
 
   split_t best_split{};
@@ -252,7 +253,7 @@ void try_split_node(bvh_t &bvh, uint32_t node_index, aabb_t *aabbs,
     return;
 
   const split_t split =
-      find_best_split(bvh, node_index, aabbs, centers, options);
+      find_best_object_split(bvh, node_index, aabbs, centers, options);
 
   if (node.primitive_count > options.o_max_primitive_count) {
     bool did_split =
@@ -284,22 +285,25 @@ bvh_t build_bvh2(aabb_t *aabbs, vec3 *centers, uint32_t primitive_count,
   return bvh;
 }
 
-void post_order_node_collapse(bvh_t& bvh, uint32_t node_id, const options_t& options) {
-  node_t& node = bvh.nodes[node_id];
+void post_order_node_collapse(bvh_t &bvh, uint32_t node_id,
+                              const options_t &options) {
+  node_t &node = bvh.nodes[node_id];
   if (!node.is_leaf) {
     for (uint32_t i = 0; i < node.as.internal.children_count; i++) {
-      post_order_node_collapse(bvh, node.as.internal.first_child_index + i, options);
+      post_order_node_collapse(bvh, node.as.internal.first_child_index + i,
+                               options);
     }
   }
   if (!node.is_leaf) {
     float real_cost_of_node = cost_of_node(bvh, node_id, options);
-    float cost_if_leaf = options.o_primitive_intersection_cost * node.primitive_count;
+    float cost_if_leaf =
+        options.o_primitive_intersection_cost * node.primitive_count;
     if (cost_if_leaf < real_cost_of_node) {
       uint32_t leaf_child;
       std::stack<uint32_t> stack{};
       stack.push(node_id);
       while (stack.size()) {
-        node_t& node = bvh.nodes[stack.top()];
+        node_t &node = bvh.nodes[stack.top()];
         if (node.is_leaf) {
           leaf_child = stack.top();
           break;
@@ -309,16 +313,16 @@ void post_order_node_collapse(bvh_t& bvh, uint32_t node_id, const options_t& opt
           stack.push(node.as.internal.first_child_index + i);
         }
       }
-      node_t& first_child = bvh.nodes[leaf_child];
+      node_t &first_child = bvh.nodes[leaf_child];
       horizon_assert(first_child.is_leaf, "child is not a leaf");
       node.is_leaf = true;
-      node.as.leaf.first_primitive_index = first_child.as.leaf.first_primitive_index;
+      node.as.leaf.first_primitive_index =
+          first_child.as.leaf.first_primitive_index;
     }
   }
-
 }
 
-void collapse_nodes(bvh_t& bvh, const options_t& options) {
+void collapse_nodes(bvh_t &bvh, const options_t &options) {
   post_order_node_collapse(bvh, 0, options);
 }
 

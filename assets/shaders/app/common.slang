@@ -1,38 +1,37 @@
-#include "../raytracing/raytrace_core.slang"
-
-#define MAX_ENTRIES_PER_NODE 1024
-
-struct DispatchIndirectCmd {
-  uint32_t x, y, z;
+float4 operator *(float4x4 m, float4 v) {
+    return mul(m, v);
 }
 
-struct oct_tree_node_entry_t {
-  float3 color;
+float4 operator *(float4 v, float4x4 m) {
+    return mul(v, m);
+}
+
+struct per_fragment_t {
+    float2 uv;
 };
 
-struct oct_tree_node_t {
-  aabb_t aabb;
-  uint32_t child_indices[8];
-  uint32_t spin_lock[8];
-  uint32_t did_entry;
-  oct_tree_node_entry_t entry;
-  // oct_tree_node_entry_t entries[MAX_ENTRIES_PER_NODE];
-  // uint32_t num_entries;
+struct vertex_shader_output_t {
+    per_fragment_t per_fragment;
+    float4 sv_position : SV_Position;
+};
+
+struct vertex_t {
+  float3 position;
+  float3 normal;
+  float2 uv;
+  float3 tangent;
+  float3 bi_tangent;
+};
+
+struct camera_t {
+  float4x4 view;
+  float4x4 inv_view;
+  float4x4 projection;
+  float4x4 inv_projection;
 };
 
 struct push_constant_t {
-  float3 *throughput;
-  uint32_t *num_rays;
-  uint32_t *new_num_rays;
-  DispatchIndirectCmd *dispatch_indirect_cmd;
-  ray_data_t *ray_datas;
-  ray_data_t *new_ray_datas;
-  bvh_t *bvh;
-  triangle_t *triangles;
+  vertex_t *vertices;
+  uint32_t *indices;
   camera_t *camera;
-  hit_t *hits;
-  uint32_t width;
-  uint32_t height;
-  uint32_t bounce_id;
 };
-
