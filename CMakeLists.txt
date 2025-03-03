@@ -27,7 +27,7 @@ set(IMGUI_IMPL_VULKAN_NO_PROTOTYPES ON CACHE INTERNAL "Imgui vulkan no prototype
 FetchContent_Declare(
   glm
   GIT_REPOSITORY https://github.com/g-truc/glm.git
-  GIT_TAG 2d4c4b4dd31fde06cfffad7915c2b3006402322f
+  GIT_TAG release-1-0-2
 )
 FetchContent_Declare(
   glfw
