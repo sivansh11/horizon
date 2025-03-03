@@ -22,7 +22,7 @@ set(IMGUI_VULKAN_BACKEND ON CACHE INTERNAL "Imgui vulkan backend")
 set(IMGUI_GLFW_BACKEND ON CACHE INTERNAL "Imgui glfw backend")
 set(IMGUI_IMPL_VULKAN_USE_LOADER ON CACHE INTERNAL "Imgui vulkan use loader")
 set(IMGUI_IMPL_VULKAN_NO_PROTOTYPES ON CACHE INTERNAL "Imgui vulkan no prototypes")
-set(GLFW_BUILD_WAYLAND OFF CACHE INTERNAL "GLFW build wayland")
+# set(GLFW_BUILD_WAYLAND OFF CACHE INTERNAL "GLFW build wayland")
 
 FetchContent_Declare(
   glm
