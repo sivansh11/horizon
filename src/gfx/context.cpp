@@ -516,7 +516,7 @@ void context_t::create_instance() {
   vkb::InstanceBuilder vkb_instance_builder{};
   vkb_instance_builder.set_debug_callback(debug_callback)
       .set_app_name("horizon")
-      .desire_api_version(VK_API_VERSION_1_3)
+      .require_api_version(VK_API_VERSION_1_3)
       .enable_extension(VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME)
       .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
       .request_validation_layers(_validation);
@@ -592,8 +592,7 @@ void context_t::create_device() {
   }
   vkb_physical_device_selector.set_surface(vk_temp_surface);
   {
-    auto result = vkb_physical_device_selector.select(
-        vkb::DeviceSelectionMode::only_fully_suitable);
+    auto result = vkb_physical_device_selector.select();
     check(result, "Failed to pick suitable device");
     _vkb_physical_device = result.value();
     horizon_trace("{}", _vkb_physical_device.name);
