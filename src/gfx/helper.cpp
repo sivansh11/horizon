@@ -384,7 +384,7 @@ void imgui_init(core::window_t& window, context_t& context, handle_swapchain_t h
     vk_pipeline_rendering_create.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
     initInfo.PipelineRenderingCreateInfo = vk_pipeline_rendering_create;
 
-    ImGui_ImplVulkan_LoadFunctions([](const char *function_name, void *vulkan_instance) {
+    ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_3, [](const char *function_name, void *vulkan_instance) {
         return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance *>(vulkan_instance)), function_name);
     }, &context.instance().instance);
 
