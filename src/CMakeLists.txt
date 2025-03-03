@@ -17,7 +17,7 @@ target_link_libraries(horizon
 )
 
 target_include_directories(horizon
-  PUBLIC ${CMAKE_SOURCE_DIR}/include
+  PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../include
   PUBLIC slang
   PUBLIC vk-bootstrap
   PUBLIC shaderc
