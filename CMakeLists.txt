@@ -26,10 +26,12 @@ set(IMGUI_IMPL_VULKAN_NO_PROTOTYPES ON CACHE INTERNAL "Imgui vulkan no prototype
 FetchContent_Declare(
   glm
   GIT_REPOSITORY https://github.com/g-truc/glm.git
+  GIT_TAG 2d4c4b4dd31fde06cfffad7915c2b3006402322f
 )
 FetchContent_Declare(
   glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
+  GIT_TAG e7ea71be039836da3a98cea55ae5569cb5eb885c
 )
 FetchContent_Declare(
   assimp
@@ -39,15 +41,17 @@ FetchContent_Declare(
 FetchContent_Declare(
   volk
   GIT_REPOSITORY https://github.com/zeux/volk.git
+  GIT_TAG 58689c063427f5bad4f133625049b1a3c5dd8287
 )
 FetchContent_Declare(
   vk-bootstrap
   GIT_REPOSITORY https://github.com/charles-lunarg/vk-bootstrap.git
-  GIT_TAG main
+  GIT_TAG e7ea02d1917016f2dc6ba543b1a61366d7827788
 )
 FetchContent_Declare(
   VulkanMemoryAllocator
   GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
+  GIT_TAG c788c52156f3ef7bc7ab769cb03c110a53ac8fcb
 )
 FetchContent_Declare(
   imgui_cmake
