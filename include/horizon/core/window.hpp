@@ -1,8 +1,8 @@
 #ifndef CORE_WINDOW_HPP
 #define CORE_WINDOW_HPP
 
-#include <string>
 #include <cstdint>
+#include <string>
 
 struct GLFWwindow;
 
@@ -10,24 +10,21 @@ namespace core {
 
 class window_t {
 public:
+  static void poll_events();
 
-    static void poll_events();
+  window_t(const std::string &title, uint32_t width, uint32_t height);
+  ~window_t();
 
-    window_t(const std::string& title, uint32_t width, uint32_t height);
-    ~window_t();
+  std::string title() const { return _title; }
+  GLFWwindow *window() const { return _p_window; }
+  bool should_close() const;
+  std::pair<int, int> dimensions() const;
 
-    std::string title() const { return _title; }
-    GLFWwindow *window() const { return _p_window; }
-    bool should_close() const;
-    std::pair<int, int> dimensions() const;
-
-    operator GLFWwindow*() const {
-        return _p_window;
-    }
+  operator GLFWwindow *() const { return _p_window; }
 
 private:
-    std::string _title;
-    GLFWwindow *_p_window;
+  std::string _title;
+  GLFWwindow *_p_window;
 };
 
 } // namespace core
