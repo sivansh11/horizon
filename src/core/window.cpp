@@ -1,6 +1,7 @@
 #include "horizon/core/window.hpp"
 
 #include "horizon/core/core.hpp"
+#include "horizon/core/logger.hpp"
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -37,6 +38,9 @@ window_t::window_t(const std::string &title, uint32_t width, uint32_t height) {
   // glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 
   _p_window = glfwCreateWindow(width, height, _title.c_str(), NULL, NULL);
+  const char *description;
+  glfwGetError(&description);
+  check(_p_window, "Failed to create window!\n{}", description);
   horizon_trace("created window");
 }
 
