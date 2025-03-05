@@ -13,7 +13,9 @@ struct glfw_initializer_t {
     horizon_profile();
     if (!glfwInit()) {
       horizon_error("Failed to initialize glfw");
-      exit(EXIT_FAILURE);
+      const char *description;
+      glfwGetError(&description);
+      check(false, "{}", description);
     }
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
