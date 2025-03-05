@@ -117,7 +117,7 @@ if(EXISTS "${LOC_PATH}")
 endif()
 
 # default built type if CMAKE_BUILD_TYPE is not set
-set(DEFAULT_BUILT_TYPE "Release")
+set(DEFAULT_BUILT_TYPE "Debug")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to '${DEFAULT_BUILT_TYPE}' as none was specified.")
   set(CMAKE_BUILD_TYPE "${DEFAULT_BUILT_TYPE}" CACHE
