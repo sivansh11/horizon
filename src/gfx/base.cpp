@@ -83,7 +83,6 @@ void base_t::end() {
 void base_t::resize_swapchain() {
   horizon_profile();
   auto [width, height] = _info.window.dimensions();
-  horizon_trace("swapchain resized: new window size {}, {}", width, height);
   _info.context.wait_idle();
   _info.context.destroy_swapchain(_swapchain);
   _swapchain = _info.context.create_swapchain(_info.window);

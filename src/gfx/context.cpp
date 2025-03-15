@@ -759,7 +759,6 @@ handle_swapchain_t context_t::create_swapchain(const core::window_t &window) {
     config_image_t config_image{};
     config_image.vk_width = swapchain.vk_swapchain.extent.width;
     config_image.vk_height = swapchain.vk_swapchain.extent.height;
-    horizon_warn("[context]: {} {}", config_image.vk_width, config_image.vk_height);
     config_image.vk_depth = 1;
     config_image.vk_type = VK_IMAGE_TYPE_2D;
     config_image.vk_format = swapchain.vk_swapchain.image_format;
