@@ -2,6 +2,7 @@
 
 #include "glm/fwd.hpp"
 #include "horizon/core/core.hpp"
+#include "horizon/core/logger.hpp"
 #include "horizon/core/window.hpp"
 #include <vulkan/vulkan_core.h>
 
@@ -756,6 +757,7 @@ handle_swapchain_t context_t::create_swapchain(const core::window_t &window) {
     config_image_t config_image{};
     config_image.vk_width = swapchain.vk_swapchain.extent.width;
     config_image.vk_height = swapchain.vk_swapchain.extent.height;
+    horizon_warn("[context]: {} {}", config_image.vk_width, config_image.vk_height);
     config_image.vk_depth = 1;
     config_image.vk_type = VK_IMAGE_TYPE_2D;
     config_image.vk_format = swapchain.vk_swapchain.image_format;
@@ -788,6 +790,9 @@ void context_t::destroy_swapchain(handle_swapchain_t handle) {
   horizon_profile();
   internal::swapchain_t &swapchain =
       utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
+  for (auto handle_image_view : swapchain.handle_image_views) {
+    destroy_image_view(handle_image_view);
+  }
   vkDestroySwapchainKHR(_vkb_device, swapchain.vk_swapchain, nullptr);
   vkDestroySurfaceKHR(_vkb_instance, swapchain.vk_surface, nullptr);
   _swapchains.erase(handle);
@@ -831,15 +836,17 @@ context_t::get_swapchain_next_image_index(handle_swapchain_t handle,
     VkResult vk_result =
         vkAcquireNextImageKHR(_vkb_device, swapchain.vk_swapchain, UINT64_MAX,
                               vk_semaphore, vk_fence, &next_image);
-    if (vk_result == VK_ERROR_OUT_OF_DATE_KHR)
+    if (vk_result == VK_ERROR_OUT_OF_DATE_KHR) {
+      horizon_warn("acquire next image failed");
       return std::nullopt;
+    }
     check(vk_result == VK_SUCCESS || vk_result == VK_SUBOPTIMAL_KHR,
           "Failed to acquire swapchain image");
   }
   return next_image;
 }
 
-void context_t::present_swapchain(
+bool context_t::present_swapchain(
     handle_swapchain_t handle, uint32_t image_index,
     std::vector<handle_semaphore_t> handle_semaphores) {
   horizon_profile();
@@ -863,13 +870,27 @@ void context_t::present_swapchain(
   {
     VkResult vk_result =
         vkQueuePresentKHR(_present_queue.vk_queue, &vk_present_info);
-    if (vk_result == VK_SUBOPTIMAL_KHR)
-      return;
+    if (vk_result == VK_ERROR_OUT_OF_DATE_KHR) {
+      horizon_warn("queue present failed: OUT OF DATE KHR");
+      return false;
+    }
+    if (vk_result == VK_SUBOPTIMAL_KHR)  {
+      horizon_warn("queue present failed: SUBOPTIMAL KHR");
+      return false;
+    }
     check(vk_result == VK_SUCCESS, "Failed to present");
   }
-  if (vk_result == VK_SUBOPTIMAL_KHR)
-    return;
+  if (vk_result == VK_SUBOPTIMAL_KHR) {
+    horizon_warn("some internal shii");
+    return false;
+  }
   check(vk_result == VK_SUCCESS, "Failed to present");
+  return true;
+}
+
+internal::swapchain_t &context_t::get_swapchain(handle_swapchain_t handle) {
+  horizon_profile();
+  return utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
 }
 
 handle_buffer_t context_t::create_buffer(const config_buffer_t &config) {

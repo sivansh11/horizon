@@ -361,7 +361,7 @@ public:
     std::vector<handle_image_t> get_swapchain_images(handle_swapchain_t handle);
     std::vector<handle_image_view_t> get_swapchain_image_views(handle_swapchain_t handle);
     std::optional<uint32_t> get_swapchain_next_image_index(handle_swapchain_t handle, handle_semaphore_t handle_swapchain, handle_fence_t handle_fence);
-    void present_swapchain(handle_swapchain_t handle, uint32_t image_index, std::vector<handle_semaphore_t> handle_semaphore);
+    bool present_swapchain(handle_swapchain_t handle, uint32_t image_index, std::vector<handle_semaphore_t> handle_semaphore);
     internal::swapchain_t& get_swapchain(handle_swapchain_t handle);
 
     handle_buffer_t create_buffer(const config_buffer_t& config);

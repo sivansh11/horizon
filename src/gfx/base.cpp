@@ -2,7 +2,6 @@
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
 #include "horizon/gfx/context.hpp"
-#include "horizon/gfx/helper.hpp"
 
 namespace gfx {
 
@@ -18,94 +17,6 @@ base_t::base_t(const base_config_t &info) : _info(info) {
     _image_available_semaphores[i] = _info.context.create_semaphore({});
     _render_finished_semaphores[i] = _info.context.create_semaphore({});
   }
-  config_descriptor_set_layout_t config_swapchain_descriptor_set_layout{};
-  config_swapchain_descriptor_set_layout.add_layout_binding(
-      0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-      VK_SHADER_STAGE_FRAGMENT_BIT);
-  handle_descriptor_set_layout_t swapchain_descriptor_set_layout =
-      _info.context.create_descriptor_set_layout(
-          config_swapchain_descriptor_set_layout);
-
-  config_pipeline_layout_t config_swapchain_pipeline_layout{};
-  config_swapchain_pipeline_layout.add_descriptor_set_layout(
-      swapchain_descriptor_set_layout);
-  handle_pipeline_layout_t swapchain_pipeline_layout =
-      _info.context.create_pipeline_layout(config_swapchain_pipeline_layout);
-
-  const char *vertex_shader_code = R"(
-        #version 450
-        layout (location = 0) out vec2 out_uv;
-        vec2 positions[6] = vec2[](
-            vec2(-1, -1),
-            vec2(-1,  1),
-            vec2( 1,  1),
-            vec2(-1, -1),
-            vec2( 1,  1),
-            vec2( 1, -1)
-        );
-        vec2 uv[6] = vec2[](
-            //vec2(0, 1),
-            //vec2(0, 0),
-            //vec2(1, 0),
-            //vec2(0, 1),
-            //vec2(1, 0),
-            //vec2(1, 1)
-            vec2(0, 0),
-            vec2(0, 1),
-            vec2(1, 1),
-            vec2(0, 0),
-            vec2(1, 1),
-            vec2(1, 0)
-        );
-        void main() {
-            gl_Position = vec4(positions[gl_VertexIndex], 0, 1);
-            out_uv = uv[gl_VertexIndex];
-        }
-    )";
-
-  const char *fragment_shader_code = R"(
-        #version 450
-        layout (location = 0) in vec2 uv;
-        layout (location = 0) out vec4 out_color;
-        layout (set = 0, binding = 0) uniform sampler2D screen;
-        void main() {
-            out_color = texture(screen, uv);
-        }
-    )";
-
-  handle_shader_t swapchain_vertex_shader = _info.context.create_shader(
-      config_shader_t{.code_or_path = vertex_shader_code,
-                      .is_code = true,
-                      .name = "swapchain vertex shader",
-                      .type = shader_type_t::e_vertex,
-                      .language = shader_language_t::e_glsl});
-  handle_shader_t swapchain_fragment_shader = _info.context.create_shader(
-      config_shader_t{.code_or_path = fragment_shader_code,
-                      .is_code = true,
-                      .name = "swapchain fragment shader",
-                      .type = shader_type_t::e_fragment,
-                      .language = shader_language_t::e_glsl});
-
-  config_pipeline_t config_swapchain_pipeline{};
-  config_swapchain_pipeline.handle_pipeline_layout = swapchain_pipeline_layout;
-  config_swapchain_pipeline
-      .add_color_attachment(VK_FORMAT_B8G8R8A8_SRGB,
-                            default_color_blend_attachment())
-      .add_shader(swapchain_vertex_shader)
-      .add_shader(swapchain_fragment_shader);
-  _swapchain_pipeline =
-      _info.context.create_graphics_pipeline(config_swapchain_pipeline);
-
-  _swapchain_descriptor_set = _info.context.allocate_descriptor_set(
-      {.handle_descriptor_set_layout = swapchain_descriptor_set_layout});
-  _info.context.update_descriptor_set(_swapchain_descriptor_set)
-      .push_image_write(
-          0,
-          image_descriptor_info_t{.handle_sampler = _info.sampler,
-                                  .handle_image_view = _info.final_image_view,
-                                  .vk_image_layout =
-                                      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL})
-      .commit();
 }
 
 base_t::~base_t() {
@@ -123,8 +34,12 @@ base_t::~base_t() {
   }
 }
 
-void base_t::begin(bool transition_swapchain_image) {
+void base_t::begin() {
   horizon_profile();
+  if (_resize) {
+    resize_swapchain();
+    _resize = false;
+  }
   handle_commandbuffer_t cbuf = _commandbuffers[_current_frame];
   handle_fence_t in_flight_fence = _in_flight_fences[_current_frame];
   handle_semaphore_t image_available_semaphore =
@@ -134,22 +49,55 @@ void base_t::begin(bool transition_swapchain_image) {
   _info.context.wait_fence(in_flight_fence);
   auto swapchain_image = _info.context.get_swapchain_next_image_index(
       _swapchain, image_available_semaphore, core::null_handle);
+  if (!swapchain_image) {
+    _resize = true;
+    return;
+  }
   check(swapchain_image, "Failed to get next image");
   _next_image = *swapchain_image;
   _info.context.reset_fence(in_flight_fence);
   _info.context.begin_commandbuffer(cbuf);
-  if (transition_swapchain_image)
-    _info.context.cmd_image_memory_barrier(
-        cbuf, _info.context.get_swapchain_images(_swapchain)[_next_image],
-        VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0,
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
 }
 
 void base_t::end() {
   horizon_profile();
   handle_commandbuffer_t cbuf = _commandbuffers[_current_frame];
+  handle_fence_t in_flight_fence = _in_flight_fences[_current_frame];
+  handle_semaphore_t image_available_semaphore =
+      _image_available_semaphores[_current_frame];
+  handle_semaphore_t render_finished_semaphore =
+      _render_finished_semaphores[_current_frame];
+  _info.context.end_commandbuffer(cbuf);
+  _info.context.submit_commandbuffer(
+      cbuf, {image_available_semaphore},
+      {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
+      {render_finished_semaphore}, in_flight_fence);
+  if (!_info.context.present_swapchain(_swapchain, _next_image,
+                                       {render_finished_semaphore})) {
+    _resize = true;
+    return;
+  }
+  _current_frame = (_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+void base_t::resize_swapchain() {
+  horizon_profile();
+  auto [width, height] = _info.window.dimensions();
+  horizon_trace("swapchain resized: new window size {}, {}", width, height);
+  _info.context.wait_idle();
+  _info.context.destroy_swapchain(_swapchain);
+  _swapchain = _info.context.create_swapchain(_info.window);
+}
+
+void base_t::begin_swapchain_renderpass() {
+  horizon_profile();
+  handle_commandbuffer_t cbuf = _commandbuffers[_current_frame];
+  _info.context.cmd_image_memory_barrier(
+      cbuf, _info.context.get_swapchain_images(_swapchain)[_next_image],
+      VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0,
+      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
   auto rendering_attachment = swapchain_rendering_attachment(
       {0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
@@ -158,33 +106,18 @@ void base_t::end() {
       cbuf, {rendering_attachment}, std::nullopt,
       VkRect2D{VkOffset2D{},
                {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}});
-  _info.context.cmd_bind_pipeline(cbuf, _swapchain_pipeline);
-  _info.context.cmd_bind_descriptor_sets(cbuf, _swapchain_pipeline, 0,
-                                         {_swapchain_descriptor_set});
-  auto [viewport, scissor] =
-      helper::fill_viewport_and_scissor_structs(width, height);
-  _info.context.cmd_set_viewport_and_scissor(cbuf, viewport, scissor);
-  _info.context.cmd_draw(cbuf, 6, 1, 0, 0);
+}
+
+void base_t::end_swapchain_renderpass() {
+  horizon_profile();
+  handle_commandbuffer_t cbuf = _commandbuffers[_current_frame];
   _info.context.cmd_end_rendering(cbuf);
-  handle_fence_t in_flight_fence = _in_flight_fences[_current_frame];
-  handle_semaphore_t image_available_semaphore =
-      _image_available_semaphores[_current_frame];
-  handle_semaphore_t render_finished_semaphore =
-      _render_finished_semaphores[_current_frame];
   _info.context.cmd_image_memory_barrier(
       cbuf, _info.context.get_swapchain_images(_swapchain)[_next_image],
       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
-  _info.context.end_commandbuffer(cbuf);
-  _info.context.submit_commandbuffer(
-      cbuf, {image_available_semaphore},
-      {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
-      {render_finished_semaphore}, in_flight_fence);
-  _info.context.present_swapchain(_swapchain, _next_image,
-                                  {render_finished_semaphore});
-  _current_frame = (_current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 handle_managed_buffer_t
