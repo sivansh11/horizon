@@ -743,6 +743,8 @@ handle_swapchain_t context_t::create_swapchain(const core::window_t &window) {
   {
     vkb::SwapchainBuilder vkb_swapchain_builder{_vkb_device,
                                                 swapchain.vk_surface};
+    auto [width, height] = window.dimensions();
+    vkb_swapchain_builder.set_desired_extent(width, height);
     auto result = vkb_swapchain_builder.build();
     check(result, "Failed to create swapchain");
     swapchain.vk_swapchain = result.value();
