@@ -4,8 +4,9 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #define GLM_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
-#include <glm/gtx/quaternion.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/matrix_decompose.hpp>
+#include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/string_cast.hpp>
 
 namespace core {
