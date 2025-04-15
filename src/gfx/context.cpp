@@ -14,8 +14,6 @@
 #include <slang-gfx.h>
 #include <slang.h>
 
-#include <shaderc/shaderc.hpp>
-
 #define VMA_IMPLEMENTATION
 #include <vk_mem_alloc.h>
 
@@ -52,47 +50,6 @@ inline void diagnostic_callback_slang(const char *msg, void *user_data) {
     horizon_error("{}", msg);
   }
 }
-
-class file_includer_t : public shaderc::CompileOptions::IncluderInterface {
-public:
-  struct included_data_t {
-    std::string source_name;
-    std::string content;
-  };
-
-  shaderc_include_result *GetInclude(const char *requested_source,
-                                     shaderc_include_type type,
-                                     const char *requesting_source,
-                                     size_t include_depth) override {
-    horizon_trace("requested source: {}\nrequesting source: {}",
-                  requested_source, requesting_source);
-    std::filesystem::path resolved_path =
-        std::string("../../assets/shaders/") + requested_source;
-    horizon_trace("resolved path: {}", resolved_path.string());
-
-    shaderc_include_result *result = new shaderc_include_result;
-
-    included_data_t *included_data = new included_data_t;
-    included_data->source_name = requested_source;
-    included_data->content = core::read_file(resolved_path);
-
-    result->source_name = included_data->source_name.data();
-    result->source_name_length = included_data->source_name.size();
-    result->content = included_data->content.data();
-    result->content_length = included_data->content.size();
-    result->user_data = included_data;
-
-    horizon_trace("got source name: {}", result->source_name);
-
-    return result;
-  }
-
-  void ReleaseInclude(shaderc_include_result *data) override {
-    horizon_trace("releasing source name: {}", data->source_name);
-    delete reinterpret_cast<included_data_t *>(data->user_data);
-    delete data;
-  }
-};
 
 } // namespace utils
 
@@ -875,7 +832,7 @@ bool context_t::present_swapchain(
       horizon_warn("queue present failed: OUT OF DATE KHR");
       return false;
     }
-    if (vk_result == VK_SUBOPTIMAL_KHR)  {
+    if (vk_result == VK_SUBOPTIMAL_KHR) {
       horizon_warn("queue present failed: SUBOPTIMAL KHR");
       return false;
     }
@@ -1460,25 +1417,6 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
   VkShaderModuleCreateInfo vk_shader_module_create_info{
       .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
   std::vector<uint32_t> spirv_shader_module_code{};
-  static shaderc::Compiler shaderc_compiler{};
-  static shaderc::CompileOptions shaderc_compile_options{};
-  // static shaderc_util::FileFinder file_finder{};
-  static utils::file_includer_t file_includer{};
-  static bool once_shaderc = []() {
-    // #ifndef NDEBUG
-    shaderc_compile_options.SetOptimizationLevel(
-        shaderc_optimization_level_zero);
-    shaderc_compile_options.SetGenerateDebugInfo();
-    // #else
-    // shaderc_compile_options.SetOptimizationLevel(shaderc_optimization_level_performance);
-    // #endif
-    shaderc_compile_options.SetTargetEnvironment(
-        shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
-    shaderc_compile_options.SetTargetSpirv(shaderc_spirv_version_1_6);
-    shaderc_compile_options.SetIncluder(
-        std::make_unique<utils::file_includer_t>());
-    return true;
-  }();
 
   Slang::ComPtr<slang::ICompileRequest> compileRequest;
   Slang::ComPtr<slang::IBlob> spirvCode;
@@ -1497,262 +1435,208 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
                                     : core::read_file(config.code_or_path);
   std::string path = config.is_code ? "" : config.code_or_path;
 
-  if (config.language == shader_language_t::e_slang) {
-    // slangGlobalSession->createCompileRequest(compileRequest.writeRef());
-    // compileRequest->setCodeGenTarget(SlangCompileTarget::SLANG_SPIRV);
-    // const int translationUnitIndex =
-    // compileRequest->addTranslationUnit(SlangSourceLanguage::SLANG_SOURCE_LANGUAGE_SLANG,
-    // nullptr);
-    // compileRequest->addTranslationUnitSourceString(translationUnitIndex,
-    // path.c_str(), code.c_str());
-    // compileRequest->setMatrixLayoutMode(SLANG_MATRIX_LAYOUT_COLUMN_MAJOR);
-    // compileRequest->setTargetFlags(0,
-    // SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY |
-    // SLANG_TARGET_FLAG_GENERATE_WHOLE_PROGRAM);
-    // compileRequest->setTargetForceGLSLScalarBufferLayout(0, true);
-    // compileRequest->setDiagnosticCallback(utils::diagnostic_callback_slang,
-    // this);
-    // compileRequest->setOptimizationLevel(SLANG_OPTIMIZATION_LEVEL_NONE);
-    // compileRequest->setDebugInfoLevel(SLANG_DEBUG_INFO_LEVEL_MAXIMAL);
-    // auto compileArguments = std::to_array<const char*>({
-    //     "-warnings-disable", "39001", // Disables descriptor binding aliasing
-    //     warning
-    //     "-fvk-use-entrypoint-name",
-    //     "-O0"
-    // });
-    // if
-    // (SLANG_FAILED(compileRequest->processCommandLineArguments(compileArguments.data(),
-    // (int)compileArguments.size()))) {
-    //     horizon_error("{}", compileRequest->getDiagnosticOutput());
-    //     std::terminate();
-    // }
+  // slangGlobalSession->createCompileRequest(compileRequest.writeRef());
+  // compileRequest->setCodeGenTarget(SlangCompileTarget::SLANG_SPIRV);
+  // const int translationUnitIndex =
+  // compileRequest->addTranslationUnit(SlangSourceLanguage::SLANG_SOURCE_LANGUAGE_SLANG,
+  // nullptr);
+  // compileRequest->addTranslationUnitSourceString(translationUnitIndex,
+  // path.c_str(), code.c_str());
+  // compileRequest->setMatrixLayoutMode(SLANG_MATRIX_LAYOUT_COLUMN_MAJOR);
+  // compileRequest->setTargetFlags(0,
+  // SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY |
+  // SLANG_TARGET_FLAG_GENERATE_WHOLE_PROGRAM);
+  // compileRequest->setTargetForceGLSLScalarBufferLayout(0, true);
+  // compileRequest->setDiagnosticCallback(utils::diagnostic_callback_slang,
+  // this);
+  // compileRequest->setOptimizationLevel(SLANG_OPTIMIZATION_LEVEL_NONE);
+  // compileRequest->setDebugInfoLevel(SLANG_DEBUG_INFO_LEVEL_MAXIMAL);
+  // auto compileArguments = std::to_array<const char*>({
+  //     "-warnings-disable", "39001", // Disables descriptor binding aliasing
+  //     warning
+  //     "-fvk-use-entrypoint-name",
+  //     "-O0"
+  // });
+  // if
+  // (SLANG_FAILED(compileRequest->processCommandLineArguments(compileArguments.data(),
+  // (int)compileArguments.size()))) {
+  //     horizon_error("{}", compileRequest->getDiagnosticOutput());
+  //     std::terminate();
+  // }
 
-    // if (SLANG_FAILED(compileRequest->compile())) {
-    //     horizon_error("{}", "somthing fucked up");
-    //     std::terminate();
-    // }
+  // if (SLANG_FAILED(compileRequest->compile())) {
+  //     horizon_error("{}", "somthing fucked up");
+  //     std::terminate();
+  // }
 
-    // size_t codeSize;
-    // const void* code = compileRequest->getCompileRequestCode(&codeSize);
+  // size_t codeSize;
+  // const void* code = compileRequest->getCompileRequestCode(&codeSize);
 
-    // vk_shader_module_create_info.codeSize = codeSize;
-    // vk_shader_module_create_info.pCode = static_cast<const uint32_t *>(code);
+  // vk_shader_module_create_info.codeSize = codeSize;
+  // vk_shader_module_create_info.pCode = static_cast<const uint32_t *>(code);
 
-    // // auto reflection = compileRequest->getReflection();
-    // // uint32_t parameter_count = spReflection_GetParameterCount(reflection);
-    // // for (uint32_t i = 0; i < parameter_count; i++) {
-    // //     SlangReflectionParameter *param =
-    // spReflection_GetParameterByIndex(reflection, i);
-    // //     uint32_t index = spReflectionParameter_GetBindingIndex(param);
-    // //     uint32_t space = spReflectionParameter_GetBindingSpace(param);
-    // //     horizon_info("{} {}", index, space);
-    // // }
+  // // auto reflection = compileRequest->getReflection();
+  // // uint32_t parameter_count = spReflection_GetParameterCount(reflection);
+  // // for (uint32_t i = 0; i < parameter_count; i++) {
+  // //     SlangReflectionParameter *param =
+  // spReflection_GetParameterByIndex(reflection, i);
+  // //     uint32_t index = spReflectionParameter_GetBindingIndex(param);
+  // //     uint32_t space = spReflectionParameter_GetBindingSpace(param);
+  // //     horizon_info("{} {}", index, space);
+  // // }
 
-    static std::vector<slang::CompilerOptionEntry> compiler_options;
-    Slang::ComPtr<slang::ISession> session;
-    slang::SessionDesc sessionDesc = {};
-    slang::TargetDesc targetDesc = {};
-    targetDesc.format = SLANG_SPIRV;
-    targetDesc.profile = slangGlobalSession->findProfile("spirv_1_5");
-    targetDesc.flags = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
-    targetDesc.forceGLSLScalarBufferLayout = true;
+  static std::vector<slang::CompilerOptionEntry> compiler_options;
+  Slang::ComPtr<slang::ISession> session;
+  slang::SessionDesc sessionDesc = {};
+  slang::TargetDesc targetDesc = {};
+  targetDesc.format = SLANG_SPIRV;
+  targetDesc.profile = slangGlobalSession->findProfile("spirv_1_5");
+  targetDesc.flags = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
+  targetDesc.forceGLSLScalarBufferLayout = true;
 
-    slang::CompilerOptionValue compiler_value{};
-    slang::CompilerOptionEntry compiler_option{};
+  slang::CompilerOptionValue compiler_value{};
+  slang::CompilerOptionEntry compiler_option{};
 
-    // compiler_value.intValue0 = 1;
-    // compiler_value.kind = slang::CompilerOptionValueKind::Int;
-    // compiler_option = {
-    //     .name = slang::CompilerOptionName::EmitSpirvDirectly,
-    //     .value = compiler_value,
-    // };
-    // compiler_options.push_back(compiler_option);
+  // compiler_value.intValue0 = 1;
+  // compiler_value.kind = slang::CompilerOptionValueKind::Int;
+  // compiler_option = {
+  //     .name = slang::CompilerOptionName::EmitSpirvDirectly,
+  //     .value = compiler_value,
+  // };
+  // compiler_options.push_back(compiler_option);
 
-    compiler_option.name = slang::CompilerOptionName::Optimization;
-    compiler_value.intValue0 =
-        SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_NONE;
-    compiler_option.value = compiler_value;
-    compiler_options.push_back(compiler_option);
+  compiler_option.name = slang::CompilerOptionName::Optimization;
+  compiler_value.intValue0 =
+      SlangOptimizationLevel::SLANG_OPTIMIZATION_LEVEL_NONE;
+  compiler_option.value = compiler_value;
+  compiler_options.push_back(compiler_option);
 
-    compiler_option.name = slang::CompilerOptionName::DebugInformation;
-    compiler_value.intValue0 =
-        SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL;
-    compiler_option.value = compiler_value;
-    compiler_options.push_back(compiler_option);
+  compiler_option.name = slang::CompilerOptionName::DebugInformation;
+  compiler_value.intValue0 =
+      SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL;
+  compiler_option.value = compiler_value;
+  compiler_options.push_back(compiler_option);
 
-    compiler_option.name = slang::CompilerOptionName::GLSLForceScalarLayout;
-    compiler_value.kind = slang::CompilerOptionValueKind::Int;
-    compiler_value.intValue0 = 1;
-    compiler_option.value = compiler_value;
-    compiler_options.push_back(compiler_option);
+  compiler_option.name = slang::CompilerOptionName::GLSLForceScalarLayout;
+  compiler_value.kind = slang::CompilerOptionValueKind::Int;
+  compiler_value.intValue0 = 1;
+  compiler_option.value = compiler_value;
+  compiler_options.push_back(compiler_option);
 
-    // targetDesc.compilerOptionEntries = compiler_options.data();
-    // targetDesc.compilerOptionEntryCount = compiler_options.size();
+  // targetDesc.compilerOptionEntries = compiler_options.data();
+  // targetDesc.compilerOptionEntryCount = compiler_options.size();
 
-    sessionDesc.allowGLSLSyntax = true;
-    sessionDesc.targets = &targetDesc;
-    sessionDesc.targetCount = 1;
+  sessionDesc.allowGLSLSyntax = true;
+  sessionDesc.targets = &targetDesc;
+  sessionDesc.targetCount = 1;
 
-    sessionDesc.compilerOptionEntryCount = compiler_options.size();
-    sessionDesc.compilerOptionEntries = compiler_options.data();
-    // sessionDesc.defaultMatrixLayoutMode =
-    // SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR;
+  sessionDesc.compilerOptionEntryCount = compiler_options.size();
+  sessionDesc.compilerOptionEntries = compiler_options.data();
+  // sessionDesc.defaultMatrixLayoutMode =
+  // SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR;
 
-    const char *search_paths[] = {"../../assets/shaders/includes"};
-    sessionDesc.searchPaths = search_paths;
-    sessionDesc.searchPathCount = 1;
-    check(slangGlobalSession->createSession(sessionDesc, session.writeRef()) ==
-              0,
-          "failed to create session");
+  const char *search_paths[] = {"../../assets/shaders/includes"};
+  sessionDesc.searchPaths = search_paths;
+  sessionDesc.searchPathCount = 1;
+  check(slangGlobalSession->createSession(sessionDesc, session.writeRef()) == 0,
+        "failed to create session");
 
-    // SlangCompileRequest *slangRequest;
-    // session->createCompileRequest(&slangRequest);
-    // spSetDebugInfoLevel(slangRequest,
-    // SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL);
-    // spSetDebugInfoFormat(slangRequest,
-    // SlangDebugInfoFormat::SLANG_DEBUG_INFO_FORMAT_DEFAULT); int
-    // translationUnitIndex = spAddTranslationUnit(slangRequest,
-    // SLANG_SOURCE_LANGUAGE_SLANG, nullptr);
-    // spAddTranslationUnitSourceString(slangRequest, translationUnitIndex,
-    // path.c_str(), code.c_str()); const SlangResult compileRes =
-    // spCompile(slangRequest); if(auto diagnostics =
-    // spGetDiagnosticOutput(slangRequest)) {
-    //     horizon_error("{}", diagnostics);
-    // }
-    // if(SLANG_FAILED(compileRes)) {
-    //     spDestroyCompileRequest(slangRequest);
-    //     throw std::runtime_error("");
-    // }
-    {
-      Slang::ComPtr<slang::IBlob> diagnosticBlob;
-      slangModule = session->loadModuleFromSourceString(
-          config.name.c_str(), path.c_str(), code.c_str(),
-          diagnosticBlob.writeRef());
-      utils::diagnose_if_needed(diagnosticBlob);
-      check(slangModule, "Failed to create module");
-    }
-
+  // SlangCompileRequest *slangRequest;
+  // session->createCompileRequest(&slangRequest);
+  // spSetDebugInfoLevel(slangRequest,
+  // SlangDebugInfoLevel::SLANG_DEBUG_INFO_LEVEL_MAXIMAL);
+  // spSetDebugInfoFormat(slangRequest,
+  // SlangDebugInfoFormat::SLANG_DEBUG_INFO_FORMAT_DEFAULT); int
+  // translationUnitIndex = spAddTranslationUnit(slangRequest,
+  // SLANG_SOURCE_LANGUAGE_SLANG, nullptr);
+  // spAddTranslationUnitSourceString(slangRequest, translationUnitIndex,
+  // path.c_str(), code.c_str()); const SlangResult compileRes =
+  // spCompile(slangRequest); if(auto diagnostics =
+  // spGetDiagnosticOutput(slangRequest)) {
+  //     horizon_error("{}", diagnostics);
+  // }
+  // if(SLANG_FAILED(compileRes)) {
+  //     spDestroyCompileRequest(slangRequest);
+  //     throw std::runtime_error("");
+  // }
+  {
     Slang::ComPtr<slang::IBlob> diagnosticBlob;
-    switch (config.type) {
-    case shader_type_t::e_vertex:
-      // slangModule->findEntryPointByName("vertex_main",
-      // entryPoint.writeRef());
-      slangModule->findAndCheckEntryPoint(
-          "vertex_main", SlangStage::SLANG_STAGE_VERTEX, entryPoint.writeRef(),
-          diagnosticBlob.writeRef());
-      break;
-    case shader_type_t::e_fragment:
-      // slangModule->findEntryPointByName("fragment_main",
-      // entryPoint.writeRef());
-      slangModule->findAndCheckEntryPoint(
-          "fragment_main", SlangStage::SLANG_STAGE_FRAGMENT,
-          entryPoint.writeRef(), diagnosticBlob.writeRef());
-      break;
-    case shader_type_t::e_compute:
-      // slangModule->findEntryPointByName("compute_main",
-      // entryPoint.writeRef());
-      slangModule->findAndCheckEntryPoint(
-          "compute_main", SlangStage::SLANG_STAGE_COMPUTE,
-          entryPoint.writeRef(), diagnosticBlob.writeRef());
-      break;
-    default:
-      horizon_error("unknown shader type");
-      std::terminate();
-    }
+    slangModule = session->loadModuleFromSourceString(
+        config.name.c_str(), path.c_str(), code.c_str(),
+        diagnosticBlob.writeRef());
     utils::diagnose_if_needed(diagnosticBlob);
-    check(entryPoint, "failed to find entrypoint in {}", path);
-
-    componentTypes.push_back(slangModule);
-    componentTypes.push_back(entryPoint);
-
-    {
-      Slang::ComPtr<slang::IBlob> diagnosticsBlob;
-      SlangResult result = session->createCompositeComponentType(
-          componentTypes.data(), componentTypes.size(),
-          composedProgram.writeRef(), diagnosticsBlob.writeRef());
-      utils::diagnose_if_needed(diagnosticsBlob);
-      check(result == 0, "Failed to created composed program or something");
-    }
-
-    {
-      Slang::ComPtr<slang::IBlob> diagnosticsBlob;
-      SlangResult result = composedProgram->getEntryPointCode(
-          0, 0, spirvCode.writeRef(), diagnosticsBlob.writeRef());
-      utils::diagnose_if_needed(diagnosticsBlob);
-      check(result == 0, "Failed to get spirv code");
-    }
-
-    slang::ProgramLayout *program_layout;
-    {
-      Slang::ComPtr<slang::IBlob> diagnosticsBlob;
-      program_layout =
-          composedProgram->getLayout(0, diagnosticsBlob.writeRef());
-      utils::diagnose_if_needed(diagnosticsBlob);
-      check(program_layout, "Failed to get program layout");
-    }
-
-    uint32_t parameter_count = program_layout->getParameterCount();
-    for (uint32_t i = 0; i < parameter_count; i++) {
-      slang::VariableLayoutReflection *parameter =
-          program_layout->getParameterByIndex(i);
-      unsigned index = parameter->getBindingIndex();
-      horizon_trace("{} {}", parameter->getName(), index);
-    }
-
-    vk_shader_module_create_info.codeSize = spirvCode->getBufferSize();
-    vk_shader_module_create_info.pCode =
-        static_cast<const uint32_t *>(spirvCode->getBufferPointer());
-
-  } else if (config.language == shader_language_t::e_glsl) {
-    shaderc_shader_kind shaderc_kind;
-    switch (config.type) {
-    case shader_type_t::e_vertex:
-      shaderc_kind = shaderc_vertex_shader;
-      break;
-    case shader_type_t::e_fragment:
-      shaderc_kind = shaderc_fragment_shader;
-      break;
-    case shader_type_t::e_compute:
-      shaderc_kind = shaderc_compute_shader;
-      break;
-    default:
-      horizon_error("unknown shader type");
-      std::terminate();
-    }
-
-    auto preprocess = shaderc_compiler.PreprocessGlsl(
-        code, shaderc_kind, config.name.c_str(), shaderc_compile_options);
-    if (preprocess.GetCompilationStatus() !=
-        shaderc_compilation_status_success) {
-      horizon_error("{}", preprocess.GetErrorMessage());
-      std::terminate();
-    }
-
-    std::string preprocessed_code = {preprocess.begin(), preprocess.end()};
-
-    auto spirv_shader_module = shaderc_compiler.CompileGlslToSpv(
-        preprocessed_code, shaderc_kind, config.name.c_str(),
-        shaderc_compile_options);
-    if (spirv_shader_module.GetCompilationStatus() !=
-        shaderc_compilation_status_success) {
-      horizon_error("{}", spirv_shader_module.GetErrorMessage());
-      std::cout << "CODE was: \n";
-      std::stringstream ss{preprocessed_code};
-      std::string line;
-      uint32_t i = 0;
-      while (std::getline(ss, line, '\n')) {
-        std::cout << i++ << ": " << line << '\n';
-      }
-      std::terminate();
-    }
-
-    spirv_shader_module_code = {spirv_shader_module.begin(),
-                                spirv_shader_module.end()};
-    vk_shader_module_create_info.codeSize = spirv_shader_module_code.size() * 4;
-    vk_shader_module_create_info.pCode = spirv_shader_module_code.data();
-  } else {
-    check(false, "unknown shader language");
+    check(slangModule, "Failed to create module");
   }
+
+  Slang::ComPtr<slang::IBlob> diagnosticBlob;
+  switch (config.type) {
+  case shader_type_t::e_vertex:
+    // slangModule->findEntryPointByName("vertex_main",
+    // entryPoint.writeRef());
+    slangModule->findAndCheckEntryPoint(
+        "vertex_main", SlangStage::SLANG_STAGE_VERTEX, entryPoint.writeRef(),
+        diagnosticBlob.writeRef());
+    break;
+  case shader_type_t::e_fragment:
+    // slangModule->findEntryPointByName("fragment_main",
+    // entryPoint.writeRef());
+    slangModule->findAndCheckEntryPoint(
+        "fragment_main", SlangStage::SLANG_STAGE_FRAGMENT,
+        entryPoint.writeRef(), diagnosticBlob.writeRef());
+    break;
+  case shader_type_t::e_compute:
+    // slangModule->findEntryPointByName("compute_main",
+    // entryPoint.writeRef());
+    slangModule->findAndCheckEntryPoint(
+        "compute_main", SlangStage::SLANG_STAGE_COMPUTE, entryPoint.writeRef(),
+        diagnosticBlob.writeRef());
+    break;
+  default:
+    horizon_error("unknown shader type");
+    std::terminate();
+  }
+  utils::diagnose_if_needed(diagnosticBlob);
+  check(entryPoint, "failed to find entrypoint in {}", path);
+
+  componentTypes.push_back(slangModule);
+  componentTypes.push_back(entryPoint);
+
+  {
+    Slang::ComPtr<slang::IBlob> diagnosticsBlob;
+    SlangResult result = session->createCompositeComponentType(
+        componentTypes.data(), componentTypes.size(),
+        composedProgram.writeRef(), diagnosticsBlob.writeRef());
+    utils::diagnose_if_needed(diagnosticsBlob);
+    check(result == 0, "Failed to created composed program or something");
+  }
+
+  {
+    Slang::ComPtr<slang::IBlob> diagnosticsBlob;
+    SlangResult result = composedProgram->getEntryPointCode(
+        0, 0, spirvCode.writeRef(), diagnosticsBlob.writeRef());
+    utils::diagnose_if_needed(diagnosticsBlob);
+    check(result == 0, "Failed to get spirv code");
+  }
+
+  slang::ProgramLayout *program_layout;
+  {
+    Slang::ComPtr<slang::IBlob> diagnosticsBlob;
+    program_layout = composedProgram->getLayout(0, diagnosticsBlob.writeRef());
+    utils::diagnose_if_needed(diagnosticsBlob);
+    check(program_layout, "Failed to get program layout");
+  }
+
+  uint32_t parameter_count = program_layout->getParameterCount();
+  for (uint32_t i = 0; i < parameter_count; i++) {
+    slang::VariableLayoutReflection *parameter =
+        program_layout->getParameterByIndex(i);
+    unsigned index = parameter->getBindingIndex();
+    horizon_trace("{} {}", parameter->getName(), index);
+  }
+
+  vk_shader_module_create_info.codeSize = spirvCode->getBufferSize();
+  vk_shader_module_create_info.pCode =
+      static_cast<const uint32_t *>(spirvCode->getBufferPointer());
 
   if (!config.is_code)
     horizon_trace("reading file {}", config.code_or_path);
