@@ -65,11 +65,6 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/shader-slang/slang.git
   GIT_TAG 772c48af91951bda9ff7064fc7a089550c759f76
 )
-FetchContent_Declare(
-  shaderc
-  GIT_REPOSITORY https://github.com/google/shaderc.git
-  GIT_TAG 082a73bfa9088bd3da35734023a9167ba92aae6c
-)
 
 if (NOT glm_POPULATED)
   FetchContent_MakeAvailable(glm)
@@ -95,9 +90,6 @@ if (NOT imgui_cmake_POPULATED)
 endif()
 if (NOT slang_POPULATED)
   FetchContent_MakeAvailable(slang)
-endif()
-if (NOT shaderc_POPULATED)
-  FetchContent_MakeAvailable(shaderc)
 endif()
 
 # # src
