@@ -4,11 +4,16 @@
 #include "horizon/core/core.hpp"
 #include "horizon/core/window.hpp"
 #include "horizon/gfx/context.hpp"
+#include "horizon/gfx/types.hpp"
+#include <vulkan/vulkan_core.h>
 
 namespace gfx {
 
 define_handle(handle_managed_buffer_t);
 define_handle(handle_managed_descriptor_set_t);
+
+define_handle(handle_bindless_image_t);
+define_handle(handle_bindless_sampler_t);
 
 enum class resource_update_policy_t {
   e_sparse,
@@ -99,6 +104,15 @@ struct base_t {
   handle_image_t current_swapchain_image();
   handle_image_view_t current_swapchain_image_view();
 
+  handle_bindless_image_t new_bindless_image();
+  handle_bindless_sampler_t new_bindless_sampler();
+
+  void set_bindless_image(handle_bindless_image_t handle,
+                          handle_image_view_t image_view,
+                          VkImageLayout vk_image_layout);
+  void set_bindless_sampler(handle_bindless_sampler_t handle,
+                            handle_sampler_t sampler);
+
   const base_config_t _info;
   handle_swapchain_t _swapchain;
   handle_command_pool_t _command_pool;
@@ -107,8 +121,14 @@ struct base_t {
   handle_semaphore_t _image_available_semaphores[MAX_FRAMES_IN_FLIGHT];
   handle_semaphore_t _render_finished_semaphores[MAX_FRAMES_IN_FLIGHT];
 
+  handle_descriptor_set_layout_t _bindless_descriptor_set_layout;
+  handle_descriptor_set_t _bindless_descriptor_set;
+
   uint32_t _current_frame = 0;
   uint32_t _next_image = 0;
+
+  handle_bindless_image_t _image_counter = 0;
+  handle_bindless_sampler_t _sampler_counter = 0;
 
   bool _resize = false;
 

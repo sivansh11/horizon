@@ -2,6 +2,8 @@
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
 #include "horizon/gfx/context.hpp"
+#include "horizon/gfx/types.hpp"
+#include <vulkan/vulkan_core.h>
 
 namespace gfx {
 
@@ -17,6 +19,24 @@ base_t::base_t(const base_config_t &info) : _info(info) {
     _image_available_semaphores[i] = _info.context.create_semaphore({});
     _render_finished_semaphores[i] = _info.context.create_semaphore({});
   }
+
+  gfx::config_descriptor_set_layout_t config_bindless_descriptor_set_layout{};
+  config_bindless_descriptor_set_layout.debug_name =
+      "bindless descriptor set layout";
+  config_bindless_descriptor_set_layout.add_layout_binding(
+      0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL, 1000);
+  config_bindless_descriptor_set_layout.add_layout_binding(
+      1, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL, 1000);
+  _bindless_descriptor_set_layout = _info.context.create_descriptor_set_layout(
+      config_bindless_descriptor_set_layout);
+
+  // TODO: think of a way to "set" bindless context
+  gfx::config_descriptor_set_t config_bindless_descriptor_set{};
+  config_bindless_descriptor_set.debug_name = "bindless descriptor";
+  config_bindless_descriptor_set.handle_descriptor_set_layout =
+      _bindless_descriptor_set_layout;
+  _bindless_descriptor_set =
+      _info.context.allocate_descriptor_set(config_bindless_descriptor_set);
 }
 
 base_t::~base_t() {
@@ -229,6 +249,40 @@ rendering_attachment_t base_t::swapchain_rendering_attachment(
   rendering_attachment.handle_image_view =
       _info.context.get_swapchain_image_views(_swapchain)[_next_image];
   return rendering_attachment;
+}
+
+handle_bindless_image_t base_t::new_bindless_image() {
+  horizon_profile();
+  handle_bindless_image_t handle = _image_counter;
+  _image_counter++;
+  return handle;
+}
+
+handle_bindless_sampler_t base_t::new_bindless_sampler() {
+  horizon_profile();
+  handle_bindless_sampler_t handle = _sampler_counter;
+  _sampler_counter++;
+  return handle;
+}
+
+void base_t::set_bindless_image(handle_bindless_image_t handle,
+                                handle_image_view_t image_view,
+                                VkImageLayout vk_image_layout) {
+  horizon_profile();
+  _info.context.update_descriptor_set(_bindless_descriptor_set)
+      .push_image_write(
+          0,
+          {.handle_image_view = image_view, .vk_image_layout = vk_image_layout},
+          static_cast<uint32_t>(handle))
+      .commit();
+}
+void base_t::set_bindless_sampler(handle_bindless_sampler_t handle,
+                                  handle_sampler_t sampler) {
+  horizon_profile();
+  _info.context.update_descriptor_set(_bindless_descriptor_set)
+      .push_image_write(1, {.handle_sampler = sampler},
+                        static_cast<uint32_t>(handle))
+      .commit();
 }
 
 } // namespace gfx
