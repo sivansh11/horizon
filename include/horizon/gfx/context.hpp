@@ -635,6 +635,10 @@ private:
   std::map<handle_timer_t, internal::timer_t> _timers;
 };
 
+template <typename T> T to(VkDeviceAddress addr) {
+  return reinterpret_cast<T>(addr);
+}
+
 } // namespace gfx
 
 #define define_fmt(name)                                                       \
