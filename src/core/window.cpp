@@ -35,10 +35,10 @@ void window_t::poll_events() {
 }
 
 window_t::window_t(const std::string &title, uint32_t width, uint32_t height)
- : _title(title){
+    : _title(title) {
   horizon_profile();
 
-  // glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
+  glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
   _p_window = glfwCreateWindow(width, height, _title.c_str(), NULL, NULL);
   const char *description;
