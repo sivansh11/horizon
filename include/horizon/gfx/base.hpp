@@ -59,12 +59,6 @@ struct managed_descriptor_info_t {
 
 struct base_t;
 
-// NOTE: window and context are refs
-struct base_config_t {
-  const core::window_t &window;
-  context_t &context;
-};
-
 template <size_t MAX_FRAMES_IN_FLIGHT> struct update_managed_descriptor_set_t;
 
 struct base_t;
@@ -72,7 +66,7 @@ struct base_t;
 struct base_t {
   constexpr static size_t MAX_FRAMES_IN_FLIGHT = 2;
 
-  base_t(const base_config_t &base_config);
+  base_t(core::ref<core::window_t> window, core::ref<context_t> context);
   ~base_t();
 
   void begin();
@@ -113,7 +107,8 @@ struct base_t {
   void set_bindless_sampler(handle_bindless_sampler_t handle,
                             handle_sampler_t sampler);
 
-  const base_config_t _info;
+  core::ref<core::window_t> _window;
+  core::ref<context_t> _context;
   handle_swapchain_t _swapchain;
   handle_command_pool_t _command_pool;
   handle_commandbuffer_t _commandbuffers[MAX_FRAMES_IN_FLIGHT];
@@ -191,7 +186,7 @@ template <size_t MAX_FRAMES_IN_FLIGHT> struct update_managed_descriptor_set_t {
             handle, base._descriptor_sets);
     if (managed_descriptor_set.update_policy ==
         resource_update_policy_t::e_sparse) {
-      auto update_descriptor_set = base._info.context.update_descriptor_set(
+      auto update_descriptor_set = base._context->update_descriptor_set(
           managed_descriptor_set.handle_descriptor_sets[0]);
       for (auto &info : infos) {
         if (info.type == managed_descriptor_info_type_t::e_buffer) {
@@ -217,7 +212,7 @@ template <size_t MAX_FRAMES_IN_FLIGHT> struct update_managed_descriptor_set_t {
       // single image
       // single/multiple buffer
       for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-        auto update_descriptor_set = base._info.context.update_descriptor_set(
+        auto update_descriptor_set = base._context->update_descriptor_set(
             managed_descriptor_set.handle_descriptor_sets[i]);
         for (auto &info : infos) {
           if (info.type == managed_descriptor_info_type_t::e_buffer) {

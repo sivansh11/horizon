@@ -7,17 +7,18 @@
 
 namespace gfx {
 
-base_t::base_t(const base_config_t &info) : _info(info) {
+base_t::base_t(core::ref<core::window_t> window, core::ref<context_t> context)
+    : _window(window), _context(context) {
   horizon_profile();
-  _swapchain = _info.context.create_swapchain(_info.window);
-  _command_pool = _info.context.create_command_pool({});
+  _swapchain = _context->create_swapchain(*_window);
+  _command_pool = _context->create_command_pool({});
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-    _commandbuffers[i] = _info.context.allocate_commandbuffer(
+    _commandbuffers[i] = _context->allocate_commandbuffer(
         {.handle_command_pool = _command_pool,
          .debug_name = "commandbuffer_" + std::to_string(i)});
-    _in_flight_fences[i] = _info.context.create_fence({});
-    _image_available_semaphores[i] = _info.context.create_semaphore({});
-    _render_finished_semaphores[i] = _info.context.create_semaphore({});
+    _in_flight_fences[i] = _context->create_fence({});
+    _image_available_semaphores[i] = _context->create_semaphore({});
+    _render_finished_semaphores[i] = _context->create_semaphore({});
   }
 
   gfx::config_descriptor_set_layout_t config_bindless_descriptor_set_layout{};
@@ -27,7 +28,7 @@ base_t::base_t(const base_config_t &info) : _info(info) {
       0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL, 1000);
   config_bindless_descriptor_set_layout.add_layout_binding(
       1, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL, 1000);
-  _bindless_descriptor_set_layout = _info.context.create_descriptor_set_layout(
+  _bindless_descriptor_set_layout = _context->create_descriptor_set_layout(
       config_bindless_descriptor_set_layout);
 
   // TODO: think of a way to "set" bindless context
@@ -36,20 +37,20 @@ base_t::base_t(const base_config_t &info) : _info(info) {
   config_bindless_descriptor_set.handle_descriptor_set_layout =
       _bindless_descriptor_set_layout;
   _bindless_descriptor_set =
-      _info.context.allocate_descriptor_set(config_bindless_descriptor_set);
+      _context->allocate_descriptor_set(config_bindless_descriptor_set);
 }
 
 base_t::~base_t() {
   horizon_profile();
-  _info.context.wait_idle();
+  _context->wait_idle();
   for (auto &[handle, buffer] : _buffers) {
     for (auto handle_buffer : buffer.handle_buffers) {
-      _info.context.destroy_buffer(handle_buffer);
+      _context->destroy_buffer(handle_buffer);
     }
   }
   for (auto &[handle, descriptor_set] : _descriptor_sets) {
     for (auto handle_descriptor_set : descriptor_set.handle_descriptor_sets) {
-      _info.context.free_descriptor_set(handle_descriptor_set);
+      _context->free_descriptor_set(handle_descriptor_set);
     }
   }
 }
@@ -66,8 +67,8 @@ void base_t::begin() {
       _image_available_semaphores[_current_frame];
   handle_semaphore_t render_finished_semaphore =
       _render_finished_semaphores[_current_frame];
-  _info.context.wait_fence(in_flight_fence);
-  auto swapchain_image = _info.context.get_swapchain_next_image_index(
+  _context->wait_fence(in_flight_fence);
+  auto swapchain_image = _context->get_swapchain_next_image_index(
       _swapchain, image_available_semaphore, core::null_handle);
   if (!swapchain_image) {
     _resize = true;
@@ -75,8 +76,8 @@ void base_t::begin() {
   }
   check(swapchain_image, "Failed to get next image");
   _next_image = *swapchain_image;
-  _info.context.reset_fence(in_flight_fence);
-  _info.context.begin_commandbuffer(cbuf);
+  _context->reset_fence(in_flight_fence);
+  _context->begin_commandbuffer(cbuf);
 }
 
 void base_t::end() {
@@ -87,13 +88,13 @@ void base_t::end() {
       _image_available_semaphores[_current_frame];
   handle_semaphore_t render_finished_semaphore =
       _render_finished_semaphores[_current_frame];
-  _info.context.end_commandbuffer(cbuf);
-  _info.context.submit_commandbuffer(
+  _context->end_commandbuffer(cbuf);
+  _context->submit_commandbuffer(
       cbuf, {image_available_semaphore},
       {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
       {render_finished_semaphore}, in_flight_fence);
-  if (!_info.context.present_swapchain(_swapchain, _next_image,
-                                       {render_finished_semaphore})) {
+  if (!_context->present_swapchain(_swapchain, _next_image,
+                                   {render_finished_semaphore})) {
     _resize = true;
     return;
   }
@@ -102,17 +103,17 @@ void base_t::end() {
 
 void base_t::resize_swapchain() {
   horizon_profile();
-  auto [width, height] = _info.window.dimensions();
-  _info.context.wait_idle();
-  _info.context.destroy_swapchain(_swapchain);
-  _swapchain = _info.context.create_swapchain(_info.window);
+  auto [width, height] = _window->dimensions();
+  _context->wait_idle();
+  _context->destroy_swapchain(_swapchain);
+  _swapchain = _context->create_swapchain(*_window);
 }
 
 void base_t::begin_swapchain_renderpass() {
   horizon_profile();
   handle_commandbuffer_t cbuf = _commandbuffers[_current_frame];
-  _info.context.cmd_image_memory_barrier(
-      cbuf, _info.context.get_swapchain_images(_swapchain)[_next_image],
+  _context->cmd_image_memory_barrier(
+      cbuf, _context->get_swapchain_images(_swapchain)[_next_image],
       VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0,
       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -120,8 +121,8 @@ void base_t::begin_swapchain_renderpass() {
   auto rendering_attachment = swapchain_rendering_attachment(
       {0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
-  auto [width, height] = _info.window.dimensions();
-  _info.context.cmd_begin_rendering(
+  auto [width, height] = _window->dimensions();
+  _context->cmd_begin_rendering(
       cbuf, {rendering_attachment}, std::nullopt,
       VkRect2D{VkOffset2D{},
                {static_cast<uint32_t>(width), static_cast<uint32_t>(height)}});
@@ -130,9 +131,9 @@ void base_t::begin_swapchain_renderpass() {
 void base_t::end_swapchain_renderpass() {
   horizon_profile();
   handle_commandbuffer_t cbuf = _commandbuffers[_current_frame];
-  _info.context.cmd_end_rendering(cbuf);
-  _info.context.cmd_image_memory_barrier(
-      cbuf, _info.context.get_swapchain_images(_swapchain)[_next_image],
+  _context->cmd_end_rendering(cbuf);
+  _context->cmd_image_memory_barrier(
+      cbuf, _context->get_swapchain_images(_swapchain)[_next_image],
       VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
       VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -146,10 +147,10 @@ base_t::create_buffer(resource_update_policy_t update_policy,
   internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT> managed_buffer{
       .update_policy = update_policy};
   if (update_policy == resource_update_policy_t::e_sparse) {
-    managed_buffer.handle_buffers[0] = _info.context.create_buffer(config);
+    managed_buffer.handle_buffers[0] = _context->create_buffer(config);
   } else if (update_policy == resource_update_policy_t::e_every_frame) {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
-      managed_buffer.handle_buffers[i] = _info.context.create_buffer(config);
+      managed_buffer.handle_buffers[i] = _context->create_buffer(config);
   }
   handle_managed_buffer_t handle =
       utils::create_and_insert_new_handle<handle_managed_buffer_t>(
@@ -180,12 +181,12 @@ base_t::allocate_descriptor_set(resource_update_policy_t update_policy,
       managed_descriptor_set{.update_policy = update_policy};
   if (update_policy == resource_update_policy_t::e_sparse) {
     managed_descriptor_set.handle_descriptor_sets[0] =
-        _info.context.allocate_descriptor_set(config);
+        _context->allocate_descriptor_set(config);
   } else if (managed_descriptor_set.update_policy ==
              resource_update_policy_t::e_every_frame) {
     for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
       managed_descriptor_set.handle_descriptor_sets[i] =
-          _info.context.allocate_descriptor_set(config);
+          _context->allocate_descriptor_set(config);
     }
   }
   handle_managed_descriptor_set_t handle =
@@ -229,12 +230,12 @@ uint32_t base_t::current_frame() {
 
 handle_image_t base_t::current_swapchain_image() {
   horizon_profile();
-  return _info.context.get_swapchain_images(_swapchain)[_next_image];
+  return _context->get_swapchain_images(_swapchain)[_next_image];
 }
 
 handle_image_view_t base_t::current_swapchain_image_view() {
   horizon_profile();
-  return _info.context.get_swapchain_image_views(_swapchain)[_next_image];
+  return _context->get_swapchain_image_views(_swapchain)[_next_image];
 }
 
 rendering_attachment_t base_t::swapchain_rendering_attachment(
@@ -247,7 +248,7 @@ rendering_attachment_t base_t::swapchain_rendering_attachment(
   rendering_attachment.load_op = vk_load_op;
   rendering_attachment.store_op = vk_store_op;
   rendering_attachment.handle_image_view =
-      _info.context.get_swapchain_image_views(_swapchain)[_next_image];
+      _context->get_swapchain_image_views(_swapchain)[_next_image];
   return rendering_attachment;
 }
 
@@ -269,7 +270,7 @@ void base_t::set_bindless_image(handle_bindless_image_t handle,
                                 handle_image_view_t image_view,
                                 VkImageLayout vk_image_layout) {
   horizon_profile();
-  _info.context.update_descriptor_set(_bindless_descriptor_set)
+  _context->update_descriptor_set(_bindless_descriptor_set)
       .push_image_write(
           0,
           {.handle_image_view = image_view, .vk_image_layout = vk_image_layout},
@@ -279,7 +280,7 @@ void base_t::set_bindless_image(handle_bindless_image_t handle,
 void base_t::set_bindless_sampler(handle_bindless_sampler_t handle,
                                   handle_sampler_t sampler) {
   horizon_profile();
-  _info.context.update_descriptor_set(_bindless_descriptor_set)
+  _context->update_descriptor_set(_bindless_descriptor_set)
       .push_image_write(1, {.handle_sampler = sampler},
                         static_cast<uint32_t>(handle))
       .commit();
