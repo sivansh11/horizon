@@ -28,6 +28,8 @@ base_t::base_t(core::ref<core::window_t> window, core::ref<context_t> context)
       0, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, VK_SHADER_STAGE_ALL, 1000);
   config_bindless_descriptor_set_layout.add_layout_binding(
       1, VK_DESCRIPTOR_TYPE_SAMPLER, VK_SHADER_STAGE_ALL, 1000);
+  config_bindless_descriptor_set_layout.add_layout_binding(
+      2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, VK_SHADER_STAGE_ALL, 1000);
   _bindless_descriptor_set_layout = _context->create_descriptor_set_layout(
       config_bindless_descriptor_set_layout);
 
@@ -298,7 +300,7 @@ void base_t::set_bindless_storage_image(handle_bindless_storage_image_t handle,
                                         handle_image_view_t image_view) {
   horizon_profile();
   _context->update_descriptor_set(_bindless_descriptor_set)
-      .push_image_write(1,
+      .push_image_write(2,
                         {.handle_image_view = image_view,
                          .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL},
                         static_cast<uint32_t>(handle))
