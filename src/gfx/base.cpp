@@ -266,6 +266,13 @@ handle_bindless_sampler_t base_t::new_bindless_sampler() {
   return handle;
 }
 
+handle_bindless_storage_image_t base_t::new_bindless_storage_image() {
+  horizon_profile();
+  handle_bindless_storage_image_t handle = _storage_image_counter;
+  _storage_image_counter++;
+  return handle;
+}
+
 void base_t::set_bindless_image(handle_bindless_image_t handle,
                                 handle_image_view_t image_view,
                                 VkImageLayout vk_image_layout) {
@@ -277,11 +284,23 @@ void base_t::set_bindless_image(handle_bindless_image_t handle,
           static_cast<uint32_t>(handle))
       .commit();
 }
+
 void base_t::set_bindless_sampler(handle_bindless_sampler_t handle,
                                   handle_sampler_t sampler) {
   horizon_profile();
   _context->update_descriptor_set(_bindless_descriptor_set)
       .push_image_write(1, {.handle_sampler = sampler},
+                        static_cast<uint32_t>(handle))
+      .commit();
+}
+
+void base_t::set_bindless_storage_image(handle_bindless_storage_image_t handle,
+                                        handle_image_view_t image_view) {
+  horizon_profile();
+  _context->update_descriptor_set(_bindless_descriptor_set)
+      .push_image_write(1,
+                        {.handle_image_view = image_view,
+                         .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL},
                         static_cast<uint32_t>(handle))
       .commit();
 }

@@ -14,6 +14,7 @@ define_handle(handle_managed_descriptor_set_t);
 
 define_handle(handle_bindless_image_t);
 define_handle(handle_bindless_sampler_t);
+define_handle(handle_bindless_storage_image_t);
 
 enum class resource_update_policy_t {
   e_sparse,
@@ -100,12 +101,15 @@ struct base_t {
 
   handle_bindless_image_t new_bindless_image();
   handle_bindless_sampler_t new_bindless_sampler();
+  handle_bindless_storage_image_t new_bindless_storage_image();
 
   void set_bindless_image(handle_bindless_image_t handle,
                           handle_image_view_t image_view,
                           VkImageLayout vk_image_layout);
   void set_bindless_sampler(handle_bindless_sampler_t handle,
                             handle_sampler_t sampler);
+  void set_bindless_storage_image(handle_bindless_storage_image_t handle,
+                                  handle_image_view_t image_view);
 
   core::ref<core::window_t> _window;
   core::ref<context_t> _context;
@@ -124,6 +128,7 @@ struct base_t {
 
   handle_bindless_image_t _image_counter = 0;
   handle_bindless_sampler_t _sampler_counter = 0;
+  handle_bindless_storage_image_t _storage_image_counter = 0;
 
   bool _resize = false;
 
