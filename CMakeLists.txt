@@ -76,7 +76,7 @@ FetchContent_Declare(
 FetchContent_Declare(
   slang
   GIT_REPOSITORY https://github.com/shader-slang/slang.git
-  GIT_TAG 772c48af91951bda9ff7064fc7a089550c759f76
+  GIT_TAG vulkan-sdk-1.4.309
 )
 
 if (NOT glm_POPULATED)
