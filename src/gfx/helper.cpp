@@ -414,7 +414,7 @@ gfx::handle_shader_t create_slang_shader(context_t& context, const std::filesyst
   config_shader_t cs{};
   cs.code_or_path = file_path.string();
   cs.is_code = false;
-  cs.name = file_path.filename();
+  cs.name = file_path.filename().string();
   cs.type = type;
   cs.language = shader_language_t::e_slang;
   return context.create_shader(cs);

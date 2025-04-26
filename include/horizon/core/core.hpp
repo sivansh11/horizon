@@ -20,19 +20,19 @@
 #define horizon_profile()
 #endif
 
-#define check(truthy, fail_msg...)  \
+#define check(truthy, ...)  \
 do {                                \
     if (!(truthy)) {                \
-        horizon_error(fail_msg);    \
+        horizon_error(__VA_ARGS__);    \
         std::terminate();           \
     }                               \
 } while (false)
 
 #ifndef NDEBUG
-#define horizon_assert(truthy, fail_msg...) \
-check(truthy, fail_msg)
+#define horizon_assert(truthy, ...) \
+check(truthy, __VA_ARGS__)
 #else
-#define horizon_assert(truthy, fail_msg...) 
+#define horizon_assert(truthy, ...) 
 #endif
 
 #define define_handle(name) \
@@ -140,7 +140,7 @@ struct scope_timer_t {
     ~scope_timer_t() noexcept;
 
     timer_end_callback_t _timer_end_callback;
-    std::chrono::_V2::system_clock::time_point _start;
+    std::chrono::high_resolution_clock::time_point _start;
 };
 
 struct frame_function_timer_t {
@@ -163,7 +163,7 @@ struct frame_timer_t {
     timer::duration_t update();
 
     float _target_fps;
-    std::chrono::_V2::system_clock::time_point _last_time;
+    std::chrono::high_resolution_clock::time_point _last_time;
 };
 
 } // namespace core

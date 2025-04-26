@@ -7,6 +7,8 @@
 #include "horizon/gfx/types.hpp"
 #include <vulkan/vulkan_core.h>
 
+#include <array>
+
 namespace gfx {
 
 define_handle(handle_managed_buffer_t);

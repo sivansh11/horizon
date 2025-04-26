@@ -672,7 +672,7 @@ define_fmt(gfx::handle_timer_t);
 #define define_handle_hash(name)                                               \
   template <> struct std::hash<name> {                                         \
     size_t operator()(const name &handle) const {                              \
-      size_t seed = 0;                                                         \
+      uint64_t seed = 0;                                                         \
       core::hash_combine(seed, handle.val);                                    \
       return seed;                                                             \
     }                                                                          \
