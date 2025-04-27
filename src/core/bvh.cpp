@@ -5,6 +5,8 @@
 #include "horizon/core/math.hpp"
 
 #include <algorithm>
+#include <alloca.h>
+#include <cstdint>
 #include <iterator>
 #include <limits>
 #include <span>
@@ -140,9 +142,13 @@ split_t find_best_object_split(const bvh_t &bvh, uint32_t node_index,
                                         i]]);
       }
 
-      float left_area[options.o_samples - 1], right_area[options.o_samples - 1];
-      uint32_t left_count[options.o_samples - 1],
-          right_count[options.o_samples - 1];
+      float *left_area = (float *)alloca(sizeof(float) * options.o_samples - 1);
+      float *right_area =
+          (float *)alloca(sizeof(float) * options.o_samples - 1);
+      uint32_t *left_count =
+          (uint32_t *)alloca(sizeof(uint32_t) * options.o_samples - 1);
+      uint32_t *right_count =
+          (uint32_t *)alloca(sizeof(uint32_t) * options.o_samples - 1);
       aabb_t left_aabb{}, right_aabb{};
       uint32_t left_sum = 0, right_sum = 0;
       for (uint32_t i = 0; i < options.o_samples - 1; i++) {
