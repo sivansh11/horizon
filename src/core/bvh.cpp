@@ -4,8 +4,8 @@
 #include "horizon/core/logger.hpp"
 #include "horizon/core/math.hpp"
 
+#include <malloc.h>
 #include <algorithm>
-#include <alloca.h>
 #include <cstdint>
 #include <iterator>
 #include <limits>
@@ -13,6 +13,7 @@
 #include <stack>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
+
 
 namespace core {
 
