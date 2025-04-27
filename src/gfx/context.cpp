@@ -1,5 +1,6 @@
 #include "horizon/gfx/context.hpp"
 
+#include "VkBootstrap.h"
 #include "glm/fwd.hpp"
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
@@ -550,6 +551,8 @@ void context_t::create_device() {
   }
   vkb_physical_device_selector.set_surface(vk_temp_surface);
   {
+    vkb_physical_device_selector.prefer_gpu_device_type(
+        vkb::PreferredDeviceType::discrete);
     auto result = vkb_physical_device_selector.select();
     check(result, "Failed to pick suitable device");
     _vkb_physical_device = result.value();
@@ -884,7 +887,7 @@ handle_buffer_t context_t::create_buffer(const config_buffer_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_BUFFER;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(buffer.vk_buffer);
+        reinterpret_cast<uint64_t &>(buffer.vk_buffer);
     vk_debug_utils_object_name_info.pObjectName =
         buffer.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -987,7 +990,7 @@ handle_sampler_t context_t::create_sampler(const config_sampler_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_SAMPLER;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(sampler.vk_sampler);
+        reinterpret_cast<uint64_t &>(sampler.vk_sampler);
     vk_debug_utils_object_name_info.pObjectName =
         sampler.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -1063,7 +1066,7 @@ handle_image_t context_t::create_image(const config_image_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_IMAGE;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(image.vk_image);
+        reinterpret_cast<uint64_t &>(image.vk_image);
     vk_debug_utils_object_name_info.pObjectName =
         image.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -1170,7 +1173,7 @@ context_t::create_image_view(const config_image_view_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_IMAGE_VIEW;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(image_view.vk_image_view);
+        reinterpret_cast<uint64_t &>(image_view.vk_image_view);
     vk_debug_utils_object_name_info.pObjectName =
         image_view.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -1243,7 +1246,7 @@ handle_descriptor_set_layout_t context_t::create_descriptor_set_layout(
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType =
         VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT;
-    vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t&>(
+    vk_debug_utils_object_name_info.objectHandle = reinterpret_cast<uint64_t &>(
         descriptor_set_layout.vk_descriptor_set_layout);
     vk_debug_utils_object_name_info.pObjectName =
         descriptor_set_layout.config.debug_name.data();
@@ -1316,7 +1319,7 @@ context_t::allocate_descriptor_set(const config_descriptor_set_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_DESCRIPTOR_SET;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(descriptor_set.vk_descriptor_set);
+        reinterpret_cast<uint64_t &>(descriptor_set.vk_descriptor_set);
     vk_debug_utils_object_name_info.pObjectName =
         descriptor_set.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -1390,7 +1393,7 @@ context_t::create_pipeline_layout(const config_pipeline_layout_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_PIPELINE_LAYOUT;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(pipeline_layout.vk_pipeline_layout);
+        reinterpret_cast<uint64_t &>(pipeline_layout.vk_pipeline_layout);
     vk_debug_utils_object_name_info.pObjectName =
         pipeline_layout.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -1653,7 +1656,7 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_SHADER_MODULE;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(shader.vk_shader);
+        reinterpret_cast<uint64_t &>(shader.vk_shader);
     vk_debug_utils_object_name_info.pObjectName =
         shader.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -1710,7 +1713,7 @@ context_t::create_compute_pipeline(const config_pipeline_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_PIPELINE;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(pipeline.vk_pipeline);
+        reinterpret_cast<uint64_t &>(pipeline.vk_pipeline);
     vk_debug_utils_object_name_info.pObjectName =
         pipeline.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -1881,7 +1884,7 @@ context_t::create_graphics_pipeline(const config_pipeline_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_PIPELINE;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(pipeline.vk_pipeline);
+        reinterpret_cast<uint64_t &>(pipeline.vk_pipeline);
     vk_debug_utils_object_name_info.pObjectName =
         pipeline.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -1916,7 +1919,7 @@ handle_fence_t context_t::create_fence(const config_fence_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_FENCE;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(fence.vk_fence);
+        reinterpret_cast<uint64_t &>(fence.vk_fence);
     vk_debug_utils_object_name_info.pObjectName =
         fence.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -1969,7 +1972,7 @@ context_t::create_semaphore(const config_semaphore_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_SEMAPHORE;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(semaphore.vk_semaphore);
+        reinterpret_cast<uint64_t &>(semaphore.vk_semaphore);
     vk_debug_utils_object_name_info.pObjectName =
         semaphore.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -2009,7 +2012,7 @@ context_t::create_command_pool(const config_command_pool_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_COMMAND_POOL;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(command_pool.vk_command_pool);
+        reinterpret_cast<uint64_t &>(command_pool.vk_command_pool);
     vk_debug_utils_object_name_info.pObjectName =
         command_pool.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
@@ -2166,7 +2169,7 @@ handle_timer_t context_t::create_timer(const config_timer_t &config) {
         VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT};
     vk_debug_utils_object_name_info.objectType = VK_OBJECT_TYPE_QUERY_POOL;
     vk_debug_utils_object_name_info.objectHandle =
-        reinterpret_cast<uint64_t&>(timer.vk_query_pool);
+        reinterpret_cast<uint64_t &>(timer.vk_query_pool);
     vk_debug_utils_object_name_info.pObjectName =
         timer.config.debug_name.data();
     vkSetDebugUtilsObjectNameEXT(_vkb_device, &vk_debug_utils_object_name_info);
