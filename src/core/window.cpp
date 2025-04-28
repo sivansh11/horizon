@@ -11,7 +11,7 @@ namespace core {
 struct glfw_initializer_t {
   glfw_initializer_t() {
     horizon_profile();
-    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+    // glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
     if (!glfwInit()) {
       horizon_error("Failed to initialize glfw");
       const char *description;
