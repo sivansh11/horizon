@@ -2200,8 +2200,16 @@ std::optional<float> context_t::timer_get_time(handle_timer_t handle) {
   VkResult vk_result = vkGetQueryPoolResults(
       _vkb_device, timer, 0, 2, sizeof(uint64_t) * 2, &time_stamps,
       sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+#ifndef HORIZON_FORCE_WAIT_QUERY_RESULT
   if (vk_result == VK_NOT_READY)
     return std::nullopt;
+#else
+  while (vk_result == VK_NOT_READY) {
+    vk_result = vkGetQueryPoolResults(_vkb_device, timer, 0, 2,
+                                      sizeof(uint64_t) * 2, &time_stamps,
+                                      sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
+  }
+#endif // HORIZON_FORCE_WAIT_QUERY_RESULT
   check(vk_result == VK_SUCCESS, "Failed to timer get time");
   return ((time_stamps[1] - time_stamps[0]) *
           (_vkb_physical_device.properties.limits.timestampPeriod)) /
