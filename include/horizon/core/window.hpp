@@ -22,6 +22,8 @@ public:
 
   operator GLFWwindow *() const { return _p_window; }
 
+  bool get_key_pressed(int key) const;
+
 private:
   std::string _title;
   GLFWwindow *_p_window;

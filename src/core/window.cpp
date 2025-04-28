@@ -63,4 +63,9 @@ std::pair<int, int> window_t::dimensions() const {
   glfwGetWindowSize(_p_window, &width, &height);
   return {width, height};
 }
+
+bool window_t::get_key_pressed(int key) const {
+  return glfwGetKey(_p_window, key);
+}
+
 } // namespace core
