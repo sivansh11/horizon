@@ -547,7 +547,9 @@ void context_t::create_device() {
   {
     VkResult vk_result = glfwCreateWindowSurface(
         _vkb_instance, temp_window.window(), nullptr, &vk_temp_surface);
-    check(vk_result == VK_SUCCESS, "Failed to create surface");
+    const char *description;
+    glfwGetError(&description);
+    check(vk_result == VK_SUCCESS, "Failed to create surface: {}", description);
   }
   vkb_physical_device_selector.set_surface(vk_temp_surface);
   {
@@ -698,7 +700,9 @@ handle_swapchain_t context_t::create_swapchain(const core::window_t &window) {
   {
     VkResult vk_result = glfwCreateWindowSurface(
         _vkb_instance, window.window(), nullptr, &swapchain.vk_surface);
-    check(vk_result == VK_SUCCESS, "Failed to create surface");
+    const char *description;
+    glfwGetError(&description);
+    check(vk_result == VK_SUCCESS, "Failed to create surface: {}", description);
   }
   {
     vkb::SwapchainBuilder vkb_swapchain_builder{_vkb_device,
