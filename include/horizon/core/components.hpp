@@ -7,7 +7,9 @@ namespace core {
 
 struct camera_t {
   mat4 view;
+  mat4 inv_view;
   mat4 projection;
+  mat4 inv_projection;
 };
 
 struct transform_t {
