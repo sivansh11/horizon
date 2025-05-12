@@ -39,6 +39,11 @@ set(SLANG_ENABLE_REPLAYER OFF)
 set(SLANG_USE_SYSTEM_VULKAN_HEADERS ON)
 
 FetchContent_Declare(
+  stb_cmake
+  GIT_REPOSITORY https://github.com/sivansh11/stb_cmake.git
+  GIT_TAG main
+)
+FetchContent_Declare(
   glm
   GIT_REPOSITORY https://github.com/g-truc/glm.git
   GIT_TAG release-1-0-2
@@ -80,6 +85,9 @@ FetchContent_Declare(
   GIT_TAG vulkan-sdk-1.4.309
 )
 
+if (NOT stb_cmake_POPULATED)
+  FetchContent_MakeAvailable(stb_cmake)
+endif()
 if (NOT glm_POPULATED)
   FetchContent_MakeAvailable(glm)
 endif()
