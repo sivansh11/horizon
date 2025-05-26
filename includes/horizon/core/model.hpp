@@ -1,10 +1,11 @@
 #ifndef CORE_MODEL_HPP
 #define CORE_MODEL_HPP
 
-#include "aabb.hpp"
-
 #include <filesystem>
 #include <vector>
+
+#include "math/aabb.hpp"
+#include "math/math.hpp"
 
 namespace core {
 
@@ -42,7 +43,7 @@ struct raw_mesh_t {
   std::vector<vertex_t> vertices{};
   std::vector<uint32_t> indices{};
   material_description_t material_description{};
-  aabb_t aabb{};
+  math::aabb_t aabb{};
   std::string name{};
 };
 

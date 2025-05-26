@@ -3,3 +3,4 @@
 OUTPUT/
 /debug_build*
 .*
+test.ppm

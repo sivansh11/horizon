@@ -23,8 +23,8 @@ set(IMGUI_IMPL_VULKAN_USE_LOADER OFF CACHE INTERNAL "Imgui vulkan use loader")
 set(IMGUI_IMPL_VULKAN_NO_PROTOTYPES ON CACHE INTERNAL "Imgui vulkan no prototypes")
 set(IMGUI_IMPL_VULKAN_USE_VOLK ON CACHE INTERNAL "Imgui vulkan use volk")
 # set(GLFW_BUILD_WAYLAND OFF CACHE INTERNAL "GLFW build wayland")
-set(SLANG_EMBED_CORE_MODULE ON)
-set(SLANG_EMBED_CORE_MODULE_SOURCE OFF)
+set(SLANG_EMBED_CORE_MODULE OFF)
+set(SLANG_EMBED_CORE_MODULE_SOURCE ON)
 set(SLANG_ENABLE_DXIL OFF)
 set(SLANG_ENABLE_GFX OFF)
 set(SLANG_ENABLE_SLANGD OFF)
@@ -38,6 +38,16 @@ set(SLANG_ENABLE_SLANG_RHI OFF)
 set(SLANG_ENABLE_REPLAYER OFF)
 set(SLANG_USE_SYSTEM_VULKAN_HEADERS ON)
 
+FetchContent_Declare(
+  math
+  GIT_REPOSITORY https://github.com/sivansh11/math
+  GIT_TAG main
+)
+FetchContent_Declare(
+  bvh
+  GIT_REPOSITORY https://github.com/sivansh11/bvh
+  GIT_TAG main
+)
 FetchContent_Declare(
   stb_cmake
   GIT_REPOSITORY https://github.com/sivansh11/stb_cmake.git
@@ -85,6 +95,12 @@ FetchContent_Declare(
   GIT_TAG vulkan-sdk-1.4.309
 )
 
+if (NOT math_POPULATED)
+  FetchContent_MakeAvailable(math)
+endif()
+if (NOT bvh_POPULATED)
+  FetchContent_MakeAvailable(bvh)
+endif()
 if (NOT stb_cmake_POPULATED)
   FetchContent_MakeAvailable(stb_cmake)
 endif()
