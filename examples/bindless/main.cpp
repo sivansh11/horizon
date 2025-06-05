@@ -1,7 +1,7 @@
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
-#include "horizon/core/math.hpp"
 #include "horizon/core/window.hpp"
+#include "math/math.hpp"
 
 #include "horizon/gfx/base.hpp"
 #include "horizon/gfx/context.hpp"
@@ -49,7 +49,7 @@ int main(int argc, char **argv) {
   gfx::handle_pipeline_t p = context->create_compute_pipeline(cp);
 
   gfx::config_buffer_t cb{};
-  cb.vk_size = sizeof(core::vec4);
+  cb.vk_size = sizeof(math::vec4);
   cb.vk_buffer_usage_flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
   cb.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT;
   gfx::handle_buffer_t b = context->create_buffer(cb);
@@ -65,6 +65,6 @@ int main(int argc, char **argv) {
                               sizeof(push_constant_t), &pc);
   context->cmd_dispatch(cbuf, 1, 1, 1);
   gfx::helper::end_single_use_command_buffer(*context, cbuf);
-  core::vec4 *v = (core::vec4 *)context->map_buffer(b);
-  horizon_info("{}", core::to_string(*v));
+  math::vec4 *v = (math::vec4 *)context->map_buffer(b);
+  horizon_info("{}", math::to_string(*v));
 }
