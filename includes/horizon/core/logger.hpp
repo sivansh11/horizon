@@ -1,8 +1,8 @@
 #ifndef CORE_LOGGER_HPP
 #define CORE_LOGGER_HPP
 
+#include <filesystem>
 #include <format>
-#include <iostream>
 
 namespace core {
 
@@ -13,9 +13,11 @@ enum class log_level_t {
   e_error = 3,
 };
 
-// TODO: make it thread safe
+// TODO: verify if ostream are thread safe
 class log_t {
 public:
+  static void set_log_file(const std::filesystem::path &path);
+
   static void set_log_level(log_level_t level);
 
   static void set_trace_color(const std::string &str);

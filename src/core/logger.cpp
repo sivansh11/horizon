@@ -1,4 +1,7 @@
 #include "horizon/core/logger.hpp"
+#include <fstream>
+#include <iostream>
+#include <memory>
 
 namespace core {
 
@@ -13,6 +16,14 @@ std::string log_t::_log_colors[4] = {
     "\e[0;91m",
 };
 
+static std::ostream *log_stream = &std::cout;
+static std::unique_ptr<std::ofstream> log_file;
+
+void log_t::set_log_file(const std::filesystem::path &path) {
+  log_file = std::make_unique<std::ofstream>(path);
+  log_stream = &(*log_file);
+}
+
 void log_t::set_log_level(log_level_t level) { _log_level = level; }
 
 void log_t::set_trace_color(const std::string &str) { _log_colors[0] = str; }
@@ -25,25 +36,25 @@ void log_t::set_error_color(const std::string &str) { _log_colors[3] = str; }
 
 void log_t::log_trace(const std::string &str) {
   if (_log_level <= log_level_t::e_trace) {
-    std::cout << _log_colors[0] << str << "\e[0;97m" << '\n';
+    (*log_stream) << _log_colors[0] << str << "\e[0;97m" << '\n';
   }
 }
 
 void log_t::log_info(const std::string &str) {
   if (_log_level <= log_level_t::e_info) {
-    std::cout << _log_colors[1] << str << "\e[0;97m" << '\n';
+    (*log_stream) << _log_colors[1] << str << "\e[0;97m" << '\n';
   }
 }
 
 void log_t::log_warn(const std::string &str) {
   if (_log_level <= log_level_t::e_warn) {
-    std::cout << _log_colors[2] << str << "\e[0;97m" << '\n';
+    (*log_stream) << _log_colors[2] << str << "\e[0;97m" << '\n';
   }
 }
 
 void log_t::log_error(const std::string &str) {
   if (_log_level <= log_level_t::e_error) {
-    std::cout << _log_colors[3] << str << "\e[0;97m" << '\n';
+    (*log_stream) << _log_colors[3] << str << "\e[0;97m" << '\n';
   }
 }
 
