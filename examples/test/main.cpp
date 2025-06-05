@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "horizon/gfx/context.hpp"
 #include "horizon/gfx/helper.hpp"
 
