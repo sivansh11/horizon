@@ -21,6 +21,6 @@ define_handle(handle_command_pool_t);
 define_handle(handle_commandbuffer_t);
 define_handle(handle_timer_t);
 
-}
+} // namespace gfx
 
 #endif

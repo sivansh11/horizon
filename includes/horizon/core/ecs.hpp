@@ -274,7 +274,8 @@ struct component_pool_t : public base_component_pool_t<page_size> {
 
     // check if page is empty, destroy page
     for (uint32_t i = 0; i < page_size; i++) {
-      if (page[i] != invalid_index) return;
+      if (page[i] != invalid_index)
+        return;
     }
 
     this->sparse.destroy(page_index);
