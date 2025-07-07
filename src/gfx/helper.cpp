@@ -473,7 +473,7 @@ void imgui_init(core::window_t &window, context_t &context,
 
   ImGui_ImplVulkan_Init(&initInfo);
 
-  ImGui_ImplVulkan_CreateFontsTexture();
+  // ImGui_ImplVulkan_CreateFontsTexture();
 }
 
 void imgui_shutdown() {
