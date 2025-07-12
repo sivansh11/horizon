@@ -1,15 +1,15 @@
 #include "horizon/gfx/context.hpp"
 
+#include <vulkan/vulkan_core.h>
+
 #include "VkBootstrap.h"
 #include "glm/fwd.hpp"
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
 #include "horizon/core/window.hpp"
-#include <vulkan/vulkan_core.h>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
-
 #include <slang-com-helper.h>
 #include <slang-com-ptr.h>
 #include <slang-gfx.h>
@@ -34,8 +34,7 @@ static VkImageAspectFlags get_image_aspect(VkFormat vk_format) {
       VK_FORMAT_D32_SFLOAT_S8_UINT,
   };
 
-  if (vk_depth_formats.contains(vk_format))
-    return VK_IMAGE_ASPECT_DEPTH_BIT;
+  if (vk_depth_formats.contains(vk_format)) return VK_IMAGE_ASPECT_DEPTH_BIT;
   return VK_IMAGE_ASPECT_COLOR_BIT;
 }
 
@@ -52,7 +51,7 @@ inline void diagnostic_callback_slang(const char *msg, void *user_data) {
   }
 }
 
-} // namespace utils
+}  // namespace utils
 
 namespace gfx {
 
@@ -62,9 +61,9 @@ config_descriptor_set_layout_t::add_layout_binding(
     VkShaderStageFlags vk_shader_stages, uint32_t vk_count) {
   horizon_profile();
   VkDescriptorSetLayoutBinding vk_descriptor_set_layout_binding{};
-  vk_descriptor_set_layout_binding.binding = vk_binding;
-  vk_descriptor_set_layout_binding.descriptorType = vk_descriptor_type;
-  vk_descriptor_set_layout_binding.stageFlags = vk_shader_stages;
+  vk_descriptor_set_layout_binding.binding         = vk_binding;
+  vk_descriptor_set_layout_binding.descriptorType  = vk_descriptor_type;
+  vk_descriptor_set_layout_binding.stageFlags      = vk_shader_stages;
   vk_descriptor_set_layout_binding.descriptorCount = vk_count;
   vk_descriptor_set_layout_bindings.push_back(vk_descriptor_set_layout_binding);
   return *this;
@@ -82,8 +81,8 @@ config_pipeline_layout_t &config_pipeline_layout_t::add_push_constant(
     uint32_t vk_offset) {
   horizon_profile();
   VkPushConstantRange vk_push_constant_range{};
-  vk_push_constant_range.size = vk_size;
-  vk_push_constant_range.offset = vk_offset;
+  vk_push_constant_range.size       = vk_size;
+  vk_push_constant_range.offset     = vk_offset;
   vk_push_constant_range.stageFlags = vk_shader_stages;
   vk_push_constant_ranges.push_back(vk_push_constant_range);
   return *this;
@@ -92,44 +91,46 @@ config_pipeline_layout_t &config_pipeline_layout_t::add_push_constant(
 config_pipeline_t::config_pipeline_t() {
   horizon_profile();
   vk_pipeline_input_assembly_state = {
-      .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+      .sType    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
       .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
       .primitiveRestartEnable = VK_FALSE};
 
   vk_pipeline_depth_stencil_state_create_info.sType =
       VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-  vk_pipeline_depth_stencil_state_create_info.depthTestEnable = VK_TRUE;
+  vk_pipeline_depth_stencil_state_create_info.depthTestEnable  = VK_TRUE;
   vk_pipeline_depth_stencil_state_create_info.depthWriteEnable = VK_TRUE;
   vk_pipeline_depth_stencil_state_create_info.depthCompareOp =
       VK_COMPARE_OP_LESS;
   vk_pipeline_depth_stencil_state_create_info.depthBoundsTestEnable = VK_FALSE;
-  vk_pipeline_depth_stencil_state_create_info.minDepthBounds = 0.0f; // Optional
-  vk_pipeline_depth_stencil_state_create_info.maxDepthBounds = 1.0f; // Optional
+  vk_pipeline_depth_stencil_state_create_info.minDepthBounds =
+      0.0f;  // Optional
+  vk_pipeline_depth_stencil_state_create_info.maxDepthBounds =
+      1.0f;  // Optional
   vk_pipeline_depth_stencil_state_create_info.stencilTestEnable = VK_FALSE;
-  vk_pipeline_depth_stencil_state_create_info.front = {}; // Optional
-  vk_pipeline_depth_stencil_state_create_info.back = {};  // Optional
+  vk_pipeline_depth_stencil_state_create_info.front = {};  // Optional
+  vk_pipeline_depth_stencil_state_create_info.back  = {};  // Optional
 
   vk_pipeline_rasterization_state.sType =
       VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-  vk_pipeline_rasterization_state.depthClampEnable = VK_FALSE;
+  vk_pipeline_rasterization_state.depthClampEnable        = VK_FALSE;
   vk_pipeline_rasterization_state.rasterizerDiscardEnable = VK_FALSE;
-  vk_pipeline_rasterization_state.polygonMode = VK_POLYGON_MODE_FILL;
-  vk_pipeline_rasterization_state.lineWidth = 1.0f;
-  vk_pipeline_rasterization_state.cullMode = VK_CULL_MODE_NONE;
-  vk_pipeline_rasterization_state.frontFace = VK_FRONT_FACE_CLOCKWISE;
+  vk_pipeline_rasterization_state.polygonMode     = VK_POLYGON_MODE_FILL;
+  vk_pipeline_rasterization_state.lineWidth       = 1.0f;
+  vk_pipeline_rasterization_state.cullMode        = VK_CULL_MODE_NONE;
+  vk_pipeline_rasterization_state.frontFace       = VK_FRONT_FACE_CLOCKWISE;
   vk_pipeline_rasterization_state.depthBiasEnable = VK_FALSE;
-  vk_pipeline_rasterization_state.depthBiasConstantFactor = 0.0f; // Optional
-  vk_pipeline_rasterization_state.depthBiasClamp = 0.0f;          // Optional
-  vk_pipeline_rasterization_state.depthBiasSlopeFactor = 0.0f;    // Optional
+  vk_pipeline_rasterization_state.depthBiasConstantFactor = 0.0f;  // Optional
+  vk_pipeline_rasterization_state.depthBiasClamp          = 0.0f;  // Optional
+  vk_pipeline_rasterization_state.depthBiasSlopeFactor    = 0.0f;  // Optional
 
   vk_pipeline_multisample_state.sType =
       VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-  vk_pipeline_multisample_state.sampleShadingEnable = VK_FALSE;
-  vk_pipeline_multisample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-  vk_pipeline_multisample_state.minSampleShading = 1.0f;          // Optional
-  vk_pipeline_multisample_state.pSampleMask = nullptr;            // Optional
-  vk_pipeline_multisample_state.alphaToCoverageEnable = VK_FALSE; // Optional
-  vk_pipeline_multisample_state.alphaToOneEnable = VK_FALSE;      // Optional
+  vk_pipeline_multisample_state.sampleShadingEnable   = VK_FALSE;
+  vk_pipeline_multisample_state.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
+  vk_pipeline_multisample_state.minSampleShading      = 1.0f;      // Optional
+  vk_pipeline_multisample_state.pSampleMask           = nullptr;   // Optional
+  vk_pipeline_multisample_state.alphaToCoverageEnable = VK_FALSE;  // Optional
+  vk_pipeline_multisample_state.alphaToOneEnable      = VK_FALSE;  // Optional
 
   vk_dynamic_states = {VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_VIEWPORT};
 }
@@ -141,7 +142,7 @@ config_pipeline_t &config_pipeline_t::add_shader(handle_shader_t handle) {
 }
 
 config_pipeline_t &config_pipeline_t::add_color_attachment(
-    VkFormat vk_format,
+    VkFormat                                   vk_format,
     const VkPipelineColorBlendAttachmentState &vk_pipeline_color_blend_state) {
   horizon_profile();
   vk_color_formats.push_back(vk_format);
@@ -160,8 +161,8 @@ config_pipeline_t &config_pipeline_t::set_depth_attachment(
   return *this;
 }
 
-config_pipeline_t &
-config_pipeline_t::add_dynamic_state(const VkDynamicState &vk_dynamic_state) {
+config_pipeline_t &config_pipeline_t::add_dynamic_state(
+    const VkDynamicState &vk_dynamic_state) {
   horizon_profile();
   vk_dynamic_states.push_back(vk_dynamic_state);
   return *this;
@@ -171,8 +172,8 @@ config_pipeline_t &config_pipeline_t::add_vertex_input_binding_description(
     uint32_t vk_binding, uint32_t vk_stride, VkVertexInputRate vk_input_rate) {
   horizon_profile();
   VkVertexInputBindingDescription vk_vertex_input_binding_description{};
-  vk_vertex_input_binding_description.binding = vk_binding;
-  vk_vertex_input_binding_description.stride = vk_stride;
+  vk_vertex_input_binding_description.binding   = vk_binding;
+  vk_vertex_input_binding_description.stride    = vk_stride;
   vk_vertex_input_binding_description.inputRate = vk_input_rate;
   vk_vertex_input_binding_descriptions.push_back(
       vk_vertex_input_binding_description);
@@ -184,10 +185,10 @@ config_pipeline_t &config_pipeline_t::add_vertex_input_attribute_description(
     uint32_t vk_offset) {
   horizon_profile();
   VkVertexInputAttributeDescription vk_vertex_input_attribute_description{};
-  vk_vertex_input_attribute_description.binding = vk_binding;
-  vk_vertex_input_attribute_description.format = vk_format;
+  vk_vertex_input_attribute_description.binding  = vk_binding;
+  vk_vertex_input_attribute_description.format   = vk_format;
   vk_vertex_input_attribute_description.location = vk_location;
-  vk_vertex_input_attribute_description.offset = vk_offset;
+  vk_vertex_input_attribute_description.offset   = vk_offset;
   vk_vertex_input_attribute_descriptions.push_back(
       vk_vertex_input_attribute_description);
   return *this;
@@ -224,22 +225,21 @@ VkPipelineColorBlendAttachmentState default_color_blend_attachment() {
       VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
   vk_color_blend_attachment.blendEnable = VK_FALSE;
   vk_color_blend_attachment.srcColorBlendFactor =
-      VK_BLEND_FACTOR_ONE; // Optional
+      VK_BLEND_FACTOR_ONE;  // Optional
   vk_color_blend_attachment.dstColorBlendFactor =
-      VK_BLEND_FACTOR_ZERO;                                 // Optional
-  vk_color_blend_attachment.colorBlendOp = VK_BLEND_OP_ADD; // Optional
+      VK_BLEND_FACTOR_ZERO;                                  // Optional
+  vk_color_blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;  // Optional
   vk_color_blend_attachment.srcAlphaBlendFactor =
-      VK_BLEND_FACTOR_ONE; // Optional
+      VK_BLEND_FACTOR_ONE;  // Optional
   vk_color_blend_attachment.dstAlphaBlendFactor =
-      VK_BLEND_FACTOR_ZERO;                                 // Optional
-  vk_color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD; // Optional
+      VK_BLEND_FACTOR_ZERO;                                  // Optional
+  vk_color_blend_attachment.alphaBlendOp = VK_BLEND_OP_ADD;  // Optional
   return vk_color_blend_attachment;
 }
 
-update_descriptor_set_t &
-update_descriptor_set_t::push_buffer_write(uint32_t binding,
-                                           const buffer_descriptor_info_t &info,
-                                           uint32_t array_element) {
+update_descriptor_set_t &update_descriptor_set_t::push_buffer_write(
+    uint32_t binding, const buffer_descriptor_info_t &info,
+    uint32_t array_element) {
   horizon_profile();
   internal::descriptor_set_t &descriptor_set =
       utils::assert_and_get_data<internal::descriptor_set_t>(
@@ -248,13 +248,13 @@ update_descriptor_set_t::push_buffer_write(uint32_t binding,
                                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
   vk_write.dstBinding = binding;
   vk_write.descriptorCount =
-      1; // this is 1 as I am only updating 1 buffer descriptor per write
-  vk_write.dstSet = descriptor_set;
+      1;  // this is 1 as I am only updating 1 buffer descriptor per write
+  vk_write.dstSet                        = descriptor_set;
   VkDescriptorBufferInfo *vk_buffer_info = new VkDescriptorBufferInfo;
   vk_buffer_info->buffer = utils::assert_and_get_data<internal::buffer_t>(
       info.handle_buffer, context._buffers);
   vk_buffer_info->offset = info.vk_offset;
-  vk_buffer_info->range = info.vk_range;
+  vk_buffer_info->range  = info.vk_range;
 
   internal::descriptor_set_layout_t &descriptor_set_layout =
       utils::assert_and_get_data<internal::descriptor_set_layout_t>(
@@ -268,17 +268,16 @@ update_descriptor_set_t::push_buffer_write(uint32_t binding,
       });
   assert(itr !=
          descriptor_set_layout.config.vk_descriptor_set_layout_bindings.end());
-  vk_write.descriptorType = itr->descriptorType;
-  vk_write.pBufferInfo = vk_buffer_info;
+  vk_write.descriptorType  = itr->descriptorType;
+  vk_write.pBufferInfo     = vk_buffer_info;
   vk_write.dstArrayElement = array_element;
   vk_writes.push_back(vk_write);
   return *this;
 }
 
-update_descriptor_set_t &
-update_descriptor_set_t::push_image_write(uint32_t binding,
-                                          const image_descriptor_info_t &info,
-                                          uint32_t array_element) {
+update_descriptor_set_t &update_descriptor_set_t::push_image_write(
+    uint32_t binding, const image_descriptor_info_t &info,
+    uint32_t array_element) {
   horizon_profile();
   internal::descriptor_set_t &descriptor_set =
       utils::assert_and_get_data<internal::descriptor_set_t>(
@@ -287,8 +286,8 @@ update_descriptor_set_t::push_image_write(uint32_t binding,
                                     VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET};
   vk_write.dstBinding = binding;
   vk_write.descriptorCount =
-      1; // this is 1 as I am only updating 1 buffer descriptor per write
-  vk_write.dstSet = descriptor_set;
+      1;  // this is 1 as I am only updating 1 buffer descriptor per write
+  vk_write.dstSet                      = descriptor_set;
   VkDescriptorImageInfo *vk_image_info = new VkDescriptorImageInfo;
   vk_image_info->sampler =
       info.handle_sampler != core::null_handle
@@ -316,8 +315,8 @@ update_descriptor_set_t::push_image_write(uint32_t binding,
       });
   assert(itr !=
          descriptor_set_layout.config.vk_descriptor_set_layout_bindings.end());
-  vk_write.descriptorType = itr->descriptorType;
-  vk_write.pImageInfo = vk_image_info;
+  vk_write.descriptorType  = itr->descriptorType;
+  vk_write.pImageInfo      = vk_image_info;
   vk_write.dstArrayElement = array_element;
   vk_writes.push_back(vk_write);
   return *this;
@@ -328,10 +327,8 @@ void update_descriptor_set_t::commit() {
   vkUpdateDescriptorSets(context._vkb_device, vk_writes.size(),
                          vk_writes.data(), 0, nullptr);
   for (auto &vk_write : vk_writes) {
-    if (vk_write.pBufferInfo)
-      delete vk_write.pBufferInfo;
-    if (vk_write.pImageInfo)
-      delete vk_write.pImageInfo;
+    if (vk_write.pBufferInfo) delete vk_write.pBufferInfo;
+    if (vk_write.pImageInfo) delete vk_write.pImageInfo;
   }
   vk_writes.clear();
   horizon_trace("updated descriptor set {}", handle);
@@ -414,8 +411,7 @@ context_t::~context_t() {
   for (auto &[handle, image] : _images)
     if (!image.from_swapchain) {
       horizon_trace("forgot to clear image with handle: {}", handle);
-      if (image.p_data)
-        unmap_image(handle);
+      if (image.p_data) unmap_image(handle);
       vmaDestroyImage(_vma_allocator, image, image.vma_allocation);
     }
   for (auto &[handle, sampler] : _samplers) {
@@ -424,8 +420,7 @@ context_t::~context_t() {
   }
   for (auto &[handle, buffer] : _buffers) {
     horizon_trace("forgot to clear buffer with handle: {}", handle);
-    if (buffer.p_data)
-      unmap_buffer(handle);
+    if (buffer.p_data) unmap_buffer(handle);
     vmaDestroyBuffer(_vma_allocator, buffer, buffer.vma_allocation);
   }
   for (auto &[handle, swapchain] : _swapchains) {
@@ -445,27 +440,27 @@ void context_t::wait_idle() {
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL
-debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT vk_message_severity,
-               VkDebugUtilsMessageTypeFlagsEXT vk_message_type,
+debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT      vk_message_severity,
+               VkDebugUtilsMessageTypeFlagsEXT             vk_message_type,
                const VkDebugUtilsMessengerCallbackDataEXT *p_vk_callback_data,
-               void *p_user_data) {
+               void                                       *p_user_data) {
   horizon_profile();
   switch (vk_message_severity) {
-  case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
-    horizon_trace("{}", p_vk_callback_data->pMessage);
-    break;
-  case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
-    horizon_info("{}", p_vk_callback_data->pMessage);
-    break;
-  case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
-    horizon_warn("{}", p_vk_callback_data->pMessage);
-    break;
-  case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
-    horizon_error("{}", p_vk_callback_data->pMessage);
-    break;
-  default:
-    horizon_error("unknown message severity");
-    std::terminate();
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT:
+      horizon_trace("{}\n", p_vk_callback_data->pMessage);
+      break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT:
+      horizon_info("{}\n", p_vk_callback_data->pMessage);
+      break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT:
+      horizon_warn("{}\n", p_vk_callback_data->pMessage);
+      break;
+    case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
+      horizon_error("{}\n", p_vk_callback_data->pMessage);
+      break;
+    default:
+      horizon_error("unknown message severity");
+      std::terminate();
   }
   return VK_FALSE;
 }
@@ -511,29 +506,29 @@ void context_t::create_device() {
       vk_physical_device_dynamic_rendering_features);
   VkPhysicalDeviceFeatures vk_physical_device_features{
       .fillModeNonSolid = VK_TRUE,
-      .shaderInt64 = VK_TRUE,
+      .shaderInt64      = VK_TRUE,
   };
   vkb_physical_device_selector.set_required_features(
       vk_physical_device_features);
   VkPhysicalDeviceVulkan11Features vk_physical_device_vulkan_11_features{
       .variablePointersStorageBuffer = VK_TRUE,
-      .variablePointers = VK_TRUE,
+      .variablePointers              = VK_TRUE,
   };
   vkb_physical_device_selector.set_required_features_11(
       vk_physical_device_vulkan_11_features);
   VkPhysicalDeviceVulkan12Features vk_physical_device_vulkan_12_features{
-      .shaderUniformBufferArrayNonUniformIndexing = VK_TRUE,
-      .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
-      .shaderStorageBufferArrayNonUniformIndexing = VK_TRUE,
+      .shaderUniformBufferArrayNonUniformIndexing    = VK_TRUE,
+      .shaderSampledImageArrayNonUniformIndexing     = VK_TRUE,
+      .shaderStorageBufferArrayNonUniformIndexing    = VK_TRUE,
       .descriptorBindingUniformBufferUpdateAfterBind = VK_TRUE,
-      .descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
-      .descriptorBindingStorageImageUpdateAfterBind = VK_TRUE,
+      .descriptorBindingSampledImageUpdateAfterBind  = VK_TRUE,
+      .descriptorBindingStorageImageUpdateAfterBind  = VK_TRUE,
       .descriptorBindingStorageBufferUpdateAfterBind = VK_TRUE,
-      .descriptorBindingPartiallyBound = VK_TRUE,
-      .descriptorBindingVariableDescriptorCount = VK_TRUE,
-      .runtimeDescriptorArray = VK_TRUE,
-      .scalarBlockLayout = VK_TRUE,
-      .bufferDeviceAddress = VK_TRUE,
+      .descriptorBindingPartiallyBound               = VK_TRUE,
+      .descriptorBindingVariableDescriptorCount      = VK_TRUE,
+      .runtimeDescriptorArray                        = VK_TRUE,
+      .scalarBlockLayout                             = VK_TRUE,
+      .bufferDeviceAddress                           = VK_TRUE,
   };
   vkb_physical_device_selector.set_required_features_12(
       vk_physical_device_vulkan_12_features);
@@ -543,7 +538,7 @@ void context_t::create_device() {
 
   // create temp window to get surface information
   core::window_t temp_window{"temp", 2, 2};
-  VkSurfaceKHR vk_temp_surface;
+  VkSurfaceKHR   vk_temp_surface;
   {
     VkResult vk_result = glfwCreateWindowSurface(
         _vkb_instance, temp_window.window(), nullptr, &vk_temp_surface);
@@ -595,30 +590,30 @@ void context_t::create_device() {
 void context_t::create_allocator() {
   horizon_profile();
   VmaVulkanFunctions vma_vulkan_functions = {
-      .vkGetInstanceProcAddr = vkGetInstanceProcAddr,
-      .vkGetDeviceProcAddr = vkGetDeviceProcAddr,
+      .vkGetInstanceProcAddr         = vkGetInstanceProcAddr,
+      .vkGetDeviceProcAddr           = vkGetDeviceProcAddr,
       .vkGetPhysicalDeviceProperties = vkGetPhysicalDeviceProperties,
       .vkGetPhysicalDeviceMemoryProperties =
           vkGetPhysicalDeviceMemoryProperties,
-      .vkAllocateMemory = vkAllocateMemory,
-      .vkFreeMemory = vkFreeMemory,
-      .vkMapMemory = vkMapMemory,
-      .vkUnmapMemory = vkUnmapMemory,
-      .vkFlushMappedMemoryRanges = vkFlushMappedMemoryRanges,
-      .vkInvalidateMappedMemoryRanges = vkInvalidateMappedMemoryRanges,
-      .vkBindBufferMemory = vkBindBufferMemory,
-      .vkBindImageMemory = vkBindImageMemory,
-      .vkGetBufferMemoryRequirements = vkGetBufferMemoryRequirements,
-      .vkGetImageMemoryRequirements = vkGetImageMemoryRequirements,
-      .vkCreateBuffer = vkCreateBuffer,
-      .vkDestroyBuffer = vkDestroyBuffer,
-      .vkCreateImage = vkCreateImage,
-      .vkDestroyImage = vkDestroyImage,
-      .vkCmdCopyBuffer = vkCmdCopyBuffer,
+      .vkAllocateMemory                  = vkAllocateMemory,
+      .vkFreeMemory                      = vkFreeMemory,
+      .vkMapMemory                       = vkMapMemory,
+      .vkUnmapMemory                     = vkUnmapMemory,
+      .vkFlushMappedMemoryRanges         = vkFlushMappedMemoryRanges,
+      .vkInvalidateMappedMemoryRanges    = vkInvalidateMappedMemoryRanges,
+      .vkBindBufferMemory                = vkBindBufferMemory,
+      .vkBindImageMemory                 = vkBindImageMemory,
+      .vkGetBufferMemoryRequirements     = vkGetBufferMemoryRequirements,
+      .vkGetImageMemoryRequirements      = vkGetImageMemoryRequirements,
+      .vkCreateBuffer                    = vkCreateBuffer,
+      .vkDestroyBuffer                   = vkDestroyBuffer,
+      .vkCreateImage                     = vkCreateImage,
+      .vkDestroyImage                    = vkDestroyImage,
+      .vkCmdCopyBuffer                   = vkCmdCopyBuffer,
       .vkGetBufferMemoryRequirements2KHR = vkGetBufferMemoryRequirements2KHR,
-      .vkGetImageMemoryRequirements2KHR = vkGetImageMemoryRequirements2KHR,
-      .vkBindBufferMemory2KHR = vkBindBufferMemory2KHR,
-      .vkBindImageMemory2KHR = vkBindImageMemory2KHR,
+      .vkGetImageMemoryRequirements2KHR  = vkGetImageMemoryRequirements2KHR,
+      .vkBindBufferMemory2KHR            = vkBindBufferMemory2KHR,
+      .vkBindImageMemory2KHR             = vkBindImageMemory2KHR,
       .vkGetPhysicalDeviceMemoryProperties2KHR =
           vkGetPhysicalDeviceMemoryProperties2KHR,
       .vkGetDeviceBufferMemoryRequirements =
@@ -626,11 +621,11 @@ void context_t::create_allocator() {
       .vkGetDeviceImageMemoryRequirements = vkGetDeviceImageMemoryRequirements,
   };
   VmaAllocatorCreateInfo vma_allocator_create_info{
-      .flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
-      .physicalDevice = _vkb_physical_device,
-      .device = _vkb_device,
+      .flags            = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT,
+      .physicalDevice   = _vkb_physical_device,
+      .device           = _vkb_device,
       .pVulkanFunctions = &vma_vulkan_functions,
-      .instance = _vkb_instance,
+      .instance         = _vkb_instance,
       .vulkanApiVersion = VK_API_VERSION_1_3,
   };
   VkResult vk_result =
@@ -644,37 +639,37 @@ void context_t::create_descriptor_pool() {
   std::vector<VkDescriptorPoolSize> vk_pool_sizes{};
   {
     VkDescriptorPoolSize vk_pool_size{};
-    vk_pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    vk_pool_size.type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     vk_pool_size.descriptorCount = 1000000;
     vk_pool_sizes.push_back(vk_pool_size);
   }
   {
     VkDescriptorPoolSize vk_pool_size{};
-    vk_pool_size.type = VK_DESCRIPTOR_TYPE_SAMPLER;
+    vk_pool_size.type            = VK_DESCRIPTOR_TYPE_SAMPLER;
     vk_pool_size.descriptorCount = 1000000;
     vk_pool_sizes.push_back(vk_pool_size);
   }
   {
     VkDescriptorPoolSize vk_pool_size{};
-    vk_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+    vk_pool_size.type            = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
     vk_pool_size.descriptorCount = 1000000;
     vk_pool_sizes.push_back(vk_pool_size);
   }
   {
     VkDescriptorPoolSize vk_pool_size{};
-    vk_pool_size.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
+    vk_pool_size.type            = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
     vk_pool_size.descriptorCount = 1000000;
     vk_pool_sizes.push_back(vk_pool_size);
   }
   {
     VkDescriptorPoolSize vk_pool_size{};
-    vk_pool_size.type = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
+    vk_pool_size.type            = VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
     vk_pool_size.descriptorCount = 1000000;
     vk_pool_sizes.push_back(vk_pool_size);
   }
   {
     VkDescriptorPoolSize vk_pool_size{};
-    vk_pool_size.type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    vk_pool_size.type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
     vk_pool_size.descriptorCount = 1000000;
     vk_pool_sizes.push_back(vk_pool_size);
   }
@@ -682,8 +677,8 @@ void context_t::create_descriptor_pool() {
   vk_descriptor_pool_create_info.sType =
       VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   vk_descriptor_pool_create_info.poolSizeCount = vk_pool_sizes.size();
-  vk_descriptor_pool_create_info.pPoolSizes = vk_pool_sizes.data();
-  vk_descriptor_pool_create_info.maxSets = 1000000 * 7;
+  vk_descriptor_pool_create_info.pPoolSizes    = vk_pool_sizes.data();
+  vk_descriptor_pool_create_info.maxSets       = 1000000 * 7;
   vk_descriptor_pool_create_info.flags =
       VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT |
       VK_DESCRIPTOR_POOL_CREATE_UPDATE_AFTER_BIND_BIT_EXT;
@@ -721,18 +716,18 @@ handle_swapchain_t context_t::create_swapchain(const core::window_t &window) {
   }
   for (auto vk_image : vk_images) {
     config_image_t config_image{};
-    config_image.vk_width = swapchain.vk_swapchain.extent.width;
-    config_image.vk_height = swapchain.vk_swapchain.extent.height;
-    config_image.vk_depth = 1;
-    config_image.vk_type = VK_IMAGE_TYPE_2D;
-    config_image.vk_format = swapchain.vk_swapchain.image_format;
-    config_image.vk_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    config_image.vk_width          = swapchain.vk_swapchain.extent.width;
+    config_image.vk_height         = swapchain.vk_swapchain.extent.height;
+    config_image.vk_depth          = 1;
+    config_image.vk_type           = VK_IMAGE_TYPE_2D;
+    config_image.vk_format         = swapchain.vk_swapchain.image_format;
+    config_image.vk_usage          = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     config_image.vk_initial_layout = VK_IMAGE_LAYOUT_UNDEFINED;
-    config_image.vk_mips = 1;
-    config_image.vk_array_layers = 1;
-    config_image.vk_sample_count = VK_SAMPLE_COUNT_1_BIT;
+    config_image.vk_mips           = 1;
+    config_image.vk_array_layers   = 1;
+    config_image.vk_sample_count   = VK_SAMPLE_COUNT_1_BIT;
     internal::image_t image{.config = config_image};
-    image.vk_image = vk_image;
+    image.vk_image       = vk_image;
     image.from_swapchain = true;
 
     handle_image_t handle_image =
@@ -763,31 +758,30 @@ void context_t::destroy_swapchain(handle_swapchain_t handle) {
   _swapchains.erase(handle);
 }
 
-std::vector<handle_image_t>
-context_t::get_swapchain_images(handle_swapchain_t handle) {
+std::vector<handle_image_t> context_t::get_swapchain_images(
+    handle_swapchain_t handle) {
   horizon_profile();
   internal::swapchain_t &swapchain =
       utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
   return swapchain.handle_images;
 }
 
-std::vector<handle_image_view_t>
-context_t::get_swapchain_image_views(handle_swapchain_t handle) {
+std::vector<handle_image_view_t> context_t::get_swapchain_image_views(
+    handle_swapchain_t handle) {
   horizon_profile();
   internal::swapchain_t &swapchain =
       utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
   return swapchain.handle_image_views;
 }
 
-std::optional<uint32_t>
-context_t::get_swapchain_next_image_index(handle_swapchain_t handle,
-                                          handle_semaphore_t handle_semaphore,
-                                          handle_fence_t handle_fence) {
+std::optional<uint32_t> context_t::get_swapchain_next_image_index(
+    handle_swapchain_t handle, handle_semaphore_t handle_semaphore,
+    handle_fence_t handle_fence) {
   horizon_profile();
   internal::swapchain_t &swapchain =
       utils::assert_and_get_data<internal::swapchain_t>(handle, _swapchains);
   VkSemaphore vk_semaphore = VK_NULL_HANDLE;
-  VkFence vk_fence = VK_NULL_HANDLE;
+  VkFence     vk_fence     = VK_NULL_HANDLE;
   if (handle_semaphore != core::null_handle) {
     vk_semaphore = utils::assert_and_get_data<internal::semaphore_t>(
         handle_semaphore, _semaphores);
@@ -823,14 +817,14 @@ bool context_t::present_swapchain(
     vk_semaphores[i] = utils::assert_and_get_data<internal::semaphore_t>(
         handle_semaphores[i], _semaphores);
   }
-  VkResult vk_result;
+  VkResult         vk_result;
   VkPresentInfoKHR vk_present_info{.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR};
   vk_present_info.waitSemaphoreCount = handle_semaphores.size();
-  vk_present_info.pWaitSemaphores = vk_semaphores;
-  vk_present_info.swapchainCount = 1;
-  vk_present_info.pSwapchains = &swapchain.vk_swapchain.swapchain;
-  vk_present_info.pImageIndices = &image_index;
-  vk_present_info.pResults = &vk_result;
+  vk_present_info.pWaitSemaphores    = vk_semaphores;
+  vk_present_info.swapchainCount     = 1;
+  vk_present_info.pSwapchains        = &swapchain.vk_swapchain.swapchain;
+  vk_present_info.pImageIndices      = &image_index;
+  vk_present_info.pResults           = &vk_result;
 
   {
     VkResult vk_result =
@@ -906,8 +900,7 @@ void context_t::destroy_buffer(handle_buffer_t handle) {
   horizon_profile();
   internal::buffer_t &buffer =
       utils::assert_and_get_data<internal::buffer_t>(handle, _buffers);
-  if (buffer.p_data)
-    unmap_buffer(handle);
+  if (buffer.p_data) unmap_buffer(handle);
   vmaDestroyBuffer(_vma_allocator, buffer, buffer.vma_allocation);
   _buffers.erase(handle);
 }
@@ -916,8 +909,7 @@ void *context_t::map_buffer(handle_buffer_t handle) {
   horizon_profile();
   internal::buffer_t &buffer =
       utils::assert_and_get_data<internal::buffer_t>(handle, _buffers);
-  if (buffer.p_data)
-    return buffer.p_data;
+  if (buffer.p_data) return buffer.p_data;
   vmaMapMemory(_vma_allocator, buffer.vma_allocation, &buffer.p_data);
   return buffer.p_data;
 }
@@ -926,8 +918,7 @@ void context_t::unmap_buffer(handle_buffer_t handle) {
   horizon_profile();
   internal::buffer_t &buffer =
       utils::assert_and_get_data<internal::buffer_t>(handle, _buffers);
-  if (!buffer.p_data)
-    return;
+  if (!buffer.p_data) return;
   vmaUnmapMemory(_vma_allocator, buffer.vma_allocation);
   buffer.p_data = nullptr;
 }
@@ -966,20 +957,20 @@ handle_sampler_t context_t::create_sampler(const config_sampler_t &config) {
   VkSamplerCreateInfo vk_sampler_create_info{
       .sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
   vk_sampler_create_info.flags;
-  vk_sampler_create_info.magFilter = config.vk_mag_filter;
-  vk_sampler_create_info.minFilter = config.vk_min_filter;
-  vk_sampler_create_info.mipmapMode = config.vk_mipmap_mode;
-  vk_sampler_create_info.addressModeU = config.vk_address_mode_u;
-  vk_sampler_create_info.addressModeV = config.vk_address_mode_v;
-  vk_sampler_create_info.addressModeW = config.vk_address_mode_w;
-  vk_sampler_create_info.mipLodBias = config.vk_mip_lod_bias;
+  vk_sampler_create_info.magFilter        = config.vk_mag_filter;
+  vk_sampler_create_info.minFilter        = config.vk_min_filter;
+  vk_sampler_create_info.mipmapMode       = config.vk_mipmap_mode;
+  vk_sampler_create_info.addressModeU     = config.vk_address_mode_u;
+  vk_sampler_create_info.addressModeV     = config.vk_address_mode_v;
+  vk_sampler_create_info.addressModeW     = config.vk_address_mode_w;
+  vk_sampler_create_info.mipLodBias       = config.vk_mip_lod_bias;
   vk_sampler_create_info.anisotropyEnable = config.vk_anisotropy_enable;
-  vk_sampler_create_info.maxAnisotropy = config.vk_max_anisotropy;
-  vk_sampler_create_info.compareEnable = config.vk_compare_enable;
-  vk_sampler_create_info.compareOp = config.vk_compare_op;
-  vk_sampler_create_info.minLod = config.vk_min_lod;
-  vk_sampler_create_info.maxLod = config.vk_max_lod;
-  vk_sampler_create_info.borderColor = config.vk_border_color;
+  vk_sampler_create_info.maxAnisotropy    = config.vk_max_anisotropy;
+  vk_sampler_create_info.compareEnable    = config.vk_compare_enable;
+  vk_sampler_create_info.compareOp        = config.vk_compare_op;
+  vk_sampler_create_info.minLod           = config.vk_min_lod;
+  vk_sampler_create_info.maxLod           = config.vk_max_lod;
+  vk_sampler_create_info.borderColor      = config.vk_border_color;
   vk_sampler_create_info.unnormalizedCoordinates =
       config.vk_unnormalized_coordinates;
 
@@ -1023,8 +1014,8 @@ handle_image_t context_t::create_image(const config_image_t &config) {
   VkImageCreateInfo vk_image_create_info{
       .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
   vk_image_create_info.imageType = config.vk_type;
-  vk_image_create_info.extent = {config.vk_width, config.vk_height,
-                                 config.vk_depth};
+  vk_image_create_info.extent    = {config.vk_width, config.vk_height,
+                                    config.vk_depth};
   if (config.vk_mips == vk_auto_calculate_mip_levels) {
     VkImageFormatProperties image_format_properties{};
     vkGetPhysicalDeviceImageFormatProperties(
@@ -1036,20 +1027,20 @@ handle_image_t context_t::create_image(const config_image_t &config) {
     vk_image_create_info.mipLevels =
         static_cast<uint32_t>(std::floor(std::log2(std::max(
             std::max(config.vk_width, config.vk_height), config.vk_depth)))) +
-        1; // this might be wrong ?
+        1;  // this might be wrong ?
     vk_image_create_info.mipLevels = std::min(
         image_format_properties.maxMipLevels, vk_image_create_info.mipLevels);
   } else {
     vk_image_create_info.mipLevels = config.vk_mips;
   }
-  vk_image_create_info.arrayLayers = config.vk_array_layers;
-  vk_image_create_info.format = config.vk_format;
-  vk_image_create_info.tiling = config.vk_tiling;
+  vk_image_create_info.arrayLayers   = config.vk_array_layers;
+  vk_image_create_info.format        = config.vk_format;
+  vk_image_create_info.tiling        = config.vk_tiling;
   vk_image_create_info.initialLayout = config.vk_initial_layout;
-  vk_image_create_info.usage = config.vk_usage;
-  vk_image_create_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-  vk_image_create_info.samples = config.vk_sample_count;
-  vk_image_create_info.flags = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
+  vk_image_create_info.usage         = config.vk_usage;
+  vk_image_create_info.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+  vk_image_create_info.samples       = config.vk_sample_count;
+  vk_image_create_info.flags         = VK_IMAGE_CREATE_MUTABLE_FORMAT_BIT;
 
   internal::image_t image{.config = config};
   image.config.vk_mips = vk_image_create_info.mipLevels;
@@ -1085,8 +1076,7 @@ void context_t::destroy_image(handle_image_t handle) {
   horizon_profile();
   internal::image_t &image =
       utils::assert_and_get_data<internal::image_t>(handle, _images);
-  if (image.p_data)
-    unmap_image(handle);
+  if (image.p_data) unmap_image(handle);
   vmaDestroyImage(_vma_allocator, image, image.vma_allocation);
   _images.erase(handle);
 }
@@ -1095,8 +1085,7 @@ void *context_t::map_image(handle_image_t handle) {
   horizon_profile();
   internal::image_t &image =
       utils::assert_and_get_data<internal::image_t>(handle, _images);
-  if (image.p_data)
-    return image.p_data;
+  if (image.p_data) return image.p_data;
   vmaMapMemory(_vma_allocator, image.vma_allocation, &image.p_data);
   return image.p_data;
 }
@@ -1105,8 +1094,7 @@ void context_t::unmap_image(handle_image_t handle) {
   horizon_profile();
   internal::image_t &image =
       utils::assert_and_get_data<internal::image_t>(handle, _images);
-  if (!image.p_data)
-    return;
+  if (!image.p_data) return;
   vmaUnmapMemory(_vma_allocator, image.vma_allocation);
   image.p_data = nullptr;
 }
@@ -1122,8 +1110,8 @@ void context_t::flush_image(handle_image_t handle) {
   vmaFlushAllocation(_vma_allocator, image.vma_allocation, 0, VK_WHOLE_SIZE);
 }
 
-handle_image_view_t
-context_t::create_image_view(const config_image_view_t &config) {
+handle_image_view_t context_t::create_image_view(
+    const config_image_view_t &config) {
   horizon_profile();
   internal::image_t &image = utils::assert_and_get_data<internal::image_t>(
       config.handle_image, _images);
@@ -1144,22 +1132,22 @@ context_t::create_image_view(const config_image_view_t &config) {
 
   VkImageViewCreateInfo vk_image_view_create_info{
       .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-  vk_image_view_create_info.image = image;
+  vk_image_view_create_info.image    = image;
   vk_image_view_create_info.viewType = vk_image_view_type;
-  vk_image_view_create_info.format = config.vk_format == vk_auto_image_format
-                                         ? image.config.vk_format
-                                         : config.vk_format;
+  vk_image_view_create_info.format   = config.vk_format == vk_auto_image_format
+                                           ? image.config.vk_format
+                                           : config.vk_format;
   vk_image_view_create_info.subresourceRange.aspectMask =
       utils::get_image_aspect(image.config.vk_format);
   vk_image_view_create_info.subresourceRange.baseMipLevel =
-      config.vk_base_mip_level; // default base mip is 0 automatically, and for
-                                // custom it already has the value
+      config.vk_base_mip_level;  // default base mip is 0 automatically, and for
+                                 // custom it already has the value
   vk_image_view_create_info.subresourceRange.levelCount =
       config.vk_mips == vk_auto_mips ? image.config.vk_mips : config.vk_mips;
   vk_image_view_create_info.subresourceRange.baseArrayLayer =
       config
-          .vk_base_array_layer; // default base array layer is 0 automatically,
-                                // and for custom it already has the value
+          .vk_base_array_layer;  // default base array layer is 0 automatically,
+                                 // and for custom it already has the value
   vk_image_view_create_info.subresourceRange.layerCount =
       config.vk_layers == vk_auto_layers ? image.config.vk_array_layers
                                          : config.vk_layers;
@@ -1273,15 +1261,15 @@ void context_t::destroy_descriptor_set_layout(
   _descriptor_set_layouts.erase(handle);
 }
 
-internal::descriptor_set_layout_t &
-context_t::get_descriptor_set_layout(handle_descriptor_set_layout_t handle) {
+internal::descriptor_set_layout_t &context_t::get_descriptor_set_layout(
+    handle_descriptor_set_layout_t handle) {
   horizon_profile();
   return utils::assert_and_get_data<internal::descriptor_set_layout_t>(
       handle, _descriptor_set_layouts);
 }
 
-handle_descriptor_set_t
-context_t::allocate_descriptor_set(const config_descriptor_set_t &config) {
+handle_descriptor_set_t context_t::allocate_descriptor_set(
+    const config_descriptor_set_t &config) {
   horizon_profile();
   internal::descriptor_set_t descriptor_set{.config = config};
 
@@ -1291,7 +1279,7 @@ context_t::allocate_descriptor_set(const config_descriptor_set_t &config) {
 
   VkDescriptorSetAllocateInfo vk_descriptor_set_allocate_info{
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO};
-  vk_descriptor_set_allocate_info.descriptorPool = _vk_descriptor_pool;
+  vk_descriptor_set_allocate_info.descriptorPool     = _vk_descriptor_pool;
   vk_descriptor_set_allocate_info.descriptorSetCount = 1;
   vk_descriptor_set_allocate_info.pSetLayouts =
       &descriptor_set_layout.vk_descriptor_set_layout;
@@ -1346,24 +1334,24 @@ void context_t::free_descriptor_set(handle_descriptor_set_t handle) {
   _descriptor_sets.erase(handle);
 }
 
-update_descriptor_set_t
-context_t::update_descriptor_set(handle_descriptor_set_t handle) {
+update_descriptor_set_t context_t::update_descriptor_set(
+    handle_descriptor_set_t handle) {
   horizon_profile();
   return {*this, handle};
 }
 
-internal::descriptor_set_t &
-context_t::get_descriptor_set(handle_descriptor_set_t handle) {
+internal::descriptor_set_t &context_t::get_descriptor_set(
+    handle_descriptor_set_t handle) {
   horizon_profile();
   return utils::assert_and_get_data<internal::descriptor_set_t>(
       handle, _descriptor_sets);
 }
 
-handle_pipeline_layout_t
-context_t::create_pipeline_layout(const config_pipeline_layout_t &config) {
+handle_pipeline_layout_t context_t::create_pipeline_layout(
+    const config_pipeline_layout_t &config) {
   horizon_profile();
   internal::pipeline_layout_t pipeline_layout{.config = config};
-  VkDescriptorSetLayout *vk_descriptor_set_layouts =
+  VkDescriptorSetLayout      *vk_descriptor_set_layouts =
       reinterpret_cast<VkDescriptorSetLayout *>(
           alloca(config.handle_descriptor_set_layouts.size() *
                  sizeof(VkDescriptorSetLayout)));
@@ -1425,16 +1413,16 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
       .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO};
   std::vector<uint32_t> spirv_shader_module_code{};
 
-  Slang::ComPtr<slang::ICompileRequest> compileRequest;
-  Slang::ComPtr<slang::IBlob> spirvCode;
-  Slang::ComPtr<slang::IComponentType> composedProgram;
-  std::vector<slang::IComponentType *> componentTypes;
-  Slang::ComPtr<slang::IEntryPoint> entryPoint;
-  slang::IModule *slangModule = nullptr;
+  Slang::ComPtr<slang::ICompileRequest>       compileRequest;
+  Slang::ComPtr<slang::IBlob>                 spirvCode;
+  Slang::ComPtr<slang::IComponentType>        composedProgram;
+  std::vector<slang::IComponentType *>        componentTypes;
+  Slang::ComPtr<slang::IEntryPoint>           entryPoint;
+  slang::IModule                             *slangModule = nullptr;
   static Slang::ComPtr<slang::IGlobalSession> slangGlobalSession;
-  static bool once_slang = []() {
+  static bool                                 once_slang = []() {
     check(slang::createGlobalSession(slangGlobalSession.writeRef()) == 0,
-          "failed to create global session");
+                                          "failed to create global session");
     return true;
   }();
 
@@ -1493,12 +1481,12 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
   // // }
 
   static std::vector<slang::CompilerOptionEntry> compiler_options;
-  Slang::ComPtr<slang::ISession> session;
-  slang::SessionDesc sessionDesc = {};
-  slang::TargetDesc targetDesc = {};
-  targetDesc.format = SLANG_SPIRV;
+  Slang::ComPtr<slang::ISession>                 session;
+  slang::SessionDesc                             sessionDesc = {};
+  slang::TargetDesc                              targetDesc  = {};
+  targetDesc.format                                          = SLANG_SPIRV;
   targetDesc.profile = slangGlobalSession->findProfile("spirv_1_5");
-  targetDesc.flags = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
+  targetDesc.flags   = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
   targetDesc.forceGLSLScalarBufferLayout = true;
 
   slang::CompilerOptionValue compiler_value{};
@@ -1524,26 +1512,26 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
   compiler_option.value = compiler_value;
   compiler_options.push_back(compiler_option);
 
-  compiler_option.name = slang::CompilerOptionName::GLSLForceScalarLayout;
-  compiler_value.kind = slang::CompilerOptionValueKind::Int;
+  compiler_option.name     = slang::CompilerOptionName::GLSLForceScalarLayout;
+  compiler_value.kind      = slang::CompilerOptionValueKind::Int;
   compiler_value.intValue0 = 1;
-  compiler_option.value = compiler_value;
+  compiler_option.value    = compiler_value;
   compiler_options.push_back(compiler_option);
 
   // targetDesc.compilerOptionEntries = compiler_options.data();
   // targetDesc.compilerOptionEntryCount = compiler_options.size();
 
   sessionDesc.allowGLSLSyntax = true;
-  sessionDesc.targets = &targetDesc;
-  sessionDesc.targetCount = 1;
+  sessionDesc.targets         = &targetDesc;
+  sessionDesc.targetCount     = 1;
 
   sessionDesc.compilerOptionEntryCount = compiler_options.size();
-  sessionDesc.compilerOptionEntries = compiler_options.data();
+  sessionDesc.compilerOptionEntries    = compiler_options.data();
   // sessionDesc.defaultMatrixLayoutMode =
   // SlangMatrixLayoutMode::SLANG_MATRIX_LAYOUT_COLUMN_MAJOR;
 
-  const char *search_paths[] = {"../../assets/shaders/includes"};
-  sessionDesc.searchPaths = search_paths;
+  const char *search_paths[]  = {"../../assets/shaders/includes"};
+  sessionDesc.searchPaths     = search_paths;
   sessionDesc.searchPathCount = 1;
   check(slangGlobalSession->createSession(sessionDesc, session.writeRef()) == 0,
         "failed to create session");
@@ -1577,30 +1565,30 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
 
   Slang::ComPtr<slang::IBlob> diagnosticBlob;
   switch (config.type) {
-  case shader_type_t::e_vertex:
-    // slangModule->findEntryPointByName("vertex_main",
-    // entryPoint.writeRef());
-    slangModule->findAndCheckEntryPoint(
-        "vertex_main", SlangStage::SLANG_STAGE_VERTEX, entryPoint.writeRef(),
-        diagnosticBlob.writeRef());
-    break;
-  case shader_type_t::e_fragment:
-    // slangModule->findEntryPointByName("fragment_main",
-    // entryPoint.writeRef());
-    slangModule->findAndCheckEntryPoint(
-        "fragment_main", SlangStage::SLANG_STAGE_FRAGMENT,
-        entryPoint.writeRef(), diagnosticBlob.writeRef());
-    break;
-  case shader_type_t::e_compute:
-    // slangModule->findEntryPointByName("compute_main",
-    // entryPoint.writeRef());
-    slangModule->findAndCheckEntryPoint(
-        "compute_main", SlangStage::SLANG_STAGE_COMPUTE, entryPoint.writeRef(),
-        diagnosticBlob.writeRef());
-    break;
-  default:
-    horizon_error("unknown shader type");
-    std::terminate();
+    case shader_type_t::e_vertex:
+      // slangModule->findEntryPointByName("vertex_main",
+      // entryPoint.writeRef());
+      slangModule->findAndCheckEntryPoint(
+          "vertex_main", SlangStage::SLANG_STAGE_VERTEX, entryPoint.writeRef(),
+          diagnosticBlob.writeRef());
+      break;
+    case shader_type_t::e_fragment:
+      // slangModule->findEntryPointByName("fragment_main",
+      // entryPoint.writeRef());
+      slangModule->findAndCheckEntryPoint(
+          "fragment_main", SlangStage::SLANG_STAGE_FRAGMENT,
+          entryPoint.writeRef(), diagnosticBlob.writeRef());
+      break;
+    case shader_type_t::e_compute:
+      // slangModule->findEntryPointByName("compute_main",
+      // entryPoint.writeRef());
+      slangModule->findAndCheckEntryPoint(
+          "compute_main", SlangStage::SLANG_STAGE_COMPUTE,
+          entryPoint.writeRef(), diagnosticBlob.writeRef());
+      break;
+    default:
+      horizon_error("unknown shader type");
+      std::terminate();
   }
   utils::diagnose_if_needed(diagnosticBlob);
   check(entryPoint, "failed to find entrypoint in {}", path);
@@ -1610,7 +1598,7 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
 
   {
     Slang::ComPtr<slang::IBlob> diagnosticsBlob;
-    SlangResult result = session->createCompositeComponentType(
+    SlangResult                 result = session->createCompositeComponentType(
         componentTypes.data(), componentTypes.size(),
         composedProgram.writeRef(), diagnosticsBlob.writeRef());
     utils::diagnose_if_needed(diagnosticsBlob);
@@ -1619,7 +1607,7 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
 
   {
     Slang::ComPtr<slang::IBlob> diagnosticsBlob;
-    SlangResult result = composedProgram->getEntryPointCode(
+    SlangResult                 result = composedProgram->getEntryPointCode(
         0, 0, spirvCode.writeRef(), diagnosticsBlob.writeRef());
     utils::diagnose_if_needed(diagnosticsBlob);
     check(result == 0, "Failed to get spirv code");
@@ -1645,11 +1633,10 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
   vk_shader_module_create_info.pCode =
       static_cast<const uint32_t *>(spirvCode->getBufferPointer());
 
-  if (!config.is_code)
-    horizon_trace("reading file {}", config.code_or_path);
+  if (!config.is_code) horizon_trace("reading file {}", config.code_or_path);
 
   internal::shader_t shader{.config = config};
-  VkResult vk_result = vkCreateShaderModule(
+  VkResult           vk_result = vkCreateShaderModule(
       _vkb_device, &vk_shader_module_create_info, nullptr, &shader.vk_shader);
   check(vk_result == VK_SUCCESS, "Failed to create shader");
 
@@ -1679,12 +1666,12 @@ void context_t::destroy_shader(handle_shader_t handle) {
   _shaders.erase(handle);
 }
 
-handle_pipeline_t
-context_t::create_compute_pipeline(const config_pipeline_t &config) {
+handle_pipeline_t context_t::create_compute_pipeline(
+    const config_pipeline_t &config) {
   horizon_profile();
-  internal::pipeline_t pipeline{.vk_pipeline_bind_point =
-                                    VK_PIPELINE_BIND_POINT_COMPUTE,
-                                .config = config};
+  internal::pipeline_t pipeline{
+      .vk_pipeline_bind_point = VK_PIPELINE_BIND_POINT_COMPUTE,
+      .config                 = config};
 
   assert(config.handle_shaders.size() > 0);
 
@@ -1728,21 +1715,21 @@ context_t::create_compute_pipeline(const config_pipeline_t &config) {
   return handle;
 }
 
-handle_pipeline_t
-context_t::create_graphics_pipeline(const config_pipeline_t &config) {
+handle_pipeline_t context_t::create_graphics_pipeline(
+    const config_pipeline_t &config) {
   horizon_profile();
 
   check(config.handle_pipeline_layout != core::null_handle,
         "pipeline layout is null");
 
-  internal::pipeline_t pipeline{.vk_pipeline_bind_point =
-                                    VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                .config = config};
+  internal::pipeline_t pipeline{
+      .vk_pipeline_bind_point = VK_PIPELINE_BIND_POINT_GRAPHICS,
+      .config                 = config};
 
   VkPipelineDynamicStateCreateInfo vk_dynamic_state{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO};
   vk_dynamic_state.dynamicStateCount = config.vk_dynamic_states.size();
-  vk_dynamic_state.pDynamicStates = config.vk_dynamic_states.data();
+  vk_dynamic_state.pDynamicStates    = config.vk_dynamic_states.data();
 
   VkPipelineVertexInputStateCreateInfo vk_vertex_input_info{};
   vk_vertex_input_info.sType =
@@ -1769,15 +1756,15 @@ context_t::create_graphics_pipeline(const config_pipeline_t &config) {
   vk_color_blending.sType =
       VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
   vk_color_blending.logicOpEnable = VK_FALSE;
-  vk_color_blending.logicOp = VK_LOGIC_OP_COPY; // Optional
+  vk_color_blending.logicOp       = VK_LOGIC_OP_COPY;  // Optional
   vk_color_blending.attachmentCount =
       config.vk_pipeline_color_blend_attachment_states.size();
   vk_color_blending.pAttachments =
       config.vk_pipeline_color_blend_attachment_states.data();
-  vk_color_blending.blendConstants[0] = 0.0f; // Optional
-  vk_color_blending.blendConstants[1] = 0.0f; // Optional
-  vk_color_blending.blendConstants[2] = 0.0f; // Optional
-  vk_color_blending.blendConstants[3] = 0.0f; // Optional
+  vk_color_blending.blendConstants[0] = 0.0f;  // Optional
+  vk_color_blending.blendConstants[1] = 0.0f;  // Optional
+  vk_color_blending.blendConstants[2] = 0.0f;  // Optional
+  vk_color_blending.blendConstants[3] = 0.0f;  // Optional
 
   VkPipelineDepthStencilStateCreateInfo vk_depth_stencil =
       config.vk_pipeline_depth_stencil_state_create_info;
@@ -1795,30 +1782,31 @@ context_t::create_graphics_pipeline(const config_pipeline_t &config) {
       vk_pipeline_shader_stage_create_info.pName = "main";
     } else if (shader.config.language == shader_language_t::e_slang) {
       switch (shader.config.type) {
-      case shader_type_t::e_vertex:
-        vk_pipeline_shader_stage_create_info.pName = "main";
-        break;
-      case shader_type_t::e_fragment:
-        vk_pipeline_shader_stage_create_info.pName = "main";
-        break;
-      case shader_type_t::e_compute:
-        vk_pipeline_shader_stage_create_info.pName = "main";
-        break;
-      default:
-        horizon_error("unknown shader type");
-        std::terminate();
+        case shader_type_t::e_vertex:
+          vk_pipeline_shader_stage_create_info.pName = "main";
+          break;
+        case shader_type_t::e_fragment:
+          vk_pipeline_shader_stage_create_info.pName = "main";
+          break;
+        case shader_type_t::e_compute:
+          vk_pipeline_shader_stage_create_info.pName = "main";
+          break;
+        default:
+          horizon_error("unknown shader type");
+          std::terminate();
       }
     }
     switch (shader.config.type) {
-    case shader_type_t::e_fragment:
-      vk_pipeline_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-      break;
-    case shader_type_t::e_vertex:
-      vk_pipeline_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-      break;
-    default:
-      horizon_error("shouldnt reach here");
-      std::terminate();
+      case shader_type_t::e_fragment:
+        vk_pipeline_shader_stage_create_info.stage =
+            VK_SHADER_STAGE_FRAGMENT_BIT;
+        break;
+      case shader_type_t::e_vertex:
+        vk_pipeline_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+        break;
+      default:
+        horizon_error("shouldnt reach here");
+        std::terminate();
     }
     vk_pipeline_shader_stage_create_info.module = shader;
     vk_pipeline_shader_stage_create_infos.push_back(
@@ -1826,10 +1814,10 @@ context_t::create_graphics_pipeline(const config_pipeline_t &config) {
   }
 
   VkViewport vk_viewport{};
-  vk_viewport.x = 0.0f;
-  vk_viewport.y = 0.0f;
-  vk_viewport.width = (float)5;
-  vk_viewport.height = (float)5;
+  vk_viewport.x        = 0.0f;
+  vk_viewport.y        = 0.0f;
+  vk_viewport.width    = (float)5;
+  vk_viewport.height   = (float)5;
   vk_viewport.minDepth = 0.0f;
   vk_viewport.maxDepth = 1.0f;
 
@@ -1841,9 +1829,9 @@ context_t::create_graphics_pipeline(const config_pipeline_t &config) {
   vk_viewport_state.sType =
       VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
   vk_viewport_state.viewportCount = 1;
-  vk_viewport_state.pViewports = &vk_viewport;
-  vk_viewport_state.scissorCount = 1;
-  vk_viewport_state.pScissors = &vk_scissor;
+  vk_viewport_state.pViewports    = &vk_viewport;
+  vk_viewport_state.scissorCount  = 1;
+  vk_viewport_state.pScissors     = &vk_scissor;
 
   VkPipelineRenderingCreateInfo vk_pipeline_rendering_create{
       .sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
@@ -1852,7 +1840,7 @@ context_t::create_graphics_pipeline(const config_pipeline_t &config) {
       config.vk_color_formats.size();
   vk_pipeline_rendering_create.pColorAttachmentFormats =
       config.vk_color_formats.data();
-  vk_pipeline_rendering_create.depthAttachmentFormat = config.vk_depth_format;
+  vk_pipeline_rendering_create.depthAttachmentFormat   = config.vk_depth_format;
   vk_pipeline_rendering_create.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
 
   VkGraphicsPipelineCreateInfo vk_pipeline_info{};
@@ -1860,20 +1848,20 @@ context_t::create_graphics_pipeline(const config_pipeline_t &config) {
   vk_pipeline_info.stageCount =
       static_cast<uint32_t>(config.handle_shaders.size());
   vk_pipeline_info.pStages = vk_pipeline_shader_stage_create_infos.data();
-  vk_pipeline_info.pVertexInputState = &vk_vertex_input_info;
+  vk_pipeline_info.pVertexInputState   = &vk_vertex_input_info;
   vk_pipeline_info.pInputAssemblyState = &vk_input_assembly;
-  vk_pipeline_info.pViewportState = &vk_viewport_state;
+  vk_pipeline_info.pViewportState      = &vk_viewport_state;
   vk_pipeline_info.pRasterizationState = &vk_rasterizer;
-  vk_pipeline_info.pMultisampleState = &vk_multisampling;
-  vk_pipeline_info.pDepthStencilState = &vk_depth_stencil;
-  vk_pipeline_info.pColorBlendState = &vk_color_blending;
-  vk_pipeline_info.pDynamicState = &vk_dynamic_state;
+  vk_pipeline_info.pMultisampleState   = &vk_multisampling;
+  vk_pipeline_info.pDepthStencilState  = &vk_depth_stencil;
+  vk_pipeline_info.pColorBlendState    = &vk_color_blending;
+  vk_pipeline_info.pDynamicState       = &vk_dynamic_state;
   vk_pipeline_info.layout =
       utils::assert_and_get_data<internal::pipeline_layout_t>(
           config.handle_pipeline_layout, _pipeline_layouts);
   vk_pipeline_info.renderPass = VK_NULL_HANDLE;
-  vk_pipeline_info.subpass = 0;
-  vk_pipeline_info.pNext = &vk_pipeline_rendering_create;
+  vk_pipeline_info.subpass    = 0;
+  vk_pipeline_info.pNext      = &vk_pipeline_rendering_create;
 
   VkResult vk_result = vkCreateGraphicsPipelines(_vkb_device, VK_NULL_HANDLE, 1,
                                                  &vk_pipeline_info, nullptr,
@@ -1913,8 +1901,8 @@ handle_fence_t context_t::create_fence(const config_fence_t &config) {
   VkFenceCreateInfo vk_fence_create_info{
       .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
   vk_fence_create_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-  VkResult vk_result = vkCreateFence(_vkb_device, &vk_fence_create_info,
-                                     nullptr, &fence.vk_fence);
+  VkResult vk_result         = vkCreateFence(_vkb_device, &vk_fence_create_info,
+                                             nullptr, &fence.vk_fence);
   check(vk_result == VK_SUCCESS, "Failed to create fence");
   handle_fence_t handle =
       utils::create_and_insert_new_handle<handle_fence_t>(_fences, fence);
@@ -1959,8 +1947,8 @@ void context_t::reset_fence(handle_fence_t handle) {
   check(vk_result == VK_SUCCESS, "Failed to reset fence");
 }
 
-handle_semaphore_t
-context_t::create_semaphore(const config_semaphore_t &config) {
+handle_semaphore_t context_t::create_semaphore(
+    const config_semaphore_t &config) {
   horizon_profile();
   internal::semaphore_t semaphore{.config = config};
   VkSemaphoreCreateInfo vk_semaphore_create_info{
@@ -1995,12 +1983,12 @@ void context_t::destroy_semaphore(handle_semaphore_t handle) {
   _semaphores.erase(handle);
 }
 
-handle_command_pool_t
-context_t::create_command_pool(const config_command_pool_t &config) {
+handle_command_pool_t context_t::create_command_pool(
+    const config_command_pool_t &config) {
   horizon_profile();
   internal::command_pool_t command_pool{.config = config};
-  VkCommandPoolCreateInfo vk_command_pool_create_info{
-      .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+  VkCommandPoolCreateInfo  vk_command_pool_create_info{
+       .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
   vk_command_pool_create_info.flags =
       VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
   vk_command_pool_create_info.queueFamilyIndex = _graphics_queue.vk_index;
@@ -2036,10 +2024,10 @@ void context_t::destroy_command_pool(handle_command_pool_t handle) {
   _command_pools.erase(handle);
 }
 
-handle_commandbuffer_t
-context_t::allocate_commandbuffer(const config_commandbuffer_t &config) {
+handle_commandbuffer_t context_t::allocate_commandbuffer(
+    const config_commandbuffer_t &config) {
   horizon_profile();
-  internal::commandbuffer_t commandbuffer{.config = config};
+  internal::commandbuffer_t   commandbuffer{.config = config};
   VkCommandBufferAllocateInfo vk_commandbuffer_allocate_info{
       .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO};
   vk_commandbuffer_allocate_info.commandBufferCount = 1;
@@ -2085,7 +2073,7 @@ void context_t::free_commandbuffer(handle_commandbuffer_t handle) {
 }
 
 void context_t::begin_commandbuffer(handle_commandbuffer_t handle,
-                                    bool single_use) {
+                                    bool                   single_use) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
       utils::assert_and_get_data<internal::commandbuffer_t>(handle,
@@ -2109,11 +2097,11 @@ void context_t::end_commandbuffer(handle_commandbuffer_t handle) {
 }
 
 void context_t::submit_commandbuffer(
-    handle_commandbuffer_t handle,
-    const std::vector<handle_semaphore_t> &wait_semaphore_handles,
+    handle_commandbuffer_t                   handle,
+    const std::vector<handle_semaphore_t>   &wait_semaphore_handles,
     const std::vector<VkPipelineStageFlags> &vk_pipeline_stages,
-    const std::vector<handle_semaphore_t> &signal_semaphore_handles,
-    handle_fence_t handle_fence) {
+    const std::vector<handle_semaphore_t>   &signal_semaphore_handles,
+    handle_fence_t                           handle_fence) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
       utils::assert_and_get_data<internal::commandbuffer_t>(handle,
@@ -2136,21 +2124,21 @@ void context_t::submit_commandbuffer(
   assert(vk_pipeline_stages.size() == wait_semaphore_handles.size());
 
   VkSubmitInfo vk_submit_info{.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO};
-  vk_submit_info.waitSemaphoreCount = wait_semaphore_handles.size();
-  vk_submit_info.pWaitSemaphores = p_vk_wait_semaphores;
+  vk_submit_info.waitSemaphoreCount   = wait_semaphore_handles.size();
+  vk_submit_info.pWaitSemaphores      = p_vk_wait_semaphores;
   vk_submit_info.signalSemaphoreCount = signal_semaphore_handles.size();
-  vk_submit_info.pSignalSemaphores = p_vk_signal_semaphores;
-  vk_submit_info.pWaitDstStageMask = vk_pipeline_stages.data();
-  vk_submit_info.commandBufferCount = 1;
-  vk_submit_info.pCommandBuffers = &commandbuffer.vk_commandbuffer;
+  vk_submit_info.pSignalSemaphores    = p_vk_signal_semaphores;
+  vk_submit_info.pWaitDstStageMask    = vk_pipeline_stages.data();
+  vk_submit_info.commandBufferCount   = 1;
+  vk_submit_info.pCommandBuffers      = &commandbuffer.vk_commandbuffer;
 
   VkResult vk_result =
       vkQueueSubmit(_graphics_queue.vk_queue, 1, &vk_submit_info, fence);
   check(vk_result == VK_SUCCESS, "Failed to submit commandbuffer");
 }
 
-internal::commandbuffer_t &
-context_t::get_commandbuffer(handle_commandbuffer_t handle) {
+internal::commandbuffer_t &context_t::get_commandbuffer(
+    handle_commandbuffer_t handle) {
   horizon_profile();
   return utils::assert_and_get_data<internal::commandbuffer_t>(handle,
                                                                _commandbuffers);
@@ -2158,12 +2146,12 @@ context_t::get_commandbuffer(handle_commandbuffer_t handle) {
 
 handle_timer_t context_t::create_timer(const config_timer_t &config) {
   horizon_profile();
-  internal::timer_t timer{.config = config};
+  internal::timer_t     timer{.config = config};
   VkQueryPoolCreateInfo vk_query_pool_create_info{
       .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO};
   vk_query_pool_create_info.queryCount = 2;
-  vk_query_pool_create_info.queryType = VK_QUERY_TYPE_TIMESTAMP;
-  VkResult vk_result = vkCreateQueryPool(
+  vk_query_pool_create_info.queryType  = VK_QUERY_TYPE_TIMESTAMP;
+  VkResult vk_result                   = vkCreateQueryPool(
       _vkb_device, &vk_query_pool_create_info, nullptr, &timer.vk_query_pool);
   check(vk_result == VK_SUCCESS, "Failed to create query pool");
   handle_timer_t handle =
@@ -2201,15 +2189,14 @@ std::optional<float> context_t::timer_get_time(handle_timer_t handle) {
       _vkb_device, timer, 0, 2, sizeof(uint64_t) * 2, &time_stamps,
       sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
 #ifndef HORIZON_FORCE_WAIT_QUERY_RESULT
-  if (vk_result == VK_NOT_READY)
-    return std::nullopt;
+  if (vk_result == VK_NOT_READY) return std::nullopt;
 #else
   while (vk_result == VK_NOT_READY) {
     vk_result = vkGetQueryPoolResults(_vkb_device, timer, 0, 2,
                                       sizeof(uint64_t) * 2, &time_stamps,
                                       sizeof(uint64_t), VK_QUERY_RESULT_64_BIT);
   }
-#endif // HORIZON_FORCE_WAIT_QUERY_RESULT
+#endif  // HORIZON_FORCE_WAIT_QUERY_RESULT
   check(vk_result == VK_SUCCESS, "Failed to timer get time");
   return ((time_stamps[1] - time_stamps[0]) *
           (_vkb_physical_device.properties.limits.timestampPeriod)) /
@@ -2222,7 +2209,7 @@ internal::timer_t &context_t::get_timer(handle_timer_t handle) {
 }
 
 void context_t::cmd_bind_pipeline(handle_commandbuffer_t handle_commandbuffer,
-                                  handle_pipeline_t handle_pipeline) {
+                                  handle_pipeline_t      handle_pipeline) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
       utils::assert_and_get_data<internal::commandbuffer_t>(
@@ -2261,8 +2248,8 @@ void context_t::cmd_bind_descriptor_sets(
 }
 
 void context_t::cmd_push_constants(handle_commandbuffer_t handle_commandbuffer,
-                                   handle_pipeline_t handle_pipeline,
-                                   VkShaderStageFlags vk_shader_stages,
+                                   handle_pipeline_t      handle_pipeline,
+                                   VkShaderStageFlags     vk_shader_stages,
                                    uint32_t vk_offset, uint32_t vk_size,
                                    const void *vk_data) {
   horizon_profile();
@@ -2280,9 +2267,9 @@ void context_t::cmd_push_constants(handle_commandbuffer_t handle_commandbuffer,
 }
 
 void context_t::cmd_dispatch(handle_commandbuffer_t handle_commandbuffer,
-                             uint32_t vk_group_count_x,
-                             uint32_t vk_group_count_y,
-                             uint32_t vk_group_count_z) {
+                             uint32_t               vk_group_count_x,
+                             uint32_t               vk_group_count_y,
+                             uint32_t               vk_group_count_z) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
       utils::assert_and_get_data<internal::commandbuffer_t>(
@@ -2315,8 +2302,8 @@ void context_t::cmd_set_viewport_and_scissor(
 }
 
 void context_t::cmd_begin_rendering(
-    handle_commandbuffer_t handle_commandbuffer,
-    const std::vector<rendering_attachment_t> &color_rendering_attachments,
+    handle_commandbuffer_t                       handle_commandbuffer,
+    const std::vector<rendering_attachment_t>   &color_rendering_attachments,
     const std::optional<rendering_attachment_t> &depth_rendering_attachment,
     const VkRect2D &vk_render_area, uint32_t vk_layer_count) {
   horizon_profile();
@@ -2359,10 +2346,10 @@ void context_t::cmd_begin_rendering(
             depth_rendering_attachment.value().handle_image_view, _image_views);
     vk_rendering_info.pDepthAttachment = &vk_depth_rendering_attachment;
   }
-  vk_rendering_info.renderArea = vk_render_area;
-  vk_rendering_info.layerCount = vk_layer_count;
+  vk_rendering_info.renderArea           = vk_render_area;
+  vk_rendering_info.layerCount           = vk_layer_count;
   vk_rendering_info.colorAttachmentCount = color_rendering_attachments.size();
-  vk_rendering_info.pColorAttachments = p_vk_color_attachment_infos;
+  vk_rendering_info.pColorAttachments    = p_vk_color_attachment_infos;
   vkCmdBeginRendering(commandbuffer, &vk_rendering_info);
 }
 
@@ -2386,11 +2373,11 @@ void context_t::cmd_draw(handle_commandbuffer_t handle_commandbuffer,
 }
 
 void context_t::cmd_draw_indexed(handle_commandbuffer_t handle_commandbuffer,
-                                 uint32_t vk_index_count,
-                                 uint32_t vk_instance_count,
-                                 uint32_t vk_first_index,
-                                 int32_t vk_vertex_offset,
-                                 uint32_t vk_first_instance) {
+                                 uint32_t               vk_index_count,
+                                 uint32_t               vk_instance_count,
+                                 uint32_t               vk_first_index,
+                                 int32_t                vk_vertex_offset,
+                                 uint32_t               vk_first_instance) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
       utils::assert_and_get_data<internal::commandbuffer_t>(
@@ -2400,12 +2387,12 @@ void context_t::cmd_draw_indexed(handle_commandbuffer_t handle_commandbuffer,
 }
 
 void context_t::cmd_blit_image(handle_commandbuffer_t handle_commandbuffer,
-                               handle_image_t src_image_handle,
-                               VkImageLayout vk_src_image_layout,
-                               handle_image_t dst_image_handle,
-                               VkImageLayout vk_dst_image_layout,
+                               handle_image_t         src_image_handle,
+                               VkImageLayout          vk_src_image_layout,
+                               handle_image_t         dst_image_handle,
+                               VkImageLayout          vk_dst_image_layout,
                                const std::vector<VkImageBlit> &vk_image_blits,
-                               VkFilter vk_filter) {
+                               VkFilter                        vk_filter) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
       utils::assert_and_get_data<internal::commandbuffer_t>(
@@ -2420,13 +2407,13 @@ void context_t::cmd_blit_image(handle_commandbuffer_t handle_commandbuffer,
 }
 
 void context_t::cmd_pipeline_barrier(
-    handle_commandbuffer_t handle_commandbuffer,
-    VkPipelineStageFlags vk_src_pipeline_stage_flags,
-    VkPipelineStageFlags vk_dst_pipeline_stage_flags,
-    VkDependencyFlags vk_dependency_flags,
-    const std::vector<VkMemoryBarrier> &vk_memory_barriers,
+    handle_commandbuffer_t                    handle_commandbuffer,
+    VkPipelineStageFlags                      vk_src_pipeline_stage_flags,
+    VkPipelineStageFlags                      vk_dst_pipeline_stage_flags,
+    VkDependencyFlags                         vk_dependency_flags,
+    const std::vector<VkMemoryBarrier>       &vk_memory_barriers,
     const std::vector<VkBufferMemoryBarrier> &vk_buffer_memory_barriers,
-    const std::vector<VkImageMemoryBarrier> &vk_image_memory_barriers) {
+    const std::vector<VkImageMemoryBarrier>  &vk_image_memory_barriers) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
       utils::assert_and_get_data<internal::commandbuffer_t>(
@@ -2452,19 +2439,19 @@ void context_t::cmd_image_memory_barrier(
       utils::assert_and_get_data<internal::image_t>(handle_image, _images);
   VkImageMemoryBarrier vk_image_memory_barrier{
       .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-  vk_image_memory_barrier.oldLayout = vk_old_image_layout;
-  vk_image_memory_barrier.newLayout = vk_new_image_layout;
+  vk_image_memory_barrier.oldLayout           = vk_old_image_layout;
+  vk_image_memory_barrier.newLayout           = vk_new_image_layout;
   vk_image_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   vk_image_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  vk_image_memory_barrier.image = image;
+  vk_image_memory_barrier.image               = image;
   vk_image_memory_barrier.subresourceRange.aspectMask =
       utils::get_image_aspect(image.config.vk_format);
-  vk_image_memory_barrier.subresourceRange.baseMipLevel = 0;
-  vk_image_memory_barrier.subresourceRange.levelCount = 1;
+  vk_image_memory_barrier.subresourceRange.baseMipLevel   = 0;
+  vk_image_memory_barrier.subresourceRange.levelCount     = 1;
   vk_image_memory_barrier.subresourceRange.baseArrayLayer = 0;
-  vk_image_memory_barrier.subresourceRange.layerCount = 1;
-  vk_image_memory_barrier.srcAccessMask = vk_src_access_mask;
-  vk_image_memory_barrier.dstAccessMask = vk_dst_access_mask;
+  vk_image_memory_barrier.subresourceRange.layerCount     = 1;
+  vk_image_memory_barrier.srcAccessMask                   = vk_src_access_mask;
+  vk_image_memory_barrier.dstAccessMask                   = vk_dst_access_mask;
   vkCmdPipelineBarrier(commandbuffer, vk_src_pipeline_stage,
                        vk_dst_pipeline_stage, 0, 0, nullptr, 0, nullptr, 1,
                        &vk_image_memory_barrier);
@@ -2484,21 +2471,21 @@ void context_t::cmd_buffer_memory_barrier(
       utils::assert_and_get_data<internal::buffer_t>(handle_buffer, _buffers);
   VkBufferMemoryBarrier vk_buffer_memory_barrier{
       .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER};
-  vk_buffer_memory_barrier.srcAccessMask = vk_src_access_mask;
-  vk_buffer_memory_barrier.dstAccessMask = vk_dst_access_mask;
-  vk_buffer_memory_barrier.buffer = buffer;
+  vk_buffer_memory_barrier.srcAccessMask       = vk_src_access_mask;
+  vk_buffer_memory_barrier.dstAccessMask       = vk_dst_access_mask;
+  vk_buffer_memory_barrier.buffer              = buffer;
   vk_buffer_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   vk_buffer_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  vk_buffer_memory_barrier.size = vk_size;
-  vk_buffer_memory_barrier.offset = vk_offset;
+  vk_buffer_memory_barrier.size                = vk_size;
+  vk_buffer_memory_barrier.offset              = vk_offset;
   vkCmdPipelineBarrier(commandbuffer, vk_src_pipeline_stage,
                        vk_dst_pipeline_stage, 0, 0, nullptr, 1,
                        &vk_buffer_memory_barrier, 0, nullptr);
 }
 
-void context_t::cmd_copy_buffer(handle_commandbuffer_t handle_commandbuffer,
-                                handle_buffer_t src_handle,
-                                handle_buffer_t dst_handle,
+void context_t::cmd_copy_buffer(handle_commandbuffer_t    handle_commandbuffer,
+                                handle_buffer_t           src_handle,
+                                handle_buffer_t           dst_handle,
                                 const buffer_copy_info_t &buffer_copy_info) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
@@ -2511,14 +2498,14 @@ void context_t::cmd_copy_buffer(handle_commandbuffer_t handle_commandbuffer,
   VkBufferCopy vk_buffer_copy{};
   vk_buffer_copy.dstOffset = buffer_copy_info.vk_dst_offset;
   vk_buffer_copy.srcOffset = buffer_copy_info.vk_src_offset;
-  vk_buffer_copy.size = buffer_copy_info.vk_size;
+  vk_buffer_copy.size      = buffer_copy_info.vk_size;
   vkCmdCopyBuffer(commandbuffer, src_buffer, dst_buffer, 1, &vk_buffer_copy);
 }
 
 void context_t::cmd_copy_buffer_to_image(
     handle_commandbuffer_t handle_commandbuffer,
     handle_buffer_t src_handle_buffer, handle_image_t dst_handle_image,
-    VkImageLayout vk_dst_image_layout,
+    VkImageLayout            vk_dst_image_layout,
     const VkBufferImageCopy &vk_buffer_image_copy) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
@@ -2536,7 +2523,7 @@ void context_t::cmd_copy_buffer_to_image(
 void context_t::cmd_bind_vertex_buffers(
     handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding,
     const std::vector<handle_buffer_t> &handle_buffers,
-    std::vector<VkDeviceSize> vk_offsets) {
+    std::vector<VkDeviceSize>           vk_offsets) {
   horizon_profile();
   horizon_assert(handle_buffers.size() == vk_offsets.size(),
                  "handle assert and vk offset sizes should match");
@@ -2577,8 +2564,8 @@ void context_t::cmd_begin_timer(
   vkCmdWriteTimestamp(commandbuffer, vk_pipeline_stage_flags, timer, 0);
 }
 
-void context_t::cmd_end_timer(handle_commandbuffer_t handle_commandbuffer,
-                              handle_timer_t handle,
+void context_t::cmd_end_timer(handle_commandbuffer_t  handle_commandbuffer,
+                              handle_timer_t          handle,
                               VkPipelineStageFlagBits vk_pipeline_stage_flags) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
@@ -2603,4 +2590,4 @@ internal::queue_t &context_t::present_queue() { return _present_queue; }
 
 VkDescriptorPool &context_t::descriptor_pool() { return _vk_descriptor_pool; }
 
-} // namespace gfx
+}  // namespace gfx
