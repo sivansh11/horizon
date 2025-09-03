@@ -15,8 +15,6 @@ option(HORIZON_BUILD_EXAMPLES "build EXAMPLES" OFF)
 # # deps
 set(FETCHCONTENT_QUIET FALSE)
 
-set(ASSIMP_INSTALL OFF CACHE INTERNAL "turns off assimp install")
-set(ASSIMP_WARNINGS_AS_ERRORS OFF CACHE INTERNAL "assimp warnings as error")
 set(IMGUI_GLFW_PATH ${glfw_SOURCE_DIR}/include)
 set(IMGUI_VULKAN_BACKEND ON CACHE INTERNAL "Imgui vulkan backend")
 set(IMGUI_GLFW_BACKEND ON CACHE INTERNAL "Imgui glfw backend")
@@ -88,7 +86,12 @@ FetchContent_Declare(
 FetchContent_Declare(
   slang
   GIT_REPOSITORY https://github.com/shader-slang/slang.git
-  GIT_TAG vulkan-sdk-1.4.309
+  GIT_TAG master
+)
+FetchContent_Declare(
+  model
+  GIT_REPOSITORY https://github.com/sivansh11/model
+  GIT_TAG main
 )
 
 FetchContent_MakeAvailable(math)
@@ -101,6 +104,7 @@ FetchContent_MakeAvailable(vk-bootstrap)
 FetchContent_MakeAvailable(VulkanMemoryAllocator)
 FetchContent_MakeAvailable(imgui_cmake)
 FetchContent_MakeAvailable(slang)
+FetchContent_MakeAvailable(model)
 
 # # src
 add_subdirectory(src)

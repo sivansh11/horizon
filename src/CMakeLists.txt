@@ -6,14 +6,13 @@ target_link_libraries(horizon
   PUBLIC math
   PUBLIC bvh
   PUBLIC stb_cmake
-  PUBLIC glm
   PUBLIC glfw
-  PUBLIC assimp
   PUBLIC volk
   PUBLIC vk-bootstrap
   PUBLIC VulkanMemoryAllocator
   PUBLIC slang
   PUBLIC imgui_cmake
+  PUBLIC model
 )
 
 target_include_directories(horizon
