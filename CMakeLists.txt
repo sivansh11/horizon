@@ -55,11 +55,6 @@ FetchContent_Declare(
   GIT_TAG main
 )
 FetchContent_Declare(
-  glm
-  GIT_REPOSITORY https://github.com/g-truc/glm.git
-  GIT_TAG release-1-0-2
-)
-FetchContent_Declare(
   glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
   GIT_TAG e7ea71be039836da3a98cea55ae5569cb5eb885c
@@ -99,7 +94,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(math)
 FetchContent_MakeAvailable(bvh)
 FetchContent_MakeAvailable(stb_cmake)
-FetchContent_MakeAvailable(glm)
 FetchContent_MakeAvailable(glfw)
 FetchContent_MakeAvailable(assimp)
 FetchContent_MakeAvailable(volk)
