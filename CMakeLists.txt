@@ -45,7 +45,6 @@ FetchContent_Declare(
 FetchContent_Declare(
   bvh
   GIT_REPOSITORY https://github.com/sivansh11/bvh
-  GIT_TAG main
 )
 FetchContent_Declare(
   stb_cmake
