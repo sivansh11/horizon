@@ -10,6 +10,8 @@ struct camera_t {
   math::mat4 inv_view;
   math::mat4 projection;
   math::mat4 inv_projection;
+  void       update();
+  math::vec3 position() const;
 };
 
 struct transform_t {
@@ -20,6 +22,6 @@ struct transform_t {
   math::mat4 mat4() const;
 };
 
-} // namespace core
+}  // namespace core
 
-#endif // !CORE_COMPONENTS_HPP
+#endif  // !CORE_COMPONENTS_HPP
