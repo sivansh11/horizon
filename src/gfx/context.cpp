@@ -513,6 +513,7 @@ void context_t::create_device() {
   VkPhysicalDeviceVulkan11Features vk_physical_device_vulkan_11_features{
       .variablePointersStorageBuffer = VK_TRUE,
       .variablePointers              = VK_TRUE,
+      .shaderDrawParameters          = VK_TRUE,
   };
   vkb_physical_device_selector.set_required_features_11(
       vk_physical_device_vulkan_11_features);
