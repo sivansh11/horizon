@@ -6,10 +6,10 @@
 namespace core {
 
 struct camera_t {
-  math::mat4 view;
-  math::mat4 inv_view;
-  math::mat4 projection;
-  math::mat4 inv_projection;
+  math::mat4 view{};
+  math::mat4 inv_view{};
+  math::mat4 projection{};
+  math::mat4 inv_projection{};
   void       update();
   math::vec3 position() const;
 };
