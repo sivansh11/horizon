@@ -57,16 +57,16 @@ base_t::~base_t() {
       _context->free_descriptor_set(handle_descriptor_set);
     }
   }
-  _context->destroy_swapchain(_swapchain);
-  _context->destroy_command_pool(_command_pool);
   for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     _context->free_commandbuffer(_commandbuffers[i]);
     _context->destroy_fence(_in_flight_fences[i]);
     _context->destroy_semaphore(_image_available_semaphores[i]);
     _context->destroy_semaphore(_render_finished_semaphores[i]);
-    _context->destroy_descriptor_set_layout(_bindless_descriptor_set_layout);
-    _context->free_descriptor_set(_bindless_descriptor_set);
   }
+  _context->destroy_descriptor_set_layout(_bindless_descriptor_set_layout);
+  _context->free_descriptor_set(_bindless_descriptor_set);
+  _context->destroy_swapchain(_swapchain);
+  _context->destroy_command_pool(_command_pool);
 }
 
 void base_t::begin() {
