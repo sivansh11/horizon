@@ -140,9 +140,6 @@ struct base_t {
   std::map<handle_managed_descriptor_set_t,
            internal::managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>>
       _descriptor_sets;
-
-  handle_pipeline_t _swapchain_pipeline;
-  handle_descriptor_set_t _swapchain_descriptor_set;
 };
 
 template <size_t MAX_FRAMES_IN_FLIGHT> struct update_managed_descriptor_set_t {

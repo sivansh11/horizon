@@ -1,22 +1,24 @@
 #include "horizon/gfx/base.hpp"
+
+#include <vulkan/vulkan_core.h>
+
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
 #include "horizon/gfx/context.hpp"
 #include "horizon/gfx/types.hpp"
-#include <vulkan/vulkan_core.h>
 
 namespace gfx {
 
 base_t::base_t(core::ref<core::window_t> window, core::ref<context_t> context)
     : _window(window), _context(context) {
   horizon_profile();
-  _swapchain = _context->create_swapchain(*_window);
+  _swapchain    = _context->create_swapchain(*_window);
   _command_pool = _context->create_command_pool({});
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     _commandbuffers[i] = _context->allocate_commandbuffer(
         {.handle_command_pool = _command_pool,
-         .debug_name = "commandbuffer_" + std::to_string(i)});
-    _in_flight_fences[i] = _context->create_fence({});
+         .debug_name          = "commandbuffer_" + std::to_string(i)});
+    _in_flight_fences[i]           = _context->create_fence({});
     _image_available_semaphores[i] = _context->create_semaphore({});
     _render_finished_semaphores[i] = _context->create_semaphore({});
   }
@@ -55,6 +57,16 @@ base_t::~base_t() {
       _context->free_descriptor_set(handle_descriptor_set);
     }
   }
+  _context->destroy_swapchain(_swapchain);
+  _context->destroy_command_pool(_command_pool);
+  for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+    _context->free_commandbuffer(_commandbuffers[i]);
+    _context->destroy_fence(_in_flight_fences[i]);
+    _context->destroy_semaphore(_image_available_semaphores[i]);
+    _context->destroy_semaphore(_render_finished_semaphores[i]);
+    _context->destroy_descriptor_set_layout(_bindless_descriptor_set_layout);
+    _context->free_descriptor_set(_bindless_descriptor_set);
+  }
 }
 
 void base_t::begin() {
@@ -63,9 +75,9 @@ void base_t::begin() {
     resize_swapchain();
     _resize = false;
   }
-  handle_commandbuffer_t cbuf = _commandbuffers[_current_frame];
-  handle_fence_t in_flight_fence = _in_flight_fences[_current_frame];
-  handle_semaphore_t image_available_semaphore =
+  handle_commandbuffer_t cbuf            = _commandbuffers[_current_frame];
+  handle_fence_t         in_flight_fence = _in_flight_fences[_current_frame];
+  handle_semaphore_t     image_available_semaphore =
       _image_available_semaphores[_current_frame];
   handle_semaphore_t render_finished_semaphore =
       _render_finished_semaphores[_current_frame];
@@ -84,9 +96,9 @@ void base_t::begin() {
 
 void base_t::end() {
   horizon_profile();
-  handle_commandbuffer_t cbuf = _commandbuffers[_current_frame];
-  handle_fence_t in_flight_fence = _in_flight_fences[_current_frame];
-  handle_semaphore_t image_available_semaphore =
+  handle_commandbuffer_t cbuf            = _commandbuffers[_current_frame];
+  handle_fence_t         in_flight_fence = _in_flight_fences[_current_frame];
+  handle_semaphore_t     image_available_semaphore =
       _image_available_semaphores[_current_frame];
   handle_semaphore_t render_finished_semaphore =
       _render_finished_semaphores[_current_frame];
@@ -142,9 +154,8 @@ void base_t::end_swapchain_renderpass() {
       VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 }
 
-handle_managed_buffer_t
-base_t::create_buffer(resource_update_policy_t update_policy,
-                      const config_buffer_t &config) {
+handle_managed_buffer_t base_t::create_buffer(
+    resource_update_policy_t update_policy, const config_buffer_t &config) {
   horizon_profile();
   internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT> managed_buffer{
       .update_policy = update_policy};
@@ -175,9 +186,9 @@ handle_buffer_t base_t::buffer(handle_managed_buffer_t handle) {
   check(false, "reached unreachable");
 }
 
-handle_managed_descriptor_set_t
-base_t::allocate_descriptor_set(resource_update_policy_t update_policy,
-                                const config_descriptor_set_t &config) {
+handle_managed_descriptor_set_t base_t::allocate_descriptor_set(
+    resource_update_policy_t       update_policy,
+    const config_descriptor_set_t &config) {
   horizon_profile();
   internal::managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>
       managed_descriptor_set{.update_policy = update_policy};
@@ -197,8 +208,8 @@ base_t::allocate_descriptor_set(resource_update_policy_t update_policy,
   return handle;
 }
 
-handle_descriptor_set_t
-base_t::descriptor_set(handle_managed_descriptor_set_t handle) {
+handle_descriptor_set_t base_t::descriptor_set(
+    handle_managed_descriptor_set_t handle) {
   horizon_profile();
   internal::managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>
       &managed_descriptor_set = utils::assert_and_get_data<
@@ -245,10 +256,10 @@ rendering_attachment_t base_t::swapchain_rendering_attachment(
     VkAttachmentLoadOp vk_load_op, VkAttachmentStoreOp vk_store_op) {
   horizon_profile();
   rendering_attachment_t rendering_attachment{};
-  rendering_attachment.clear_value = vk_clear_value;
+  rendering_attachment.clear_value  = vk_clear_value;
   rendering_attachment.image_layout = vk_layout;
-  rendering_attachment.load_op = vk_load_op;
-  rendering_attachment.store_op = vk_store_op;
+  rendering_attachment.load_op      = vk_load_op;
+  rendering_attachment.store_op     = vk_store_op;
   rendering_attachment.handle_image_view =
       _context->get_swapchain_image_views(_swapchain)[_next_image];
   return rendering_attachment;
@@ -276,8 +287,8 @@ handle_bindless_storage_image_t base_t::new_bindless_storage_image() {
 }
 
 void base_t::set_bindless_image(handle_bindless_image_t handle,
-                                handle_image_view_t image_view,
-                                VkImageLayout vk_image_layout) {
+                                handle_image_view_t     image_view,
+                                VkImageLayout           vk_image_layout) {
   horizon_profile();
   _context->update_descriptor_set(_bindless_descriptor_set)
       .push_image_write(
@@ -288,7 +299,7 @@ void base_t::set_bindless_image(handle_bindless_image_t handle,
 }
 
 void base_t::set_bindless_sampler(handle_bindless_sampler_t handle,
-                                  handle_sampler_t sampler) {
+                                  handle_sampler_t          sampler) {
   horizon_profile();
   _context->update_descriptor_set(_bindless_descriptor_set)
       .push_image_write(1, {.handle_sampler = sampler},
@@ -302,9 +313,9 @@ void base_t::set_bindless_storage_image(handle_bindless_storage_image_t handle,
   _context->update_descriptor_set(_bindless_descriptor_set)
       .push_image_write(2,
                         {.handle_image_view = image_view,
-                         .vk_image_layout = VK_IMAGE_LAYOUT_GENERAL},
+                         .vk_image_layout   = VK_IMAGE_LAYOUT_GENERAL},
                         static_cast<uint32_t>(handle))
       .commit();
 }
 
-} // namespace gfx
+}  // namespace gfx
