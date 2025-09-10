@@ -64,8 +64,6 @@ struct base_t;
 
 template <size_t MAX_FRAMES_IN_FLIGHT> struct update_managed_descriptor_set_t;
 
-struct base_t;
-
 struct base_t {
   constexpr static size_t MAX_FRAMES_IN_FLIGHT = 2;
 
