@@ -13,6 +13,7 @@ namespace gfx {
 
 define_handle(handle_managed_buffer_t);
 define_handle(handle_managed_descriptor_set_t);
+define_handle(handle_managed_timer_t);
 
 define_handle(handle_bindless_image_t);
 define_handle(handle_bindless_sampler_t);
@@ -34,6 +35,12 @@ template <size_t MAX_FRAMES_IN_FLIGHT> struct managed_buffer_t {
 template <size_t MAX_FRAMES_IN_FLIGHT> struct managed_descriptor_set_t {
   std::array<handle_descriptor_set_t, MAX_FRAMES_IN_FLIGHT>
       handle_descriptor_sets;
+  resource_update_policy_t update_policy;
+};
+
+template <size_t MAX_FRAMES_IN_FLIGHT> struct managed_timer_t {
+  std::array<handle_timer_t, MAX_FRAMES_IN_FLIGHT>
+      handle_timers;
   resource_update_policy_t update_policy;
 };
 
@@ -90,6 +97,10 @@ struct base_t {
   update_managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>
   update_managed_descriptor_set(handle_managed_descriptor_set_t handle);
 
+  handle_managed_timer_t create_timer(resource_update_policy_t update_policy,
+                                      const config_timer_t &config);
+  handle_timer_t timer(handle_managed_timer_t handle);
+
   rendering_attachment_t swapchain_rendering_attachment(
       VkClearValue vk_clear_value, VkImageLayout vk_layout,
       VkAttachmentLoadOp vk_load_op, VkAttachmentStoreOp vk_store_op);
@@ -138,6 +149,9 @@ struct base_t {
   std::map<handle_managed_descriptor_set_t,
            internal::managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>>
       _descriptor_sets;
+  std::map<handle_managed_timer_t,
+           internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT>>
+      _timers;
 };
 
 template <size_t MAX_FRAMES_IN_FLIGHT> struct update_managed_descriptor_set_t {

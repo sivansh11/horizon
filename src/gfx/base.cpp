@@ -231,6 +231,38 @@ base_t::update_managed_descriptor_set(handle_managed_descriptor_set_t handle) {
   return {*this, handle};
 }
 
+handle_managed_timer_t base_t::create_timer(resource_update_policy_t update_policy,
+                                    const config_timer_t &config) {
+  horizon_profile();
+  internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT> managed_timer{
+      .update_policy = update_policy};
+  if (update_policy == resource_update_policy_t::e_sparse) {
+    managed_timer.handle_timers[0] = _context->create_timer(config);
+  } else if (update_policy == resource_update_policy_t::e_every_frame) {
+    for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+      managed_timer.handle_timers[i] = _context->create_timer(config);
+  }
+  handle_managed_timer_t handle =
+      utils::create_and_insert_new_handle<handle_managed_timer_t>(
+          _timers, managed_timer);
+  horizon_trace("created managed timer");
+  return handle;
+}
+
+handle_timer_t base_t::timer(handle_managed_timer_t handle) {
+  horizon_profile();
+  internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT> &managed_timer =
+      utils::assert_and_get_data<
+          internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT>>(handle, _timers);
+  if (managed_timer.update_policy == resource_update_policy_t::e_sparse) {
+    return managed_timer.handle_timers[0];
+  } else if (managed_timer.update_policy ==
+             resource_update_policy_t::e_every_frame) {
+    return managed_timer.handle_timers[_current_frame];
+  }
+  check(false, "reached unreachable");
+}
+
 handle_commandbuffer_t base_t::current_commandbuffer() {
   horizon_profile();
   return _commandbuffers[_current_frame];
