@@ -4,6 +4,7 @@
 #include <volk.h>
 #include <vulkan/vulkan_core.h>
 
+#include <cmath>
 #include <cstdint>
 
 #include "VkBootstrap.h"
@@ -243,7 +244,7 @@ namespace internal {
 struct queue_t {
   VkQueue  vk_queue;
   uint32_t vk_index;
-  operator VkQueue() { return vk_queue; }
+           operator VkQueue() { return vk_queue; }
 };
 
 struct swapchain_t {
@@ -260,13 +261,13 @@ struct buffer_t {
   config_buffer_t config;
   void           *p_data = nullptr;
   VkDeviceAddress vk_device_address;
-  operator VkBuffer() { return vk_buffer; }
+                  operator VkBuffer() { return vk_buffer; }
 };
 
 struct sampler_t {
   VkSampler        vk_sampler;
   config_sampler_t config;
-  operator VkSampler() { return vk_sampler; }
+                   operator VkSampler() { return vk_sampler; }
 };
 
 struct image_t {
@@ -275,13 +276,13 @@ struct image_t {
   config_image_t config;
   void          *p_data         = nullptr;
   bool           from_swapchain = false;
-  operator VkImage() { return vk_image; }
+                 operator VkImage() { return vk_image; }
 };
 
 struct image_view_t {
   VkImageView         vk_image_view;
   config_image_view_t config;
-  operator VkImageView() { return vk_image_view; }
+                      operator VkImageView() { return vk_image_view; }
 };
 
 struct descriptor_set_layout_t {
@@ -305,44 +306,44 @@ struct pipeline_layout_t {
 struct shader_t {
   VkShaderModule  vk_shader;
   config_shader_t config;
-  operator VkShaderModule() { return vk_shader; }
+                  operator VkShaderModule() { return vk_shader; }
 };
 
 struct pipeline_t {
   VkPipeline          vk_pipeline;
   VkPipelineBindPoint vk_pipeline_bind_point;
   config_pipeline_t   config;
-  operator VkPipeline() { return vk_pipeline; }
+                      operator VkPipeline() { return vk_pipeline; }
 };
 
 struct fence_t {
   VkFence        vk_fence;
   config_fence_t config;
-  operator VkFence() { return vk_fence; }
+                 operator VkFence() { return vk_fence; }
 };
 
 struct semaphore_t {
   VkSemaphore        vk_semaphore;
   config_semaphore_t config;
-  operator VkSemaphore() { return vk_semaphore; }
+                     operator VkSemaphore() { return vk_semaphore; }
 };
 
 struct command_pool_t {
   VkCommandPool         vk_command_pool;
   config_command_pool_t config;
-  operator VkCommandPool() { return vk_command_pool; }
+                        operator VkCommandPool() { return vk_command_pool; }
 };
 
 struct commandbuffer_t {
   VkCommandBuffer        vk_commandbuffer;
   config_commandbuffer_t config;
-  operator VkCommandBuffer() { return vk_commandbuffer; }
+                         operator VkCommandBuffer() { return vk_commandbuffer; }
 };
 
 struct timer_t {
   VkQueryPool    vk_query_pool;
   config_timer_t config;
-  operator VkQueryPool() { return vk_query_pool; }
+                 operator VkQueryPool() { return vk_query_pool; }
 };
 
 }  // namespace internal
@@ -387,6 +388,18 @@ struct buffer_copy_info_t {
   VkDeviceSize vk_src_offset = 0;
   VkDeviceSize vk_dst_offset = 0;
   VkDeviceSize vk_size       = VK_WHOLE_SIZE;
+};
+
+struct image_resource_range_t {
+  uint32_t base_mip_level   = 0;
+  uint32_t level_count      = VK_REMAINING_MIP_LEVELS;
+  uint32_t base_array_layer = 0;
+  uint32_t layer_count      = VK_REMAINING_ARRAY_LAYERS;
+};
+
+struct buffer_resource_range_t {
+  uint64_t size   = VK_WHOLE_SIZE;
+  uint64_t offset = 0;
 };
 
 class context_t {
@@ -543,22 +556,20 @@ class context_t {
       const std::vector<VkMemoryBarrier>       &vk_memory_barriers,
       const std::vector<VkBufferMemoryBarrier> &vk_buffer_memory_barriers,
       const std::vector<VkImageMemoryBarrier>  &vk_image_memory_barriers);
-  // TODO: add mip levels option to this
-  void cmd_image_memory_barrier(handle_commandbuffer_t handle_commandbuffer,
-                                handle_image_t         handle_image,
-                                VkImageLayout          vk_old_image_layout,
-                                VkImageLayout          vk_new_image_layout,
-                                VkAccessFlags          vk_src_access_mask,
-                                VkAccessFlags          vk_dst_access_mask,
-                                VkPipelineStageFlags   vk_src_pipeline_stage,
-                                VkPipelineStageFlags   vk_dst_pipeline_stage);
-  void cmd_buffer_memory_barrier(handle_commandbuffer_t handle_commandbuffer,
-                                 handle_buffer_t        handle_buffer,
-                                 VkDeviceSize vk_size, VkDeviceSize vk_offset,
-                                 VkAccessFlags        vk_src_access_mask,
-                                 VkAccessFlags        vk_dst_access_mask,
-                                 VkPipelineStageFlags vk_src_pipeline_stage,
-                                 VkPipelineStageFlags vk_dst_pipeline_stage);
+  void cmd_image_memory_barrier(
+      handle_commandbuffer_t handle_commandbuffer, handle_image_t handle_image,
+      VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout,
+      VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask,
+      VkPipelineStageFlags          vk_src_pipeline_stage,
+      VkPipelineStageFlags          vk_dst_pipeline_stage,
+      const image_resource_range_t &image_resource_range);
+  void cmd_buffer_memory_barrier(
+      handle_commandbuffer_t handle_commandbuffer,
+      handle_buffer_t handle_buffer, VkAccessFlags vk_src_access_mask,
+      VkAccessFlags                  vk_dst_access_mask,
+      VkPipelineStageFlags           vk_src_pipeline_stage,
+      VkPipelineStageFlags           vk_dst_pipeline_stage,
+      const buffer_resource_range_t &buffer_resource_range);
   // maybe expose multiple sub regions
   void cmd_copy_buffer(handle_commandbuffer_t handle_commandbuffer,
                        handle_buffer_t src_handle, handle_buffer_t dst_handle,

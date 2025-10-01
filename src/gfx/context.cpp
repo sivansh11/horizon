@@ -2430,8 +2430,9 @@ void context_t::cmd_image_memory_barrier(
     handle_commandbuffer_t handle_commandbuffer, handle_image_t handle_image,
     VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout,
     VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask,
-    VkPipelineStageFlags vk_src_pipeline_stage,
-    VkPipelineStageFlags vk_dst_pipeline_stage) {
+    VkPipelineStageFlags          vk_src_pipeline_stage,
+    VkPipelineStageFlags          vk_dst_pipeline_stage,
+    const image_resource_range_t &image_resource_range) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
       utils::assert_and_get_data<internal::commandbuffer_t>(
@@ -2447,12 +2448,16 @@ void context_t::cmd_image_memory_barrier(
   vk_image_memory_barrier.image               = image;
   vk_image_memory_barrier.subresourceRange.aspectMask =
       utils::get_image_aspect(image.config.vk_format);
-  vk_image_memory_barrier.subresourceRange.baseMipLevel   = 0;
-  vk_image_memory_barrier.subresourceRange.levelCount     = 1;
-  vk_image_memory_barrier.subresourceRange.baseArrayLayer = 0;
-  vk_image_memory_barrier.subresourceRange.layerCount     = 1;
-  vk_image_memory_barrier.srcAccessMask                   = vk_src_access_mask;
-  vk_image_memory_barrier.dstAccessMask                   = vk_dst_access_mask;
+  vk_image_memory_barrier.subresourceRange.baseMipLevel =
+      image_resource_range.base_mip_level;
+  vk_image_memory_barrier.subresourceRange.levelCount =
+      image_resource_range.level_count;
+  vk_image_memory_barrier.subresourceRange.baseArrayLayer =
+      image_resource_range.base_array_layer;
+  vk_image_memory_barrier.subresourceRange.layerCount =
+      image_resource_range.layer_count;
+  vk_image_memory_barrier.srcAccessMask = vk_src_access_mask;
+  vk_image_memory_barrier.dstAccessMask = vk_dst_access_mask;
   vkCmdPipelineBarrier(commandbuffer, vk_src_pipeline_stage,
                        vk_dst_pipeline_stage, 0, 0, nullptr, 0, nullptr, 1,
                        &vk_image_memory_barrier);
@@ -2460,10 +2465,10 @@ void context_t::cmd_image_memory_barrier(
 
 void context_t::cmd_buffer_memory_barrier(
     handle_commandbuffer_t handle_commandbuffer, handle_buffer_t handle_buffer,
-    VkDeviceSize vk_size, VkDeviceSize vk_offset,
     VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask,
-    VkPipelineStageFlags vk_src_pipeline_stage,
-    VkPipelineStageFlags vk_dst_pipeline_stage) {
+    VkPipelineStageFlags           vk_src_pipeline_stage,
+    VkPipelineStageFlags           vk_dst_pipeline_stage,
+    const buffer_resource_range_t &buffer_resource_range) {
   horizon_profile();
   internal::commandbuffer_t &commandbuffer =
       utils::assert_and_get_data<internal::commandbuffer_t>(
@@ -2477,8 +2482,8 @@ void context_t::cmd_buffer_memory_barrier(
   vk_buffer_memory_barrier.buffer              = buffer;
   vk_buffer_memory_barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
   vk_buffer_memory_barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-  vk_buffer_memory_barrier.size                = vk_size;
-  vk_buffer_memory_barrier.offset              = vk_offset;
+  vk_buffer_memory_barrier.size                = buffer_resource_range.size;
+  vk_buffer_memory_barrier.offset              = buffer_resource_range.offset;
   vkCmdPipelineBarrier(commandbuffer, vk_src_pipeline_stage,
                        vk_dst_pipeline_stage, 0, 0, nullptr, 1,
                        &vk_buffer_memory_barrier, 0, nullptr);
