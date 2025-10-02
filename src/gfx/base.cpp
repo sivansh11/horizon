@@ -2,9 +2,16 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include <queue>
+#include <set>
+#include <stdexcept>
+#include <unordered_map>
+#include <vector>
+
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
 #include "horizon/gfx/context.hpp"
+#include "horizon/gfx/rendergraph.hpp"
 #include "horizon/gfx/types.hpp"
 
 namespace gfx {
@@ -231,8 +238,8 @@ base_t::update_managed_descriptor_set(handle_managed_descriptor_set_t handle) {
   return {*this, handle};
 }
 
-handle_managed_timer_t base_t::create_timer(resource_update_policy_t update_policy,
-                                    const config_timer_t &config) {
+handle_managed_timer_t base_t::create_timer(
+    resource_update_policy_t update_policy, const config_timer_t &config) {
   horizon_profile();
   internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT> managed_timer{
       .update_policy = update_policy};
@@ -348,6 +355,215 @@ void base_t::set_bindless_storage_image(handle_bindless_storage_image_t handle,
                          .vk_image_layout   = VK_IMAGE_LAYOUT_GENERAL},
                         static_cast<uint32_t>(handle))
       .commit();
+}
+
+bool is_same_resource(const resource_t &a, const resource_t &b,
+                      core::ref<context_t> context) {
+  if (a.type != b.type) return false;
+  if (a.type == resource_type_t::e_buffer) {
+    if (a.as.buffer.buffer != b.as.buffer.buffer) return false;
+    // only need size of a since a == b
+    internal::buffer_t buffer     = context->get_buffer(a.as.buffer.buffer);
+    uint64_t           total_size = buffer.config.vk_size;
+    uint64_t           a_start    = a.as.buffer.buffer_resource_range.offset;
+    uint64_t           a_size     = a.as.buffer.buffer_resource_range.size;
+    uint64_t a_end = (a_size == VK_WHOLE_SIZE) ? total_size : a_start + a_size;
+    uint64_t b_start = b.as.buffer.buffer_resource_range.offset;
+    uint64_t b_size  = b.as.buffer.buffer_resource_range.size;
+    uint64_t b_end = (b_size == VK_WHOLE_SIZE) ? total_size : b_start + b_size;
+    return (a_start < b_end) && (b_start < a_end);
+  }
+  if (a.type == resource_type_t::e_image) {
+    // TODO: add image range overlaps
+    return a.as.image.image == b.as.image.image;
+  }
+  throw std::runtime_error("reached unreachable");
+}
+
+bool is_pass_conflicts(const pass_t &pass_i, const pass_t &pass_j,
+                       core::ref<context_t> context) {
+  // RAW
+  for (const auto &write_i : pass_i.write_resources) {
+    for (const auto &read_j : pass_j.read_resources) {
+      if (is_same_resource(write_i, read_j, context)) return true;
+    }
+  }
+  // WAW
+  for (const auto &write_i : pass_i.write_resources) {
+    for (const auto &write_j : pass_j.write_resources) {
+      if (is_same_resource(write_i, write_j, context)) return true;
+    }
+  }
+  // WAR
+  for (const auto &read_i : pass_i.read_resources) {
+    for (const auto &write_j : pass_j.write_resources) {
+      if (is_same_resource(read_i, write_j, context)) return true;
+    }
+  }
+  return false;
+}
+
+void base_t::render_rendergraph(const rendergraph_t   &rendergraph,
+                                handle_commandbuffer_t cmd) {
+  std::unordered_map<uint32_t, std::set<uint32_t>> dependency_graph{};
+
+  for (uint32_t i = 0; i < rendergraph.passes.size(); i++) {
+    for (uint32_t j = i + 1; j < rendergraph.passes.size(); j++) {
+      if (is_pass_conflicts(rendergraph.passes[i], rendergraph.passes[j],
+                            _context))
+        dependency_graph[i].emplace(j);
+    }
+  }
+
+  std::unordered_map<uint32_t, uint32_t> in_degree{};
+  for (uint32_t i = 0; i < rendergraph.passes.size(); i++) in_degree[i] = 0;
+
+  for (const auto &[_, dependencies] : dependency_graph)
+    for (const auto &pass_index : dependencies) in_degree[pass_index]++;
+
+  std::queue<uint32_t> ready_queue;
+  for (uint32_t i = 0; i < rendergraph.passes.size(); i++)
+    if (in_degree[i] == 0) ready_queue.push(i);
+
+  std::vector<uint32_t> order{};
+  while (!ready_queue.empty()) {
+    uint32_t pass_index = ready_queue.front();
+    ready_queue.pop();
+    order.push_back(pass_index);
+    if (dependency_graph.count(pass_index)) {
+      for (uint32_t dependency_index : dependency_graph.at(pass_index)) {
+        in_degree[dependency_index]--;
+        if (in_degree[dependency_index] == 0)
+          ready_queue.push(dependency_index);
+      }
+    }
+  }
+  if (order.size() != rendergraph.passes.size())
+    throw std::runtime_error(
+        "Error: circular dependency detected in rendergraph");
+
+  // using generic handle since this is an internal handle
+  core::handle_t                                      resource_counter = 0;
+  std::unordered_map<handle_buffer_t, core::handle_t> buffer_to_resource;
+  std::unordered_map<handle_image_t, core::handle_t>  image_to_resource;
+  for (const auto &pass : rendergraph.passes) {
+    for (const auto &read : pass.read_resources) {
+      if (read.type == resource_type_t::e_buffer) {
+        if (!buffer_to_resource.contains(read.as.buffer.buffer))
+          buffer_to_resource[read.as.buffer.buffer] = resource_counter++;
+      } else {
+        if (!image_to_resource.contains(read.as.image.image))
+          image_to_resource[read.as.image.image] = resource_counter++;
+      }
+    }
+    for (const auto &write : pass.write_resources) {
+      if (write.type == resource_type_t::e_buffer) {
+        if (!buffer_to_resource.contains(write.as.buffer.buffer))
+          buffer_to_resource[write.as.buffer.buffer] = resource_counter++;
+      } else {
+        if (!image_to_resource.contains(write.as.image.image))
+          image_to_resource[write.as.image.image] = resource_counter++;
+      }
+    }
+  }
+
+  std::unordered_map<core::handle_t, resource_state_t>
+      resource_to_resource_state;
+
+  for (auto pass_index : order) {
+    const auto &pass = rendergraph.passes[pass_index];
+
+    auto handle_resources = [&](const std::vector<resource_t> resources) {
+      for (auto resource : resources) {
+        if (resource.type == resource_type_t::e_buffer) {
+          if (!resource_to_resource_state.contains(
+                  buffer_to_resource[resource.as.buffer.buffer])) {
+            check(  // sanity check
+                resource.as.buffer.vk_access != VK_ACCESS_SHADER_READ_BIT,
+                "ERROR: cannot read to a rendergraph managed resource without "
+                "writing to it");
+            _context->cmd_buffer_memory_barrier(
+                cmd, resource.as.buffer.buffer, 0, resource.as.buffer.vk_access,
+                VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                resource.as.buffer.vk_pipeline_state,
+                resource.as.buffer.buffer_resource_range);
+            resource_state_t resource_state{};
+            resource_state.type            = resource_type_t::e_buffer;
+            resource_state.as.buffer_state = {
+                resource.as.buffer.vk_access,
+                resource.as.buffer.vk_pipeline_state};
+            resource_to_resource_state
+                [buffer_to_resource[resource.as.buffer.buffer]] =
+                    resource_state;
+          } else {
+            resource_state_t &resource_state = resource_to_resource_state
+                [buffer_to_resource[resource.as.buffer.buffer]];
+            if (resource.as.buffer.vk_access !=
+                    resource_state.as.buffer_state.vk_access ||
+                (resource.as.buffer.vk_access & VK_ACCESS_SHADER_WRITE_BIT)) {
+              _context->cmd_buffer_memory_barrier(
+                  cmd, resource.as.buffer.buffer,
+                  resource_state.as.buffer_state.vk_access,
+                  resource.as.buffer.vk_access,
+                  resource_state.as.buffer_state.vk_pipeline_state,
+                  resource.as.buffer.vk_pipeline_state,
+                  resource.as.buffer.buffer_resource_range);
+            }
+            resource_state.as.buffer_state = {
+                resource.as.buffer.vk_access,
+                resource.as.buffer.vk_pipeline_state};
+          }
+        } else {
+          if (!resource_to_resource_state.contains(
+                  image_to_resource[resource.as.image.image])) {
+            _context->cmd_image_memory_barrier(
+                cmd, resource.as.image.image, VK_IMAGE_LAYOUT_UNDEFINED,
+                resource.as.image.vk_image_layout, 0,
+                resource.as.image.vk_access, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+                resource.as.image.vk_pipeline_state,
+                resource.as.image.image_resource_range);
+
+            resource_state_t resource_state{};
+            resource_state.type           = resource_type_t::e_image;
+            resource_state.as.image_state = {
+                resource.as.image.vk_access,
+                resource.as.image.vk_pipeline_state,
+                resource.as.image.vk_image_layout};
+            resource_to_resource_state
+                [image_to_resource[resource.as.image.image]] = resource_state;
+          } else {
+            resource_state_t &resource_state = resource_to_resource_state
+                [image_to_resource[resource.as.image.image]];
+
+            if (resource.as.image.vk_image_layout !=
+                    resource_state.as.image_state.vk_image_layout ||
+                resource.as.image.vk_access !=
+                    resource_state.as.image_state.vk_access 
+              // unnecessary
+              /* || resource.as.image.vk_pipeline_state != 
+                    resource_state.as.image_state.vk_pipeline_state */) {
+              _context->cmd_image_memory_barrier(
+                  cmd, resource.as.image.image,
+                  resource_state.as.image_state.vk_image_layout,
+                  resource.as.image.vk_image_layout,
+                  resource_state.as.image_state.vk_access,
+                  resource.as.image.vk_access,
+                  resource_state.as.image_state.vk_pipeline_state,
+                  resource.as.image.vk_pipeline_state,
+                  resource.as.image.image_resource_range);
+            }
+            resource_state.as.image_state = {
+                resource.as.image.vk_access,
+                resource.as.image.vk_pipeline_state,
+                resource.as.image.vk_image_layout};
+          }
+        }
+      }
+    };
+    handle_resources(pass.read_resources);
+    handle_resources(pass.write_resources);
+    pass.callback(cmd);
+  }
 }
 
 }  // namespace gfx
