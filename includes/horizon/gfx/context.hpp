@@ -562,14 +562,14 @@ class context_t {
       VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask,
       VkPipelineStageFlags          vk_src_pipeline_stage,
       VkPipelineStageFlags          vk_dst_pipeline_stage,
-      const image_resource_range_t &image_resource_range);
+      const image_resource_range_t &image_resource_range = {});
   void cmd_buffer_memory_barrier(
       handle_commandbuffer_t handle_commandbuffer,
       handle_buffer_t handle_buffer, VkAccessFlags vk_src_access_mask,
       VkAccessFlags                  vk_dst_access_mask,
       VkPipelineStageFlags           vk_src_pipeline_stage,
       VkPipelineStageFlags           vk_dst_pipeline_stage,
-      const buffer_resource_range_t &buffer_resource_range);
+      const buffer_resource_range_t &buffer_resource_range = {});
   // maybe expose multiple sub regions
   void cmd_copy_buffer(handle_commandbuffer_t handle_commandbuffer,
                        handle_buffer_t src_handle, handle_buffer_t dst_handle,
