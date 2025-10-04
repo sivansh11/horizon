@@ -67,6 +67,7 @@ struct resource_state_t {
  * an example of an external resource would be diffusemaps/normalmaps etc
  * these do not need to be synchronised by the rendergraph since they are
  * already in shader_read_only_layout
+ * ALL EXTERNAL RESOURCES MUST BE EXTERNALLY SYNCHRONISED
  */
 struct pass_t {
   pass_t(std::function<void(handle_commandbuffer_t cmd)> callback);

@@ -131,6 +131,23 @@ struct base_t {
   void render_rendergraph(const rendergraph_t   &rendergraph,
                           handle_commandbuffer_t cmd);
 
+  void cmd_bind_descriptor_sets(
+      handle_commandbuffer_t handle_commandbuffer,
+      handle_pipeline_t handle_pipeline, uint32_t vk_first_set,
+      const std::vector<handle_descriptor_set_t> &handle_descriptor_sets);
+  void cmd_bind_graphics_pipeline(handle_commandbuffer_t handle_commandbuffer,
+                                  handle_pipeline_t      handle_pipeline,
+                                  uint32_t width, uint32_t height);
+  void cmd_begin_rendering(
+      handle_commandbuffer_t                       handle_commandbuffer,
+      const std::vector<rendering_attachment_t>   &color_rendering_attachments,
+      const std::optional<rendering_attachment_t> &depth_rendering_attachment,
+      const VkRect2D &vk_render_area, uint32_t vk_layer_count = 1);
+  void cmd_end_rendering(handle_commandbuffer_t handle_commandbuffer);
+  void cmd_draw(handle_commandbuffer_t handle_commandbuffer,
+                uint32_t vk_vertex_count, uint32_t vk_instance_count,
+                uint32_t vk_first_vertex, uint32_t vk_first_instance);
+
   core::ref<core::window_t> _window;
   core::ref<context_t>      _context;
   handle_swapchain_t        _swapchain;

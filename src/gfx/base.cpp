@@ -11,6 +11,7 @@
 #include "horizon/core/core.hpp"
 #include "horizon/core/logger.hpp"
 #include "horizon/gfx/context.hpp"
+#include "horizon/gfx/helper.hpp"
 #include "horizon/gfx/rendergraph.hpp"
 #include "horizon/gfx/types.hpp"
 
@@ -564,6 +565,45 @@ void base_t::render_rendergraph(const rendergraph_t   &rendergraph,
     handle_resources(pass.write_resources);
     pass.callback(cmd);
   }
+}
+
+void base_t::cmd_bind_descriptor_sets(
+    handle_commandbuffer_t handle_commandbuffer,
+    handle_pipeline_t handle_pipeline, uint32_t vk_first_set,
+    const std::vector<handle_descriptor_set_t> &handle_descriptor_sets) {
+  _context->cmd_bind_descriptor_sets(handle_commandbuffer, handle_pipeline,
+                                     vk_first_set, handle_descriptor_sets);
+}
+
+void base_t::cmd_bind_graphics_pipeline(
+    handle_commandbuffer_t handle_commandbuffer,
+    handle_pipeline_t handle_pipeline, uint32_t width, uint32_t height) {
+  _context->cmd_bind_pipeline(handle_commandbuffer, handle_pipeline);
+  auto [viewport, scissor] =
+      gfx::helper::fill_viewport_and_scissor_structs(width, height);
+  _context->cmd_set_viewport_and_scissor(handle_commandbuffer, viewport,
+                                         scissor);
+}
+
+void base_t::cmd_begin_rendering(
+    handle_commandbuffer_t                       handle_commandbuffer,
+    const std::vector<rendering_attachment_t>   &color_rendering_attachments,
+    const std::optional<rendering_attachment_t> &depth_rendering_attachment,
+    const VkRect2D &vk_render_area, uint32_t vk_layer_count) {
+  _context->cmd_begin_rendering(
+      handle_commandbuffer, color_rendering_attachments,
+      depth_rendering_attachment, vk_render_area, vk_layer_count);
+}
+
+void base_t::cmd_end_rendering(handle_commandbuffer_t handle_commandbuffer) {
+  _context->cmd_end_rendering(handle_commandbuffer);
+}
+
+void base_t::cmd_draw(handle_commandbuffer_t handle_commandbuffer,
+                      uint32_t vk_vertex_count, uint32_t vk_instance_count,
+                      uint32_t vk_first_vertex, uint32_t vk_first_instance) {
+  _context->cmd_draw(handle_commandbuffer, vk_vertex_count, vk_instance_count,
+                     vk_first_vertex, vk_first_instance);
 }
 
 }  // namespace gfx

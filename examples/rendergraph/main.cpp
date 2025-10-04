@@ -1,4 +1,5 @@
 #include "horizon/core/logger.hpp"
+#include "imgui.h"
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan_core.h>
 
@@ -16,10 +17,15 @@ int main() {
   core::ref<gfx::context_t> context = core::make_ref<gfx::context_t>(true);
   core::ref<gfx::base_t>    base = core::make_ref<gfx::base_t>(window, context);
 
+  gfx::helper::imgui_init(
+      *window, *context, base->_swapchain,
+      context
+          ->get_image(context->get_swapchain(base->_swapchain).handle_images[0])
+          .config.vk_format);
+
   // this is an external resource
   gfx::handle_image_t random = gfx::helper::load_image_from_path_instant(
-      *context, base->_command_pool,
-      "./examples/rendergraph/assets/noise.jpg",
+      *context, base->_command_pool, "./examples/rendergraph/assets/noise.jpg",
       VK_FORMAT_R8G8B8A8_SRGB);
   gfx::handle_image_view_t random_view =
       context->create_image_view({.handle_image = random});
@@ -86,20 +92,23 @@ int main() {
           rendering_attachment.clear_value = {0, 0, 0, 0};
           rendering_attachment.load_op     = VK_ATTACHMENT_LOAD_OP_CLEAR;
           rendering_attachment.store_op    = VK_ATTACHMENT_STORE_OP_STORE;
-          context->cmd_begin_rendering(cmd, {rendering_attachment},
-                                       std::nullopt, vk_rect2d);
-          auto [viewport, scissor] =
-              gfx::helper::fill_viewport_and_scissor_structs(width, height);
-          context->cmd_set_viewport_and_scissor(cmd, viewport, scissor);
-          context->cmd_bind_pipeline(cmd, p);
-          context->cmd_bind_descriptor_sets(cmd, p, 0, {ds});
-          context->cmd_draw(cmd, 6, 1, 0, 0);
-          context->cmd_end_rendering(cmd);
+          base->cmd_begin_rendering(cmd, {rendering_attachment}, std::nullopt,
+                                    vk_rect2d);
+          base->cmd_bind_graphics_pipeline(cmd, p, width, height);
+          base->cmd_bind_descriptor_sets(cmd, p, 0, {ds});
+          base->cmd_draw(cmd, 6, 1, 0, 0);
+          base->cmd_end_rendering(cmd);
         })
         .add_write_image(base->current_swapchain_image(),
                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    rendergraph.add_pass([&](gfx::handle_commandbuffer_t cmd) {
+      gfx::helper::imgui_newframe();
+      ImGui::Begin("test");
+      ImGui::End();
+      gfx::helper::imgui_endframe(*context, cmd);
+    });
     // empty pass to present swapchain
     rendergraph.add_pass([&](gfx::handle_commandbuffer_t cmd) {})
         .add_write_image(base->current_swapchain_image(), 0,
@@ -110,6 +119,8 @@ int main() {
 
     base->end();
   }
+
+  gfx::helper::imgui_shutdown();
 
   return 0;
 }
