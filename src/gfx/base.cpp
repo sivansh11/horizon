@@ -375,8 +375,34 @@ bool is_same_resource(const resource_t &a, const resource_t &b,
     return (a_start < b_end) && (b_start < a_end);
   }
   if (a.type == resource_type_t::e_image) {
-    // TODO: add image range overlaps
-    return a.as.image.image == b.as.image.image;
+    if (a.as.image.image != b.as.image.image) return false;
+    internal::image_t image              = context->get_image(a.as.image.image);
+    uint32_t          total_mip_levels   = image.config.vk_mips;
+    uint32_t          total_array_layers = image.config.vk_array_layers;
+    uint32_t a_mip_start = a.as.image.image_resource_range.base_mip_level;
+    uint32_t a_mip_count = a.as.image.image_resource_range.level_count;
+    uint32_t a_mip_end   = (a_mip_count == VK_REMAINING_MIP_LEVELS)
+                               ? total_mip_levels
+                               : a_mip_start + a_mip_count;
+    uint32_t b_mip_start = b.as.image.image_resource_range.base_mip_level;
+    uint32_t b_mip_count = b.as.image.image_resource_range.level_count;
+    uint32_t b_mip_end   = (b_mip_count == VK_REMAINING_MIP_LEVELS)
+                               ? total_mip_levels
+                               : b_mip_start + b_mip_count;
+    bool mip_overlap = (a_mip_start < b_mip_end) && (b_mip_start < a_mip_end);
+    uint32_t a_layer_start = a.as.image.image_resource_range.base_array_layer;
+    uint32_t a_layer_count = a.as.image.image_resource_range.layer_count;
+    uint32_t a_layer_end   = (a_layer_count == VK_REMAINING_ARRAY_LAYERS)
+                                 ? total_array_layers
+                                 : a_layer_start + a_layer_count;
+    uint32_t b_layer_start = b.as.image.image_resource_range.base_array_layer;
+    uint32_t b_layer_count = b.as.image.image_resource_range.layer_count;
+    uint32_t b_layer_end   = (b_layer_count == VK_REMAINING_ARRAY_LAYERS)
+                                 ? total_array_layers
+                                 : b_layer_start + b_layer_count;
+    bool     layer_overlap =
+        (a_layer_start < b_layer_end) && (b_layer_start < a_layer_end);
+    return mip_overlap && layer_overlap;
   }
   throw std::runtime_error("reached unreachable");
 }
