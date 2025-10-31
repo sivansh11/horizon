@@ -86,7 +86,7 @@ FetchContent_Declare(
 FetchContent_Declare(
   slang
   GIT_REPOSITORY https://github.com/shader-slang/slang.git
-  GIT_TAG master
+  GIT_TAG vulkan-sdk-1.4.328.1
 )
 FetchContent_Declare(
   model
