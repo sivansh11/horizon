@@ -519,6 +519,7 @@ void context_t::create_device() {
       vk_physical_device_vulkan_11_features);
   VkPhysicalDeviceVulkan12Features vk_physical_device_vulkan_12_features{
       .storagePushConstant8                          = VK_TRUE,
+      .shaderInt8                                    = VK_TRUE,
       .shaderUniformBufferArrayNonUniformIndexing    = VK_TRUE,
       .shaderSampledImageArrayNonUniformIndexing     = VK_TRUE,
       .shaderStorageBufferArrayNonUniformIndexing    = VK_TRUE,
