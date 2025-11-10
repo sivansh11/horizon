@@ -369,9 +369,16 @@ handle_image_t load_image_from_path_instant(
           .imageExtent = {static_cast<uint32_t>(width),
                           static_cast<uint32_t>(height), 1u},
       });
-  cmd_generate_image_mip_maps(
-      context, cbuf, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_FILTER_LINEAR);
+
+  internal::image_t &internal_image = context.get_image(image);
+  if (internal_image.config.vk_mips != 1)
+    cmd_generate_image_mip_maps(
+        context, cbuf, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_FILTER_LINEAR);
+  else
+    cmd_transition_image_layout(context, cbuf, image,
+                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   end_single_use_command_buffer(context, cbuf);
 
   context.destroy_buffer(staging_buffer);
