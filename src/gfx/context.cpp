@@ -1808,7 +1808,7 @@ handle_pipeline_t context_t::create_graphics_pipeline(
         vk_pipeline_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
         break;
       default:
-        horizon_error("shouldnt reach here");
+        horizon_error("shader is neither vertex nor fragment");
         std::terminate();
     }
     vk_pipeline_shader_stage_create_info.module = shader;
