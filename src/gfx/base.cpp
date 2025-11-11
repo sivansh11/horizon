@@ -271,6 +271,17 @@ handle_timer_t base_t::timer(handle_managed_timer_t handle) {
   check(false, "reached unreachable");
 }
 
+void base_t::destroy_timer(handle_managed_timer_t handle) {
+  horizon_profile();
+  internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT> &managed_timer =
+      utils::assert_and_get_data<
+          internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT>>(handle, _timers);
+  for (auto handle_timer : managed_timer.handle_timers) {
+    _context->destroy_timer(handle_timer);
+  }
+  _timers.erase(handle);
+}
+
 handle_commandbuffer_t base_t::current_commandbuffer() {
   horizon_profile();
   return _commandbuffers[_current_frame];

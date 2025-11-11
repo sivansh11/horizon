@@ -106,6 +106,7 @@ struct base_t {
   handle_managed_timer_t create_timer(resource_update_policy_t update_policy,
                                       const config_timer_t    &config);
   handle_timer_t         timer(handle_managed_timer_t handle);
+  void                   destroy_timer(handle_managed_timer_t handle);
 
   rendering_attachment_t swapchain_rendering_attachment(
       VkClearValue vk_clear_value, VkImageLayout vk_layout,
