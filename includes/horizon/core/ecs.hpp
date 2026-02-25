@@ -1,450 +1,465 @@
 #ifndef ECS_HPP
 #define ECS_HPP
 
-#include <array>
+#include <bit>
 #include <cassert>
 #include <cstdint>
-#include <iostream>
+#include <cstring>
 #include <limits>
-#include <utility>
+#include <queue>
+#include <tuple>
+#include <type_traits>
+#include <unordered_map>
 #include <vector>
+
+#include "horizon/core/sparse_map.hpp"
 
 namespace ecs {
 
-// storage would be u32/u64 or something similar, its the underlaying storage of
-// the bits
-template <typename storage_t> class bit_set_t {
+template <typename type_t> //
+class bitset_t {
 public:
-  bit_set_t(storage_t data = 0) : _data(data) {}
-
+  using storage_t = type_t;
+  constexpr bitset_t(storage_t data = 0) : _data(data) {}
+  bitset_t(const bitset_t &other) : _data(other._data) {}
+  bitset_t(const bitset_t &&other) : _data(other._data) {}
+  bitset_t &operator=(const bitset_t &other) {
+    _data = other._data;
+    return *this;
+  }
+  bitset_t &operator=(const bitset_t &&other) {
+    _data = other._data;
+    return *this;
+  }
+  bool operator==(const bitset_t<storage_t> &other) const {
+    return _data == other._data;
+  }
+  bitset_t operator&(const bitset_t<storage_t> &other) const {
+    return bitset_t<storage_t>(_data & other._data);
+  }
+  storage_t get_data() const { return _data; }
   void set(uint32_t n) {
     assert(n < (sizeof(storage_t) * 8));
     _data = _data | (static_cast<storage_t>(1) << n);
   }
-
   void unset(uint32_t n) {
     assert(n < (sizeof(storage_t) * 8));
     _data = _data & ~(static_cast<storage_t>(1) << n);
   }
-
   void toggle(uint32_t n) {
     assert(n < (sizeof(storage_t) * 8));
     _data = _data ^ (static_cast<storage_t>(1) << n);
   }
-
   bool test(uint32_t n) const {
     assert(n < (sizeof(storage_t) * 8));
     return (_data & (static_cast<storage_t>(1) << n)) != 0;
   }
-
-  bool test_all(const bit_set_t &other) const {
+  bool test_all(const bitset_t &other) const {
     return (other._data & ~_data) == 0;
   }
-
-  constexpr uint32_t size() const { return sizeof(storage_t) * 8; }
+  static constexpr uint32_t size() { return sizeof(storage_t) * 8; }
 
 private:
   storage_t _data;
 };
 
-template <typename storage_t>
-std::ostream &operator<<(std::ostream &o, const bit_set_t<storage_t> &bit_set) {
-  for (uint32_t i = 0; i < sizeof(storage_t) * 8; i++) {
-    o << bit_set.test(i);
+} // namespace ecs
+
+namespace std {
+
+template <typename storage_t> struct hash<ecs::bitset_t<storage_t>> {
+  size_t operator()(const ecs::bitset_t<storage_t> &b) const {
+    return std::hash<storage_t>{}(b.get_data());
   }
-  return o;
+};
+
+} // namespace std
+
+namespace ecs {
+
+using entityid_t = uint64_t;
+using componentid_t = uint64_t;
+using component_mask_t = bitset_t<uint64_t>;
+
+constexpr entityid_t null_entity = 0;
+constexpr component_mask_t null_mask = 0;
+
+inline static componentid_t component_counter;
+inline static std::vector<size_t> component_sizes{};
+inline static std::vector<size_t> component_alignment{};
+template <typename component_t> //
+inline componentid_t get_componentid_for() {
+  static const componentid_t s_componentid = []() {
+    componentid_t componentid = component_counter++;
+    component_sizes.resize(componentid + 1, 0);
+    component_alignment.resize(componentid + 1, 0);
+    component_sizes[componentid] = sizeof(component_t);
+    component_alignment[componentid] = alignof(component_t);
+    return componentid;
+  }();
+  return s_componentid;
 }
 
-using entity_id_t = uint32_t;
-using component_id_t = uint32_t;
-using component_mask_t = bit_set_t<uint32_t>;
-
-static const entity_id_t null_entity_id =
-    std::numeric_limits<entity_id_t>::max();
-
-template <typename T>
-component_id_t _get_component_id_for(component_id_t &component_id_counter) {
-  static component_id_t s_component_id = component_id_counter++;
-  return s_component_id;
-}
-
-static constexpr uint32_t invalid_index = std::numeric_limits<uint32_t>::max();
-
-template <typename value_t, size_t page_size> struct sparse_map {
-  using page_t = std::array<uint32_t, page_size>;
-
-  value_t *get(uint32_t id) {
-    uint32_t page_index = id / page_size;
-    uint32_t in_page_index = id % page_size;
-
-    assert(page_index < sparse.size());
-
-    uint32_t dense_index = sparse[page_index][in_page_index];
-
-    assert(dense_index != invalid_index);
-
-    return dense.data() + sparse[page_index][in_page_index];
-  }
-
-  bool check_if_value_exist(uint32_t id) {
-    uint32_t page_index = id / page_size;
-    uint32_t in_page_index = id % page_size;
-
-    if (page_index >= sparse.size())
-      return false;
-
-    uint32_t dense_index = sparse[page_index][in_page_index];
-
-    if (dense_index == invalid_index)
-      return false;
-
-    return true;
-  }
-
-  template <typename... args_t>
-  value_t *construct(uint32_t id, args_t &&...args) {
-    uint32_t page_index = id / page_size;
-    uint32_t in_page_index = id % page_size;
-
-    while (page_index >= sparse.size()) {
-      uint32_t current_page_index = sparse.size();
-      sparse.emplace_back();
-      sparse[current_page_index].fill(invalid_index);
-    }
-
-    uint32_t dense_index = sparse[page_index][in_page_index];
-
-    assert(dense_index == invalid_index);
-
-    dense_index = dense.size();
-
-    while (dense.size() < (dense_index + 1)) {
-      dense.emplace_back();
-    }
-
-    while (dense_to_id.size() <= dense_index) {
-      dense_to_id.emplace_back(invalid_index);
-    }
-
-    value_t *component =
-        reinterpret_cast<value_t *>(dense.data() + (dense_index));
-
-    new (component) value_t{std::forward<args_t>(args)...};
-
-    dense_to_id[dense_index] = id;
-    sparse[page_index][in_page_index] = dense_index;
-
-    return component;
-  }
-
-  void destroy(uint32_t id) {
-    uint32_t page_index = id / page_size;
-    uint32_t in_page_index = id % page_size;
-
-    uint32_t dense_index = sparse[page_index][in_page_index];
-
-    assert(dense_index != invalid_index);
-
-    uint32_t top_dense_index = dense.size() - 1;
-
-    uint32_t top_id = dense_to_id[top_dense_index];
-
-    uint32_t top_page_index = top_id / page_size;
-    uint32_t top_in_page_index = top_id % page_size;
-
-    std::swap(dense[dense_index], dense[top_dense_index]);
-    std::swap(dense_to_id[dense_index], dense_to_id[top_dense_index]);
-    std::swap(sparse[page_index][in_page_index],
-              sparse[top_page_index][top_in_page_index]);
-
-    dense.pop_back();
-
-    dense_to_id.pop_back();
-
-    sparse[page_index][in_page_index] = invalid_index;
-  }
-  std::vector<page_t> sparse;
-  std::vector<value_t> dense;
-  std::vector<uint32_t> dense_to_id;
-};
-
-template <size_t page_size> struct base_component_pool_t {
-  using page_t = std::array<uint32_t, page_size>;
-
-  base_component_pool_t(component_id_t id, uint32_t component_size)
-      : _id(id), _component_size(component_size) {}
-
-  virtual ~base_component_pool_t() {}
-
-  void *get(entity_id_t id) {
-    uint32_t page_index = id / page_size;
-    uint32_t in_page_index = id % page_size;
-
-    page_t &page = *sparse.get(page_index);
-
-    uint32_t dense_index = page[in_page_index];
-
-    assert(dense_index != invalid_index);
-
-    return dense.data() + (dense_index * _component_size);
-  }
-
-  virtual void destroy(entity_id_t id) = 0;
-
-  component_id_t _id;
-  uint32_t _component_size;
-  sparse_map<page_t, 1> sparse;
-  std::vector<uint8_t> dense;
-  std::vector<entity_id_t> dense_index_to_entity_id;
-};
-
-template <typename T, size_t page_size>
-struct component_pool_t : public base_component_pool_t<page_size> {
-  component_pool_t(component_id_t id)
-      : base_component_pool_t<page_size>(id, sizeof(T)) {}
-
-  ~component_pool_t() override {}
-
-  template <typename... args_t> T *construct(entity_id_t id, args_t &&...args) {
-    uint32_t page_index = id / page_size;
-    uint32_t in_page_index = id % page_size;
-
-    if (!this->sparse.check_if_value_exist(page_index)) {
-      this->sparse.construct(page_index)->fill(invalid_index);
-    }
-
-    auto &page = *this->sparse.get(page_index);
-
-    uint32_t dense_index = page[in_page_index];
-
-    assert(dense_index == invalid_index);
-
-    dense_index = this->dense.size() / sizeof(T);
-
-    while (this->dense.size() < (dense_index + 1) * this->_component_size) {
-      this->dense.emplace_back(0);
-    }
-
-    while (this->dense_index_to_entity_id.size() <= dense_index) {
-      this->dense_index_to_entity_id.emplace_back(ecs::null_entity_id);
-    }
-
-    T *component = reinterpret_cast<T *>(this->dense.data() +
-                                         (dense_index * this->_component_size));
-
-    new (component) T{std::forward<args_t>(args)...};
-
-    this->dense_index_to_entity_id[dense_index] = id;
-    page[in_page_index] = dense_index;
-
-    return component;
-  }
-
-  void destroy(entity_id_t id) override {
-    uint32_t page_index = id / page_size;
-    uint32_t in_page_index = id % page_size;
-
-    auto &page = *this->sparse.get(page_index);
-
-    uint32_t dense_index = page[in_page_index];
-
-    assert(dense_index != invalid_index);
-
-    uint32_t top_dense_index = this->dense.size() / sizeof(T) - 1;
-
-    entity_id_t top_id = this->dense_index_to_entity_id[top_dense_index];
-
-    uint32_t top_page_index = top_id / page_size;
-    uint32_t top_in_page_index = top_id % page_size;
-
-    auto &top_page = *this->sparse.get(top_page_index);
-
-    std::swap(*(T *)(&this->dense[dense_index * this->_component_size]),
-              *(T *)(&this->dense[top_dense_index * this->_component_size]));
-    std::swap(this->dense_index_to_entity_id[dense_index],
-              this->dense_index_to_entity_id[top_dense_index]);
-    std::swap(page[in_page_index], top_page[top_in_page_index]);
-
-    for (uint32_t i = 0; i < sizeof(T); i++)
-      this->dense.pop_back();
-
-    this->dense_index_to_entity_id.pop_back();
-
-    page[in_page_index] = invalid_index;
-
-    // check if page is empty, destroy page
-    for (uint32_t i = 0; i < page_size; i++) {
-      if (page[i] != invalid_index)
-        return;
-    }
-
-    this->sparse.destroy(page_index);
-  }
-};
-
-template <size_t page_size = 2048> class scene_t {
-  struct entity_description_t {
-    entity_id_t id;
+struct scene_t {
+  struct pool_t {
+    size_t offsets[component_mask_t::size()];
+    component_mask_t mask;
+    size_t size;
+    sparse_map<1024> storage;
+  };
+
+  struct entity_t {
+    entityid_t id;
     component_mask_t mask;
     bool is_valid;
   };
 
-public:
-  scene_t(entity_id_t max_entities = 1000) : _max_entities(max_entities) {
-    _available_entities.reserve(_max_entities);
-    entity_id_t counter = _max_entities;
-    while (counter--) {
-      _available_entities.push_back(counter);
-    }
-  }
+  using pools_t = std::unordered_map<component_mask_t, pool_t>;
 
+  scene_t() {
+    // empty entity for null_entity
+    _entities.emplace_back();
+  }
   ~scene_t() {
-    for (auto &entity : _entities)
-      if (entity.is_valid) {
-        for (auto &component_pool : _component_pools)
-          if (entity.mask.test(component_pool->_id)) {
-            component_pool->destroy(entity.id);
-          }
-      }
-
-    for (auto &component_pool : _component_pools) {
-      delete component_pool;
-    }
+    // TODO: implement
   }
 
-  template <typename T> component_id_t get_component_id_for() {
-    return _get_component_id_for<T>(component_id_counter);
-  }
-
-  entity_id_t create() {
-    assert(_available_entities.size() > 0);
-    entity_id_t id = _available_entities[_available_entities.size() - 1];
-    _available_entities.pop_back();
-
-    if (_entities.size() <= id) {
-      entity_description_t entity_description = {
-          .id = id, .mask = {}, .is_valid = true};
-
-      _entities.push_back(entity_description);
-    } else {
+  entityid_t create() {
+    if (_available_entityids.size()) {
+      entityid_t id = _available_entityids.front();
+      _available_entityids.pop();
+      assert(_entities.size() > id);
       assert(!_entities[id].is_valid);
-    }
-
-    return id;
-  }
-
-  void destroy(entity_id_t id) {
-    assert(id != null_entity_id);
-    assert(_entities[id].is_valid);
-    entity_description_t &entity_description = _entities[id];
-    for (component_id_t i = 0; i < entity_description.mask.size(); i++) {
-      if (entity_description.mask.test(i)) {
-        _component_pools[i]->destroy(id);
-      }
-    }
-    entity_description.is_valid = false;
-    entity_description.mask = {};
-    _available_entities.push_back(id);
-  }
-
-  template <typename T> T &get(entity_id_t id) {
-    assert(id != null_entity_id);
-    assert(_entities[id].is_valid);
-
-    component_id_t component_id = get_component_id_for<T>();
-    if (_component_pools.size() <= component_id) {
-      _component_pools.resize(component_id + 1);
-      _component_pools[component_id] =
-          new component_pool_t<T, page_size>(component_id);
-    }
-
-    entity_description_t &entity_description = _entities[id];
-    entity_description.mask.set(component_id);
-    return *reinterpret_cast<T *>(_component_pools[component_id]->get(id));
-  }
-
-  template <typename T, typename... args_t>
-  T &construct(entity_id_t id, args_t &&...args) {
-    assert(id != null_entity_id);
-    assert(_entities[id].is_valid);
-    assert(!_entities[id].mask.test(get_component_id_for<T>()));
-
-    component_id_t component_id = get_component_id_for<T>();
-    if (_component_pools.size() <= component_id) {
-      _component_pools.resize(component_id + 1);
-      _component_pools[component_id] =
-          reinterpret_cast<base_component_pool_t<page_size> *>(
-              new component_pool_t<T, page_size>(component_id));
-    }
-
-    entity_description_t &entity_description = _entities[id];
-    entity_description.mask.set(component_id);
-    return *(reinterpret_cast<component_pool_t<T, page_size> *>(
-                 _component_pools[component_id])
-                 ->construct(id, std::forward<args_t>(args)...));
-  }
-
-  template <typename T> void remove(entity_id_t id) {
-    assert(id != null_entity_id);
-    assert(_entities[id].is_valid);
-    assert(_entities[id].mask.test(get_component_id_for<T>()));
-
-    component_id_t component_id = get_component_id_for<T>();
-    if (_component_pools.size() <= component_id) {
-      _component_pools.resize(component_id + 1);
-      _component_pools[component_id] =
-          reinterpret_cast<base_component_pool_t<page_size> *>(
-              new component_pool_t<T, page_size>(component_id));
-    }
-
-    _component_pools[component_id]->destroy(id);
-
-    entity_description_t &entity_description = _entities[id];
-    entity_description.mask.unset(component_id);
-  }
-
-  template <typename... T> bool has(entity_id_t id) {
-    assert(id != null_entity_id);
-    assert(_entities[id].is_valid);
-
-    component_mask_t mask{};
-    component_id_t component_ids[] = {get_component_id_for<T>()...};
-    for (uint32_t i = 0; i < sizeof...(T); i++) {
-      mask.set(component_ids[i]);
-    }
-
-    entity_description_t &entity_description = _entities[id];
-
-    return entity_description.mask.test_all(mask);
-  }
-
-  template <typename... T> void for_all(auto callback) {
-    if constexpr (sizeof...(T) == 0) {
-      for (auto &entity : _entities)
-        if (entity.is_valid) {
-          callback(entity.id);
-        }
+      _entities[id].is_valid = true;
+      _entities[id].mask = null_mask;
+      return id;
     } else {
-      component_mask_t mask{};
-      component_id_t component_ids[] = {get_component_id_for<T>()...};
-      for (uint32_t i = 0; i < sizeof...(T); i++) {
-        mask.set(component_ids[i]);
-      }
-      for (auto &entity : _entities)
-        if (entity.is_valid && entity.mask.test_all(mask)) {
-          callback(entity.id, get<T>(entity.id)...);
-        }
+      entityid_t id = ++_entity_counter;
+      _entities.emplace_back(id, null_mask, true);
+      return id;
     }
   }
 
-private:
-  // TODO: make a free entities queue
-  const entity_id_t _max_entities;
-  std::vector<entity_id_t> _available_entities;
-  std::vector<entity_description_t> _entities;
-  std::vector<base_component_pool_t<page_size> *> _component_pools;
-  component_id_t component_id_counter = 0;
+  void destroy(entityid_t id) {
+    if (id == null_entity)
+      return;
+    entity_t &entity = get_entity_from(id);
+    if (!entity.is_valid)
+      return;
+    _available_entityids.push(id);
+    entity.is_valid = false;
+    if (entity.mask == null_mask)
+      return;
+    pool_t &pool = get_pool_from(entity.mask);
+    pool.storage.erase(id);
+    entity.mask = null_mask;
+  }
+
+  // returns nullptr on failure
+  template <typename... component_t> //
+  decltype(auto) at(entityid_t id) {
+    static_assert(sizeof...(component_t) != 0,
+                  "need to provide atleast 1 component");
+    static_assert((std::is_trivially_copyable_v<component_t> && ...),
+                  "given component is not pod");
+    auto [data, mask] = get_context_from(id);
+    pool_t &pool = get_pool_from(mask);
+    if constexpr (sizeof...(component_t) == 1)
+      return get_ptr_from<component_t...>(data, pool);
+    else
+      return std::make_tuple<component_t *...>(
+          get_ptr_from<component_t>(data, pool)...);
+  }
+
+  // returns nullptr on failure
+  template <typename... component_t> //
+  decltype(auto) insert(entityid_t id) {
+    static_assert(sizeof...(component_t) != 0,
+                  "need to provide atleast 1 component");
+    static_assert((std::is_trivially_copyable_v<component_t> && ...),
+                  "given component is not pod");
+    entity_t &entity = get_entity_from(id);
+    if (id == null_entity || !entity.is_valid)
+      return at<component_t...>(id);
+    componentid_t componentids[] = {get_componentid_for<component_t>()...};
+    // need to add this section since other wise componentids gets optimised out
+    // and _component_sizes is never filled
+    for (auto componentid : componentids)
+      component_sizes.resize(std::max(componentid + 1, component_sizes.size()),
+                             0);
+    ((component_sizes[get_componentid_for<component_t>()] =
+          sizeof(component_t)),
+     ...);
+    component_mask_t old_mask = entity.mask;
+    component_mask_t new_mask = entity.mask;
+    (new_mask.set(get_componentid_for<component_t>()), ...);
+    if (old_mask == new_mask)
+      return at<component_t...>(id);
+    uint8_t *old_data = old_mask == null_mask
+                            ? nullptr
+                            : get_data_from(get_pool_from(old_mask), entity);
+    pool_t &new_pool = get_pool_from(new_mask);
+    uint8_t *new_data = insert_entity_into_pool(id, new_pool);
+    entity.mask = new_mask;
+    if (old_data) {
+      pool_t &old_pool = get_pool_from(old_mask);
+      component_mask_t::storage_t bits = old_mask.get_data();
+      while (bits > 0) {
+        int i = std::countr_zero(bits);
+        size_t old_offset = get_offset_of(i, old_pool);
+        size_t new_offset = get_offset_of(i, new_pool);
+        std::memcpy(new_data + new_offset, old_data + old_offset,
+                    get_size_of(i));
+        bits &= bits - 1;
+      }
+      old_pool.storage.erase(id);
+    }
+    return at<component_t...>(id);
+  }
+
+  template <typename... component_t> //
+  void erase(entityid_t id) {
+    static_assert(sizeof...(component_t) != 0,
+                  "need to provide atleast 1 component");
+    static_assert((std::is_trivially_copyable_v<component_t> && ...),
+                  "given component is not pod");
+    componentid_t componentids[] = {get_componentid_for<component_t>()...};
+    // need to add this section since other wise componentids gets optimised out
+    // and _component_sizes is never filled
+    for (auto componentid : componentids)
+      component_sizes.resize(std::max(componentid + 1, component_sizes.size()),
+                             0);
+    ((component_sizes[get_componentid_for<component_t>()] =
+          sizeof(component_t)),
+     ...);
+    entity_t &entity = get_entity_from(id);
+    if (id == null_entity || !entity.is_valid || entity.mask == null_mask)
+      return;
+    component_mask_t old_mask = entity.mask;
+    component_mask_t new_mask = entity.mask;
+    (new_mask.unset(get_componentid_for<component_t>()), ...);
+    if (old_mask == new_mask)
+      return;
+    pool_t &old_pool = get_pool_from(old_mask);
+    uint8_t *old_data = get_data_from(old_pool, entity);
+    if (new_mask == null_mask) {
+      entity.mask = null_mask;
+      old_pool.storage.erase(id);
+      return;
+    }
+    pool_t &new_pool = get_pool_from(new_mask);
+    uint8_t *new_data = insert_entity_into_pool(id, new_pool);
+    component_mask_t::storage_t bits = new_mask.get_data();
+    while (bits > 0) {
+      int i = std::countr_zero(bits);
+      size_t old_offset = get_offset_of(i, old_pool);
+      size_t new_offset = get_offset_of(i, new_pool);
+      std::memcpy(new_data + new_offset, old_data + old_offset, get_size_of(i));
+      bits &= bits - 1;
+    }
+    entity.mask = new_mask;
+    old_pool.storage.erase(id);
+  }
+
+  template <typename... component_t> //
+  struct view_t {
+    static_assert(sizeof...(component_t) != 0,
+                  "need to provide atleast 1 component");
+    static_assert((std::is_trivially_copyable_v<component_t> && ...),
+                  "given component is not pod");
+    scene_t &scene;
+    component_mask_t target_mask{};
+
+    view_t(scene_t &scene) : scene(scene) {
+      (target_mask.set(get_componentid_for<component_t>()), ...);
+    }
+
+    // TODO: iterators are invalid if user trys to insert while looping
+    // a solution to this could be to use sparse_map for pools_t instead of
+    // unordered_map
+    struct iterator_t {
+      scene_t &scene;
+      component_mask_t target_mask;
+      pools_t::iterator pool_iterator_current;
+      pools_t::iterator pool_iterator_end;
+      size_t dense_index;
+      iterator_t(scene_t &scene, component_mask_t target_mask,
+                 pools_t::iterator pool_iterator_current,
+                 pools_t::iterator pool_iterator_end)
+          : scene(scene), target_mask(target_mask),
+            pool_iterator_current(pool_iterator_current),
+            pool_iterator_end(pool_iterator_end), dense_index(0) {
+        advance();
+      }
+
+      void advance() {
+        while (pool_iterator_current != pool_iterator_end) {
+          if (pool_iterator_current != pool_iterator_end) {
+            if ((pool_iterator_current->first & target_mask) == target_mask &&
+                dense_index < pool_iterator_current->second.storage
+                                  ._dense_index_to_key.size())
+              return;
+            pool_iterator_current++;
+            dense_index = 0;
+          }
+        }
+      }
+
+      iterator_t &operator++() {
+        dense_index++;
+        if (dense_index >=
+            pool_iterator_current->second.storage._dense_index_to_key.size()) {
+          pool_iterator_current++;
+          dense_index = 0;
+        }
+        advance();
+        return *this;
+      }
+
+      bool operator!=(const iterator_t &other) const {
+        return pool_iterator_current != other.pool_iterator_current ||
+               dense_index != other.dense_index;
+      }
+
+      auto operator*() {
+        entityid_t id = pool_iterator_current->second.storage
+                            ._dense_index_to_key[dense_index];
+        uint8_t *data =
+            &pool_iterator_current->second.storage
+                 ._dense[dense_index *
+                         pool_iterator_current->second.storage._component_size];
+        if constexpr (sizeof...(component_t) == 1)
+          return scene.get_ptr_from_fast<component_t...>(
+              data, pool_iterator_current->second);
+        else
+          return std::make_tuple<component_t *...>(
+              scene.get_ptr_from_fast<component_t>(
+                  data, pool_iterator_current->second)...);
+      }
+    };
+    iterator_t begin() {
+      return iterator_t(scene, target_mask, scene._pools.begin(),
+                        scene._pools.end());
+    }
+    iterator_t end() {
+      return iterator_t(scene, target_mask, scene._pools.end(),
+                        scene._pools.end());
+    }
+  };
+
+  template <typename... component_t> //
+  view_t<component_t...> view() {
+    return view_t<component_t...>(*this);
+  }
+
+  inline entity_t &get_entity_from(const entityid_t id) {
+    if (id >= _entities.size())
+      return _entities[0];
+    return _entities[id];
+  }
+
+  inline size_t get_size_from(const pool_t &pool) { return pool.size; }
+
+  inline pool_t &get_pool_from(const component_mask_t mask) {
+    auto itr = _pools.find(mask);
+    if (itr != _pools.end())
+      return itr->second;
+    size_t size = 0;
+    size_t max_align = 1;
+    component_mask_t::storage_t bits = mask.get_data();
+    while (bits > 0) {
+      int i = std::countr_zero(bits);
+      assert(component_sizes.size() > i);
+      assert(component_alignment.size() > i);
+      size_t csize = component_sizes[i];
+      size_t calignment = component_alignment[i];
+      if (calignment > max_align)
+        max_align = calignment;
+      size = (size + calignment - 1) & ~(calignment - 1);
+      size += csize;
+      bits &= bits - 1;
+    }
+    size = (size + max_align - 1) & ~(max_align - 1);
+    pool_t new_pool{.mask = mask, .storage = size};
+    for (auto &offset : new_pool.offsets) {
+      offset = std::numeric_limits<size_t>::max();
+    }
+    size_t current_offset = 0;
+    // TODO: maybe merge the loops
+    bits = mask.get_data();
+    while (bits > 0) {
+      int i = std::countr_zero(bits);
+      assert(component_sizes.size() > i);
+      assert(component_alignment.size() > i);
+      size_t calignment = component_alignment[i];
+      current_offset = (current_offset + calignment - 1) & ~(calignment - 1);
+      new_pool.offsets[i] = current_offset;
+      current_offset += component_sizes[i];
+      bits &= bits - 1;
+    }
+    _pools.emplace(std::pair{mask, new_pool});
+    return _pools.at(mask);
+  }
+
+  inline uint8_t *get_data_from(pool_t &pool, const entity_t &entity) {
+    assert(entity.is_valid);
+    uint8_t *data = pool.storage.at(entity.id);
+    assert(data); // if data is nullptr, entity not in pool
+    return data;
+  }
+
+  inline size_t get_offset_of(const componentid_t componentid,
+                              const pool_t &pool) {
+    assert(pool.offsets[componentid] != std::numeric_limits<size_t>::max());
+    return pool.offsets[componentid];
+  }
+
+  inline uint8_t *insert_entity_into_pool(entityid_t id, pool_t &pool) {
+    assert(!pool.storage.at(id));
+    uint8_t *data = pool.storage.insert(id);
+    assert(data);
+    return data;
+  }
+
+  inline size_t get_size_of(componentid_t componentid) {
+    assert(component_sizes.size() > componentid);
+    return component_sizes[componentid];
+  }
+
+  std::pair<uint8_t *, component_mask_t> get_context_from(entityid_t id) {
+    if (id == null_entity)
+      return {nullptr, null_mask};
+    entity_t &entity = get_entity_from(id);
+    if (!entity.is_valid || entity.mask == null_mask)
+      return {nullptr, null_mask};
+    pool_t &pool = get_pool_from(entity.mask);
+    return {get_data_from(pool, entity), entity.mask};
+  }
+
+  template <typename component_t> //
+  component_t *get_ptr_from(uint8_t *data, const pool_t &pool) {
+    if (!data)
+      return nullptr;
+    componentid_t componentid = get_componentid_for<component_t>();
+    if (!pool.mask.test(componentid))
+      return nullptr;
+    return reinterpret_cast<component_t *>(data +
+                                           get_offset_of(componentid, pool));
+  }
+
+  template <typename component_t> //
+  component_t *get_ptr_from_fast(uint8_t *data, const pool_t &pool) {
+    componentid_t componentid = get_componentid_for<component_t>();
+    return reinterpret_cast<component_t *>(data +
+                                           get_offset_of(componentid, pool));
+  }
+
+  std::vector<entity_t> _entities;
+  std::queue<entityid_t> _available_entityids;
+  entityid_t _entity_counter = 0;
+  pools_t _pools;
 };
 
 } // namespace ecs
+
 #endif
