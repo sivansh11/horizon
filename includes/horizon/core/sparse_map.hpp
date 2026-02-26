@@ -2,9 +2,11 @@
 #define SPARSE_MAP_HPP
 
 #include <array>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <limits>
 #include <vector>
 
@@ -13,9 +15,18 @@ struct sparse_map {
   using page_t = std::array<size_t, page_size>;
   static constexpr size_t invalid_index = std::numeric_limits<size_t>::max();
 
-  sparse_map(size_t component_size)
+  sparse_map(size_t component_size,
+             std::function<void(uint8_t *)> destroy_callback,
+             std::function<void(uint8_t *, uint8_t *)> move_construct_callback,
+             std::function<void(uint8_t *)> construct_callback)
       // align component size
-      : _component_size(component_size) {}
+      : _component_size(component_size), _destroy_callback(destroy_callback),
+        _move_construct_callback(move_construct_callback),
+        _construct_callback(construct_callback) {
+    assert(_destroy_callback);
+    assert(_move_construct_callback);
+    assert(_construct_callback);
+  }
   ~sparse_map() {
     for (auto page : _sparse)
       if (page)
@@ -58,6 +69,8 @@ struct sparse_map {
     _dense_index_to_key.emplace_back(key);
     size_t element_offset = _dense.size();
     _dense.insert(_dense.end(), _component_size, 0);
+    uint8_t *ptr = &_dense[element_offset];
+    _construct_callback(ptr);
     return &_dense[element_offset];
   }
 
@@ -75,10 +88,12 @@ struct sparse_map {
     const size_t index_to_remove = dense_index_ref;
     const uint64_t last_key = _dense_index_to_key.back();
     const size_t last_dense_index = _dense_index_to_key.size() - 1;
+    _destroy_callback(&_dense[dense_index_ref * _component_size]);
     if (index_to_remove != last_dense_index) {
       uint8_t *dst = &_dense[index_to_remove * _component_size];
       uint8_t *src = &_dense[last_dense_index * _component_size];
-      std::memcpy(dst, src, _component_size);
+      _move_construct_callback(dst, src);
+      _destroy_callback(src);
       const size_t last_page_index = last_key / page_size;
       const size_t last_page_offset = last_key % page_size;
       (*_sparse[last_page_index])[last_page_offset] = index_to_remove;
@@ -94,6 +109,9 @@ struct sparse_map {
   }
 
   const size_t _component_size;
+  std::function<void(uint8_t *)> _destroy_callback;
+  std::function<void(uint8_t *, uint8_t *)> _move_construct_callback;
+  std::function<void(uint8_t *)> _construct_callback;
 
   std::vector<page_t *> _sparse;
   std::vector<uint64_t> _occupancy;

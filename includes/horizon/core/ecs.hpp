@@ -10,6 +10,7 @@
 #include <tuple>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "horizon/core/sparse_map.hpp"
@@ -84,17 +85,34 @@ using component_mask_t = bitset_t<uint64_t>;
 constexpr entityid_t null_entity = 0;
 constexpr component_mask_t null_mask = 0;
 
+struct vtable_t {
+  void (*destroy)(void *);
+  void (*move_construct)(void *, void *);
+  void (*construct)(void *);
+};
+
 inline static componentid_t component_counter;
 inline static std::vector<size_t> component_sizes{};
 inline static std::vector<size_t> component_alignment{};
+inline static std::vector<vtable_t> component_vtable{};
 template <typename component_t> //
 inline componentid_t get_componentid_for() {
   static const componentid_t s_componentid = []() {
     componentid_t componentid = component_counter++;
     component_sizes.resize(componentid + 1, 0);
     component_alignment.resize(componentid + 1, 0);
+    component_vtable.resize(componentid + 1, vtable_t{nullptr, nullptr});
     component_sizes[componentid] = sizeof(component_t);
     component_alignment[componentid] = alignof(component_t);
+    component_vtable[componentid] = {
+        .destroy =
+            [](void *ptr) { static_cast<component_t *>(ptr)->~component_t(); },
+        .move_construct =
+            [](void *dst, void *src) {
+              new (dst)
+                  component_t(std::move(*static_cast<component_t *>(src)));
+            },
+        .construct = [](void *ptr) { new (ptr) component_t{}; }};
     return componentid;
   }();
   return s_componentid;
@@ -160,8 +178,6 @@ struct scene_t {
   decltype(auto) at(entityid_t id) {
     static_assert(sizeof...(component_t) != 0,
                   "need to provide atleast 1 component");
-    static_assert((std::is_trivially_copyable_v<component_t> && ...),
-                  "given component is not pod");
     auto [data, mask] = get_context_from(id);
     pool_t &pool = get_pool_from(mask);
     if constexpr (sizeof...(component_t) == 1)
@@ -171,13 +187,16 @@ struct scene_t {
           get_ptr_from<component_t>(data, pool)...);
   }
 
+  template <typename component_t, typename... args_t> //
+  void construct(void *ptr, args_t &&...args) {
+    new (ptr) component_t{std::forward<args_t>(args)...};
+  }
+
   // returns nullptr on failure
-  template <typename... component_t> //
-  decltype(auto) insert(entityid_t id) {
+  template <typename... component_t, typename... args_t> //
+  decltype(auto) insert(entityid_t id, args_t &&...args) {
     static_assert(sizeof...(component_t) != 0,
                   "need to provide atleast 1 component");
-    static_assert((std::is_trivially_copyable_v<component_t> && ...),
-                  "given component is not pod");
     entity_t &entity = get_entity_from(id);
     if (id == null_entity || !entity.is_valid)
       return at<component_t...>(id);
@@ -193,8 +212,24 @@ struct scene_t {
     component_mask_t old_mask = entity.mask;
     component_mask_t new_mask = entity.mask;
     (new_mask.set(get_componentid_for<component_t>()), ...);
-    if (old_mask == new_mask)
+    if (old_mask == new_mask) {
+      uint8_t *data = get_data_from(get_pool_from(old_mask), entity);
+      component_mask_t mask{};
+      (mask.set(get_componentid_for<component_t>()), ...);
+      component_mask_t::storage_t bits = mask.get_data();
+      while (bits > 0) {
+        int i = std::countr_zero(bits);
+        size_t offset = get_offset_of(i, get_pool_from(old_mask));
+        if constexpr (sizeof...(args_t) > 0) {
+          assert(component_vtable.size() > i);
+          component_vtable[i].destroy(data + offset);
+          construct<component_t...>(data + offset,
+                                    std::forward<args_t>(args)...);
+        }
+        bits &= bits - 1;
+      }
       return at<component_t...>(id);
+    }
     uint8_t *old_data = old_mask == null_mask
                             ? nullptr
                             : get_data_from(get_pool_from(old_mask), entity);
@@ -208,11 +243,31 @@ struct scene_t {
         int i = std::countr_zero(bits);
         size_t old_offset = get_offset_of(i, old_pool);
         size_t new_offset = get_offset_of(i, new_pool);
-        std::memcpy(new_data + new_offset, old_data + old_offset,
-                    get_size_of(i));
+        assert(component_vtable.size() > 1);
+        component_vtable[i].move_construct(new_data + new_offset,
+                                           old_data + old_offset);
         bits &= bits - 1;
       }
       old_pool.storage.erase(id);
+    }
+    component_mask_t mask{};
+    (mask.set(get_componentid_for<component_t>()), ...);
+    component_mask_t::storage_t bits = mask.get_data();
+    while (bits > 0) {
+      int i = std::countr_zero(bits);
+      size_t offset = get_offset_of(i, new_pool);
+      if constexpr (sizeof...(component_t) == 1) {
+        if constexpr (sizeof...(args_t) > 0) {
+          assert(component_vtable.size() > i);
+          component_vtable[i].destroy(new_data + offset);
+          construct<component_t...>(new_data + offset,
+                                    std::forward<args_t>(args)...);
+        }
+      } else {
+        // no need to call anything, construct callback already called by
+        // sparse_map
+      }
+      bits &= bits - 1;
     }
     return at<component_t...>(id);
   }
@@ -221,8 +276,6 @@ struct scene_t {
   void erase(entityid_t id) {
     static_assert(sizeof...(component_t) != 0,
                   "need to provide atleast 1 component");
-    static_assert((std::is_trivially_copyable_v<component_t> && ...),
-                  "given component is not pod");
     componentid_t componentids[] = {get_componentid_for<component_t>()...};
     // need to add this section since other wise componentids gets optimised out
     // and _component_sizes is never filled
@@ -254,7 +307,9 @@ struct scene_t {
       int i = std::countr_zero(bits);
       size_t old_offset = get_offset_of(i, old_pool);
       size_t new_offset = get_offset_of(i, new_pool);
-      std::memcpy(new_data + new_offset, old_data + old_offset, get_size_of(i));
+      assert(component_vtable.size() > i);
+      component_vtable[i].move_construct(new_data + new_offset,
+                                         old_data + old_offset);
       bits &= bits - 1;
     }
     entity.mask = new_mask;
@@ -265,8 +320,6 @@ struct scene_t {
   struct view_t {
     static_assert(sizeof...(component_t) != 0,
                   "need to provide atleast 1 component");
-    static_assert((std::is_trivially_copyable_v<component_t> && ...),
-                  "given component is not pod");
     scene_t &scene;
     component_mask_t target_mask{};
 
@@ -294,14 +347,12 @@ struct scene_t {
 
       void advance() {
         while (pool_iterator_current != pool_iterator_end) {
-          if (pool_iterator_current != pool_iterator_end) {
-            if ((pool_iterator_current->first & target_mask) == target_mask &&
-                dense_index < pool_iterator_current->second.storage
-                                  ._dense_index_to_key.size())
-              return;
-            pool_iterator_current++;
-            dense_index = 0;
-          }
+          if ((pool_iterator_current->first & target_mask) == target_mask &&
+              dense_index < pool_iterator_current->second.storage
+                                ._dense_index_to_key.size())
+            return;
+          pool_iterator_current++;
+          dense_index = 0;
         }
       }
 
@@ -380,7 +431,43 @@ struct scene_t {
       bits &= bits - 1;
     }
     size = (size + max_align - 1) & ~(max_align - 1);
-    pool_t new_pool{.mask = mask, .storage = size};
+    pool_t new_pool{
+        .mask = mask,
+        .storage = {size,
+                    [this, mask](uint8_t *ptr) {
+                      pool_t &pool = _pools.at(mask);
+                      component_mask_t::storage_t bits = mask.get_data();
+                      while (bits > 0) {
+                        int i = std::countr_zero(bits);
+                        assert(component_vtable.size() > i);
+                        size_t offset = get_offset_of(i, pool);
+                        component_vtable[i].destroy(ptr + offset);
+                        bits &= bits - 1;
+                      }
+                    },
+                    [this, mask](uint8_t *dst, uint8_t *src) {
+                      pool_t &pool = _pools.at(mask);
+                      component_mask_t::storage_t bits = mask.get_data();
+                      while (bits > 0) {
+                        int i = std::countr_zero(bits);
+                        assert(component_vtable.size() > i);
+                        size_t offset = get_offset_of(i, pool);
+                        component_vtable[i].move_construct(dst + offset,
+                                                           src + offset);
+                        bits &= bits - 1;
+                      }
+                    },
+                    [this, mask](uint8_t *ptr) {
+                      pool_t &pool = _pools.at(mask);
+                      component_mask_t::storage_t bits = mask.get_data();
+                      while (bits > 0) {
+                        int i = std::countr_zero(bits);
+                        assert(component_vtable.size() > i);
+                        size_t offset = get_offset_of(i, pool);
+                        component_vtable[i].construct(ptr + offset);
+                        bits &= bits - 1;
+                      }
+                    }}};
     for (auto &offset : new_pool.offsets) {
       offset = std::numeric_limits<size_t>::max();
     }
