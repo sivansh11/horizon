@@ -22,40 +22,40 @@ class bitset_t {
 public:
   using storage_t = type_t;
   constexpr bitset_t(storage_t data = 0) : _data(data) {}
-  bitset_t(const bitset_t &other) : _data(other._data) {}
-  bitset_t(const bitset_t &&other) : _data(other._data) {}
-  bitset_t &operator=(const bitset_t &other) {
+  constexpr bitset_t(const bitset_t &other) : _data(other._data) {}
+  constexpr bitset_t(const bitset_t &&other) : _data(other._data) {}
+  constexpr bitset_t &operator=(const bitset_t &other) {
     _data = other._data;
     return *this;
   }
-  bitset_t &operator=(const bitset_t &&other) {
+  constexpr bitset_t &operator=(const bitset_t &&other) {
     _data = other._data;
     return *this;
   }
-  bool operator==(const bitset_t<storage_t> &other) const {
+  constexpr bool operator==(const bitset_t<storage_t> &other) const {
     return _data == other._data;
   }
-  bitset_t operator&(const bitset_t<storage_t> &other) const {
+  constexpr bitset_t operator&(const bitset_t<storage_t> &other) const {
     return bitset_t<storage_t>(_data & other._data);
   }
-  storage_t get_data() const { return _data; }
-  void set(uint32_t n) {
+  constexpr storage_t get_data() const { return _data; }
+  constexpr void set(uint32_t n) {
     assert(n < (sizeof(storage_t) * 8));
     _data = _data | (static_cast<storage_t>(1) << n);
   }
-  void unset(uint32_t n) {
+  constexpr void unset(uint32_t n) {
     assert(n < (sizeof(storage_t) * 8));
     _data = _data & ~(static_cast<storage_t>(1) << n);
   }
-  void toggle(uint32_t n) {
+  constexpr void toggle(uint32_t n) {
     assert(n < (sizeof(storage_t) * 8));
     _data = _data ^ (static_cast<storage_t>(1) << n);
   }
-  bool test(uint32_t n) const {
+  constexpr bool test(uint32_t n) const {
     assert(n < (sizeof(storage_t) * 8));
     return (_data & (static_cast<storage_t>(1) << n)) != 0;
   }
-  bool test_all(const bitset_t &other) const {
+  constexpr bool test_all(const bitset_t &other) const {
     return (other._data & ~_data) == 0;
   }
   static constexpr uint32_t size() { return sizeof(storage_t) * 8; }
@@ -116,6 +116,18 @@ inline componentid_t get_componentid_for() {
     return componentid;
   }();
   return s_componentid;
+}
+
+template <typename... component_t> //
+struct exclude_t {
+  constexpr exclude_t() { (mask.set(get_componentid_for<component_t>()), ...); }
+  component_mask_t mask;
+};
+
+template <typename... component_t> //
+constexpr component_mask_t exclude() {
+  exclude_t<component_t...> exclude;
+  return exclude.mask;
 }
 
 struct scene_t {
@@ -322,8 +334,10 @@ struct scene_t {
                   "need to provide atleast 1 component");
     scene_t &scene;
     component_mask_t target_mask{};
+    component_mask_t exclude_mask{};
 
-    view_t(scene_t &scene) : scene(scene) {
+    view_t(scene_t &scene, component_mask_t exclude_mask)
+        : scene(scene), exclude_mask(exclude_mask) {
       (target_mask.set(get_componentid_for<component_t>()), ...);
     }
 
@@ -333,13 +347,15 @@ struct scene_t {
     struct iterator_t {
       scene_t &scene;
       component_mask_t target_mask;
+      component_mask_t exclude_mask;
       pools_t::iterator pool_iterator_current;
       pools_t::iterator pool_iterator_end;
       size_t dense_index;
       iterator_t(scene_t &scene, component_mask_t target_mask,
+                 component_mask_t exclude_mask,
                  pools_t::iterator pool_iterator_current,
                  pools_t::iterator pool_iterator_end)
-          : scene(scene), target_mask(target_mask),
+          : scene(scene), target_mask(target_mask), exclude_mask(exclude_mask),
             pool_iterator_current(pool_iterator_current),
             pool_iterator_end(pool_iterator_end), dense_index(0) {
         advance();
@@ -348,6 +364,7 @@ struct scene_t {
       void advance() {
         while (pool_iterator_current != pool_iterator_end) {
           if ((pool_iterator_current->first & target_mask) == target_mask &&
+              (pool_iterator_current->first & exclude_mask) == 0 &&
               dense_index < pool_iterator_current->second.storage
                                 ._dense_index_to_key.size())
             return;
@@ -372,35 +389,30 @@ struct scene_t {
                dense_index != other.dense_index;
       }
 
-      auto operator*() {
+      decltype(auto) operator*() {
         entityid_t id = pool_iterator_current->second.storage
                             ._dense_index_to_key[dense_index];
         uint8_t *data =
             &pool_iterator_current->second.storage
                  ._dense[dense_index *
                          pool_iterator_current->second.storage._component_size];
-        if constexpr (sizeof...(component_t) == 1)
-          return scene.get_ptr_from_fast<component_t...>(
-              data, pool_iterator_current->second);
-        else
-          return std::make_tuple<component_t *...>(
-              scene.get_ptr_from_fast<component_t>(
-                  data, pool_iterator_current->second)...);
+        return std::make_tuple(id, scene.get_ptr_from_fast<component_t>(
+                                       data, pool_iterator_current->second)...);
       }
     };
     iterator_t begin() {
-      return iterator_t(scene, target_mask, scene._pools.begin(),
+      return iterator_t(scene, target_mask, exclude_mask, scene._pools.begin(),
                         scene._pools.end());
     }
     iterator_t end() {
-      return iterator_t(scene, target_mask, scene._pools.end(),
+      return iterator_t(scene, target_mask, exclude_mask, scene._pools.end(),
                         scene._pools.end());
     }
   };
 
   template <typename... component_t> //
-  view_t<component_t...> view() {
-    return view_t<component_t...>(*this);
+  view_t<component_t...> view(component_mask_t exclude = 0) {
+    return view_t<component_t...>(*this, exclude);
   }
 
   inline entity_t &get_entity_from(const entityid_t id) {
