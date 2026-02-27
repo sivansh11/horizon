@@ -330,15 +330,15 @@ struct scene_t {
 
   template <typename... component_t> //
   struct view_t {
-    static_assert(sizeof...(component_t) != 0,
-                  "need to provide atleast 1 component");
     scene_t &scene;
     component_mask_t target_mask{};
     component_mask_t exclude_mask{};
 
     view_t(scene_t &scene, component_mask_t exclude_mask)
         : scene(scene), exclude_mask(exclude_mask) {
-      (target_mask.set(get_componentid_for<component_t>()), ...);
+      if constexpr (sizeof...(component_t)) {
+        (target_mask.set(get_componentid_for<component_t>()), ...);
+      }
     }
 
     // TODO: iterators are invalid if user trys to insert while looping
