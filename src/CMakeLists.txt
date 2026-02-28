@@ -6,6 +6,7 @@ target_link_libraries(horizon
   PUBLIC math
   PUBLIC bvh
   PUBLIC stb_cmake
+  PUBLIC EnTT::EnTT
   PUBLIC glfw
   PUBLIC volk
   PUBLIC vk-bootstrap
