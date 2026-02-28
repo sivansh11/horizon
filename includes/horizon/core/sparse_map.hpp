@@ -67,11 +67,35 @@ struct sparse_map {
     dense_index = _dense_index_to_key.size();
     (*_sparse[page_index])[page_offset] = dense_index;
     _dense_index_to_key.emplace_back(key);
-    size_t element_offset = _dense.size();
-    _dense.insert(_dense.end(), _component_size, 0);
-    uint8_t *ptr = &_dense[element_offset];
+
+    const size_t old_element_count = _dense_index_to_key.size() - 1;
+    const size_t old_size = old_element_count * _component_size;
+    const size_t new_size = old_size + _component_size;
+    const size_t old_capacity = _dense.capacity();
+    // move all the old data to a new vector
+    if (old_capacity < new_size) {
+      // TODO: maybe use golden ratio for increasing capacity
+      size_t new_capacity =
+          old_capacity == 0 ? _component_size : old_capacity * 2;
+      if (new_capacity < new_size)
+        new_capacity = new_size;
+      std::vector<uint8_t> dense;
+      dense.reserve(new_capacity);
+      dense.resize(old_size);
+      for (size_t i = 0; i < old_size; i += _component_size) {
+        uint8_t *new_ptr = dense.data() + i;
+        _move_construct_callback(new_ptr, &_dense[i]);
+        _destroy_callback(&_dense[i]);
+      }
+      _dense.swap(dense);
+      _dense.resize(new_size);
+    } else {
+      _dense.resize(new_size);
+    }
+
+    uint8_t *ptr = &_dense[old_size];
     _construct_callback(ptr);
-    return &_dense[element_offset];
+    return ptr;
   }
 
   // should not fail
