@@ -194,6 +194,11 @@ handle_buffer_t base_t::buffer(handle_managed_buffer_t handle) {
   check(false, "reached unreachable");
 }
 
+void *base_t::map_buffer(handle_managed_buffer_t handle) {
+  horizon_profile();
+  return _context->map_buffer(buffer(handle));
+}
+
 VkDeviceAddress base_t::get_buffer_device_address(
     handle_managed_buffer_t handle) {
   horizon_profile();
