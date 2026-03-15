@@ -94,6 +94,7 @@ struct base_t {
   handle_managed_buffer_t create_buffer(resource_update_policy_t update_policy,
                                         const config_buffer_t   &config);
   handle_buffer_t         buffer(handle_managed_buffer_t handle);
+  VkDeviceAddress get_buffer_device_address(handle_managed_buffer_t handle);
 
   handle_managed_descriptor_set_t allocate_descriptor_set(
       resource_update_policy_t       update_policy,

@@ -194,6 +194,12 @@ handle_buffer_t base_t::buffer(handle_managed_buffer_t handle) {
   check(false, "reached unreachable");
 }
 
+VkDeviceAddress base_t::get_buffer_device_address(
+    handle_managed_buffer_t handle) {
+  horizon_profile();
+  return _context->get_buffer_device_address(buffer(handle));
+}
+
 handle_managed_descriptor_set_t base_t::allocate_descriptor_set(
     resource_update_policy_t       update_policy,
     const config_descriptor_set_t &config) {
