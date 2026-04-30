@@ -6,10 +6,12 @@
 
 #include <filesystem>
 
+#ifdef HORIZON_INCLUDE_IMGUI
 #define GLFW_INCLUDE_NONE
 #include <backends/imgui_impl_glfw.h>
 #include <backends/imgui_impl_vulkan.h>
 #include <imgui.h>
+#endif
 
 namespace gfx {
 
@@ -51,6 +53,7 @@ handle_buffer_t create_buffer_staged(context_t &context,
                                      config_buffer_t config, const void *data,
                                      size_t size);
 
+#ifdef HORIZON_INCLUDE_IMGUI
 // TODO: take target image format
 void imgui_init(core::window_t &window, context_t &context,
                 handle_swapchain_t handle_swapchain, VkFormat vk_color_format);
@@ -58,6 +61,7 @@ void imgui_shutdown();
 void imgui_newframe();
 void imgui_endframe(context_t &context,
                     gfx::handle_commandbuffer_t commandbuffer);
+#endif
 
 gfx::handle_shader_t create_slang_shader(context_t &context,
                                          const std::filesystem::path &file_path,

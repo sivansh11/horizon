@@ -15,6 +15,11 @@ option(HORIZON_BUILD_EXAMPLES "build EXAMPLES" OFF)
 # # deps
 set(FETCHCONTENT_QUIET FALSE)
 
+option(HORIZON_BUILD_EXAMPLES OFF)
+option(HORIZON_INCLUDE_BVH ON)
+option(HORIZON_INCLUDE_ENTT ON)
+option(HORIZON_INCLUDE_IMGUI ON)
+
 set(IMGUI_GLFW_PATH ${glfw_SOURCE_DIR}/include)
 set(IMGUI_VULKAN_BACKEND ON CACHE INTERNAL "Imgui vulkan backend")
 set(IMGUI_GLFW_BACKEND ON CACHE INTERNAL "Imgui glfw backend")
@@ -42,21 +47,25 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/sivansh11/math
   GIT_TAG main
 )
+if (HORIZON_INCLUDE_BVH)
 FetchContent_Declare(
   bvh
   GIT_REPOSITORY https://github.com/sivansh11/bvh
   GIT_TAG master
 )
+endif()
 FetchContent_Declare(
   stb_cmake
   GIT_REPOSITORY https://github.com/sivansh11/stb_cmake.git
   GIT_TAG main
 )
+if (HORIZON_INCLUDE_ENTT)
 FetchContent_Declare(
   entt
   GIT_REPOSITORY https://github.com/skypjack/entt.git
   GIT_TAG main
 )
+endif()
 FetchContent_Declare(
   glfw
   GIT_REPOSITORY https://github.com/glfw/glfw.git
@@ -77,12 +86,14 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git
   GIT_TAG c788c52156f3ef7bc7ab769cb03c110a53ac8fcb
 )
+if (HORIZON_INCLUDE_IMGUI)
 FetchContent_Declare(
   imgui_cmake
   GIT_REPOSITORY https://github.com/sivansh11/imgui_cmake.git
   GIT_TAG main
   # GIT_TAG c63ccd36f8c843270a5184f3016971d729bbabf8
 )
+endif()
 FetchContent_Declare(
   slang
   GIT_REPOSITORY https://github.com/shader-slang/slang.git
@@ -90,14 +101,20 @@ FetchContent_Declare(
 )
 
 FetchContent_MakeAvailable(math)
+if (HORIZON_INCLUDE_BVH)
 FetchContent_MakeAvailable(bvh)
+endif()
 FetchContent_MakeAvailable(stb_cmake)
+if (HORIZON_INCLUDE_ENTT)
 FetchContent_MakeAvailable(entt)
+endif()
 FetchContent_MakeAvailable(glfw)
 FetchContent_MakeAvailable(volk)
 FetchContent_MakeAvailable(vk-bootstrap)
 FetchContent_MakeAvailable(VulkanMemoryAllocator)
+if (HORIZON_INCLUDE_IMGUI)
 FetchContent_MakeAvailable(imgui_cmake)
+endif()
 FetchContent_MakeAvailable(slang)
 
 # # src

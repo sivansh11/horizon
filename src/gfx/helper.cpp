@@ -417,6 +417,7 @@ handle_buffer_t create_buffer_staged(context_t &context,
   return buffer;
 }
 
+#ifdef HORIZON_INCLUDE_IMGUI
 static void checkVkResult(VkResult error) {
   if (error == 0)
     return;
@@ -501,6 +502,7 @@ void imgui_endframe(context_t &context,
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                   context.get_commandbuffer(commandbuffer));
 }
+#endif
 
 gfx::handle_shader_t create_slang_shader(context_t &context,
                                          const std::filesystem::path &file_path,

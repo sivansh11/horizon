@@ -1,0 +1,2 @@
+- write description
+- restructure horizon, strip all non vulkan related stuff (including usage like imgui) to its own subrepo that can be included optionally
