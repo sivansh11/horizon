@@ -63,11 +63,6 @@ FetchContent_Declare(
   GIT_TAG e7ea71be039836da3a98cea55ae5569cb5eb885c
 )
 FetchContent_Declare(
-  assimp
-  GIT_REPOSITORY https://github.com/assimp/assimp.git
-  GIT_TAG a4d8a5fec3fc42b17c6411b68035017c7d797298
-)
-FetchContent_Declare(
   volk
   GIT_REPOSITORY https://github.com/zeux/volk.git
   GIT_TAG 58689c063427f5bad4f133625049b1a3c5dd8287
@@ -104,7 +99,6 @@ FetchContent_MakeAvailable(bvh)
 FetchContent_MakeAvailable(stb_cmake)
 FetchContent_MakeAvailable(entt)
 FetchContent_MakeAvailable(glfw)
-FetchContent_MakeAvailable(assimp)
 FetchContent_MakeAvailable(volk)
 FetchContent_MakeAvailable(vk-bootstrap)
 FetchContent_MakeAvailable(VulkanMemoryAllocator)
