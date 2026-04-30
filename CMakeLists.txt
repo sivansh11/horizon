@@ -88,11 +88,6 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/shader-slang/slang.git
   GIT_TAG vulkan-sdk-1.4.328.1
 )
-FetchContent_Declare(
-  model
-  GIT_REPOSITORY https://github.com/sivansh11/model
-  GIT_TAG main
-)
 
 FetchContent_MakeAvailable(math)
 FetchContent_MakeAvailable(bvh)
@@ -104,7 +99,6 @@ FetchContent_MakeAvailable(vk-bootstrap)
 FetchContent_MakeAvailable(VulkanMemoryAllocator)
 FetchContent_MakeAvailable(imgui_cmake)
 FetchContent_MakeAvailable(slang)
-FetchContent_MakeAvailable(model)
 
 # # src
 add_subdirectory(src)

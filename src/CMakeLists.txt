@@ -13,7 +13,6 @@ target_link_libraries(horizon
   PUBLIC VulkanMemoryAllocator
   PUBLIC slang
   PUBLIC imgui_cmake
-  PUBLIC model
 )
 
 target_include_directories(horizon
