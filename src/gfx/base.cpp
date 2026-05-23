@@ -180,6 +180,17 @@ handle_managed_buffer_t base_t::create_buffer(
   return handle;
 }
 
+void base_t::destroy_buffer(handle_managed_buffer_t handle) {
+  horizon_profile();
+  internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT> &managed_buffer =
+      utils::assert_and_get_data<
+          internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT>>(handle, _buffers);
+  for (auto handle_buffer : managed_buffer.handle_buffers) {
+    _context->destroy_buffer(handle_buffer);
+  }
+  _buffers.erase(handle);
+}
+
 handle_buffer_t base_t::buffer(handle_managed_buffer_t handle) {
   horizon_profile();
   internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT> &managed_buffer =
@@ -227,6 +238,19 @@ handle_managed_descriptor_set_t base_t::allocate_descriptor_set(
   return handle;
 }
 
+void base_t::free_descriptor_set(gfx::handle_managed_descriptor_set_t handle) {
+  horizon_profile();
+  internal::managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>
+      &managed_descriptor_set = utils::assert_and_get_data<
+          internal::managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>>(
+          handle, _descriptor_sets);
+  for (auto handle_descriptor_set :
+       managed_descriptor_set.handle_descriptor_sets) {
+    _context->free_descriptor_set(handle_descriptor_set);
+  }
+  _descriptor_sets.erase(handle);
+}
+
 handle_descriptor_set_t base_t::descriptor_set(
     handle_managed_descriptor_set_t handle) {
   horizon_profile();
@@ -268,6 +292,17 @@ handle_managed_timer_t base_t::create_timer(
   return handle;
 }
 
+void base_t::destroy_timer(handle_managed_timer_t handle) {
+  horizon_profile();
+  internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT> &managed_timer =
+      utils::assert_and_get_data<
+          internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT>>(handle, _timers);
+  for (auto handle_timer : managed_timer.handle_timers) {
+    _context->destroy_timer(handle_timer);
+  }
+  _timers.erase(handle);
+}
+
 handle_timer_t base_t::timer(handle_managed_timer_t handle) {
   horizon_profile();
   internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT> &managed_timer =
@@ -280,17 +315,6 @@ handle_timer_t base_t::timer(handle_managed_timer_t handle) {
     return managed_timer.handle_timers[_current_frame];
   }
   check(false, "reached unreachable");
-}
-
-void base_t::destroy_timer(handle_managed_timer_t handle) {
-  horizon_profile();
-  internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT> &managed_timer =
-      utils::assert_and_get_data<
-          internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT>>(handle, _timers);
-  for (auto handle_timer : managed_timer.handle_timers) {
-    _context->destroy_timer(handle_timer);
-  }
-  _timers.erase(handle);
 }
 
 handle_commandbuffer_t base_t::current_commandbuffer() {

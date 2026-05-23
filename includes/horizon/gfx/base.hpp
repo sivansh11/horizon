@@ -93,6 +93,7 @@ struct base_t {
 
   handle_managed_buffer_t create_buffer(resource_update_policy_t update_policy,
                                         const config_buffer_t   &config);
+  void                    destroy_buffer(handle_managed_buffer_t handle);
   handle_buffer_t         buffer(handle_managed_buffer_t handle);
   void                   *map_buffer(handle_managed_buffer_t handle);
   VkDeviceAddress get_buffer_device_address(handle_managed_buffer_t handle);
@@ -100,6 +101,7 @@ struct base_t {
   handle_managed_descriptor_set_t allocate_descriptor_set(
       resource_update_policy_t       update_policy,
       const config_descriptor_set_t &config);
+  void free_descriptor_set(handle_managed_descriptor_set_t handle);
   handle_descriptor_set_t descriptor_set(
       handle_managed_descriptor_set_t handle);
   update_managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>
@@ -107,8 +109,8 @@ struct base_t {
 
   handle_managed_timer_t create_timer(resource_update_policy_t update_policy,
                                       const config_timer_t    &config);
-  handle_timer_t         timer(handle_managed_timer_t handle);
   void                   destroy_timer(handle_managed_timer_t handle);
+  handle_timer_t         timer(handle_managed_timer_t handle);
 
   rendering_attachment_t swapchain_rendering_attachment(
       VkClearValue vk_clear_value, VkImageLayout vk_layout,
