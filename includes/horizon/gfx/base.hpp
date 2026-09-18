@@ -11,6 +11,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include <array>
+#include <vector>
 
 namespace gfx {
 
@@ -88,6 +89,9 @@ struct base_t {
 
   void resize_swapchain();
 
+  void _create_present_semaphores();
+  void _destroy_present_semaphores();
+
   void begin_swapchain_renderpass();
   void end_swapchain_renderpass();
 
@@ -160,7 +164,7 @@ struct base_t {
   handle_commandbuffer_t    _commandbuffers[MAX_FRAMES_IN_FLIGHT];
   handle_fence_t            _in_flight_fences[MAX_FRAMES_IN_FLIGHT];
   handle_semaphore_t        _image_available_semaphores[MAX_FRAMES_IN_FLIGHT];
-  handle_semaphore_t        _render_finished_semaphores[MAX_FRAMES_IN_FLIGHT];
+  std::vector<handle_semaphore_t> _present_semaphores;
 
   handle_descriptor_set_layout_t _bindless_descriptor_set_layout;
   handle_descriptor_set_t        _bindless_descriptor_set;

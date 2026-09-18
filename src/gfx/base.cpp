@@ -21,6 +21,7 @@ base_t::base_t(core::ref<core::window_t> window, core::ref<context_t> context)
     : _window(window), _context(context) {
   horizon_profile();
   _swapchain    = _context->create_swapchain(*_window);
+  _create_present_semaphores();
   _command_pool = _context->create_command_pool({});
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     _commandbuffers[i] = _context->allocate_commandbuffer(
@@ -28,7 +29,6 @@ base_t::base_t(core::ref<core::window_t> window, core::ref<context_t> context)
          .debug_name          = "commandbuffer_" + std::to_string(i)});
     _in_flight_fences[i]           = _context->create_fence({});
     _image_available_semaphores[i] = _context->create_semaphore({});
-    _render_finished_semaphores[i] = _context->create_semaphore({});
   }
 
   gfx::config_descriptor_set_layout_t config_bindless_descriptor_set_layout{};
@@ -69,10 +69,10 @@ base_t::~base_t() {
     _context->free_commandbuffer(_commandbuffers[i]);
     _context->destroy_fence(_in_flight_fences[i]);
     _context->destroy_semaphore(_image_available_semaphores[i]);
-    _context->destroy_semaphore(_render_finished_semaphores[i]);
   }
   _context->destroy_descriptor_set_layout(_bindless_descriptor_set_layout);
   _context->free_descriptor_set(_bindless_descriptor_set);
+  _destroy_present_semaphores();
   _context->destroy_swapchain(_swapchain);
   _context->destroy_command_pool(_command_pool);
 }
@@ -85,10 +85,8 @@ void base_t::begin() {
   }
   handle_commandbuffer_t cbuf            = _commandbuffers[_current_frame];
   handle_fence_t         in_flight_fence = _in_flight_fences[_current_frame];
-  handle_semaphore_t     image_available_semaphore =
+  handle_semaphore_t image_available_semaphore =
       _image_available_semaphores[_current_frame];
-  handle_semaphore_t render_finished_semaphore =
-      _render_finished_semaphores[_current_frame];
   _context->wait_fence(in_flight_fence);
   auto swapchain_image = _context->get_swapchain_next_image_index(
       _swapchain, image_available_semaphore, core::null_handle);
@@ -108,15 +106,14 @@ void base_t::end() {
   handle_fence_t         in_flight_fence = _in_flight_fences[_current_frame];
   handle_semaphore_t     image_available_semaphore =
       _image_available_semaphores[_current_frame];
-  handle_semaphore_t render_finished_semaphore =
-      _render_finished_semaphores[_current_frame];
+  handle_semaphore_t present_semaphore = _present_semaphores[_next_image];
   _context->end_commandbuffer(cbuf);
   _context->submit_commandbuffer(
       cbuf, {image_available_semaphore},
       {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
-      {render_finished_semaphore}, in_flight_fence);
+      {present_semaphore}, in_flight_fence);
   if (!_context->present_swapchain(_swapchain, _next_image,
-                                   {render_finished_semaphore})) {
+                                   {present_semaphore})) {
     _resize = true;
     return;
   }
@@ -127,8 +124,30 @@ void base_t::resize_swapchain() {
   horizon_profile();
   auto [width, height] = _window->dimensions();
   _context->wait_idle();
+  _destroy_present_semaphores();
   _context->destroy_swapchain(_swapchain);
   _swapchain = _context->create_swapchain(*_window);
+  _create_present_semaphores();
+}
+
+void base_t::_create_present_semaphores() {
+  horizon_profile();
+  auto swapchain_images = _context->get_swapchain_images(_swapchain);
+  _present_semaphores.reserve(swapchain_images.size());
+  for (size_t i = 0; i < swapchain_images.size(); i++) {
+    config_semaphore_t config_semaphore{};
+    config_semaphore.debug_name = "present_semaphore_" + std::to_string(i);
+    _present_semaphores.push_back(
+        _context->create_semaphore(config_semaphore));
+  }
+}
+
+void base_t::_destroy_present_semaphores() {
+  horizon_profile();
+  for (auto handle_semaphore : _present_semaphores) {
+    _context->destroy_semaphore(handle_semaphore);
+  }
+  _present_semaphores.clear();
 }
 
 void base_t::begin_swapchain_renderpass() {
