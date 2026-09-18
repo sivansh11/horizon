@@ -97,7 +97,7 @@ endif()
 FetchContent_Declare(
   slang
   GIT_REPOSITORY https://github.com/shader-slang/slang.git
-  GIT_TAG vulkan-sdk-1.4.328.1
+  GIT_TAG vulkan-sdk-1.4.350.1
 )
 
 FetchContent_MakeAvailable(math)
