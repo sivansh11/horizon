@@ -1425,7 +1425,7 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
   static Slang::ComPtr<slang::IGlobalSession> slangGlobalSession;
   static bool                                 once_slang = []() {
     check(slang::createGlobalSession(slangGlobalSession.writeRef()) == 0,
-                                          "failed to create global session");
+          "failed to create global session");
     return true;
   }();
 
@@ -1483,11 +1483,11 @@ handle_shader_t context_t::create_shader(const config_shader_t &config) {
   // //     horizon_info("{} {}", index, space);
   // // }
 
-  static std::vector<slang::CompilerOptionEntry> compiler_options;
-  Slang::ComPtr<slang::ISession>                 session;
-  slang::SessionDesc                             sessionDesc = {};
-  slang::TargetDesc                              targetDesc  = {};
-  targetDesc.format                                          = SLANG_SPIRV;
+  std::vector<slang::CompilerOptionEntry> compiler_options;
+  Slang::ComPtr<slang::ISession>          session;
+  slang::SessionDesc                      sessionDesc = {};
+  slang::TargetDesc                       targetDesc  = {};
+  targetDesc.format                                   = SLANG_SPIRV;
   targetDesc.profile = slangGlobalSession->findProfile("spirv_1_5");
   targetDesc.flags   = SLANG_TARGET_FLAG_GENERATE_SPIRV_DIRECTLY;
   targetDesc.forceGLSLScalarBufferLayout = true;
@@ -1991,7 +1991,7 @@ handle_command_pool_t context_t::create_command_pool(
   horizon_profile();
   internal::command_pool_t command_pool{.config = config};
   VkCommandPoolCreateInfo  vk_command_pool_create_info{
-       .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
+      .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO};
   vk_command_pool_create_info.flags =
       VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
   vk_command_pool_create_info.queueFamilyIndex = _graphics_queue.vk_index;
