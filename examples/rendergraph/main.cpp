@@ -103,12 +103,22 @@ int main() {
                          VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
                          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    rendergraph.add_pass([&](gfx::handle_commandbuffer_t cmd) {
-      gfx::helper::imgui_newframe();
-      ImGui::Begin("test");
-      ImGui::End();
-      gfx::helper::imgui_endframe(*context, cmd);
-    });
+    // uncomment for imgui, will overwrite the random image
+    // rendergraph.add_pass([&](gfx::handle_commandbuffer_t cmd) {
+    //   auto [width, height] = window->dimensions();
+    //   VkRect2D render_area{{}, {(uint32_t)width, (uint32_t)height}};
+    //   auto     attachment = base->swapchain_rendering_attachment(
+    //       {0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    //       VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
+    //   base->cmd_begin_rendering(cmd, {attachment}, std::nullopt, render_area);
+    //
+    //   gfx::helper::imgui_newframe();
+    //   ImGui::Begin("test");
+    //   ImGui::End();
+    //   gfx::helper::imgui_endframe(*context, cmd);
+    //
+    //   base->cmd_end_rendering(cmd);
+    // });
     // empty pass to present swapchain
     rendergraph.add_pass([&](gfx::handle_commandbuffer_t cmd) {})
         .add_write_image(base->current_swapchain_image(), 0,
