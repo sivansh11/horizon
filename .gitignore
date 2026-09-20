@@ -4,3 +4,4 @@ OUTPUT/
 /debug_build*
 .*
 test.ppm
+imgui.ini
