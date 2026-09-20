@@ -57,12 +57,16 @@ base_t::~base_t() {
   _context->wait_idle();
   for (auto &[handle, buffer] : _buffers) {
     for (auto handle_buffer : buffer.handle_buffers) {
-      _context->destroy_buffer(handle_buffer);
+      if (handle_buffer != core::null_handle) {
+        _context->destroy_buffer(handle_buffer);
+      }
     }
   }
   for (auto &[handle, descriptor_set] : _descriptor_sets) {
     for (auto handle_descriptor_set : descriptor_set.handle_descriptor_sets) {
-      _context->free_descriptor_set(handle_descriptor_set);
+      if (handle_descriptor_set != core::null_handle) {
+        _context->free_descriptor_set(handle_descriptor_set);
+      }
     }
   }
   for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -205,7 +209,9 @@ void base_t::destroy_buffer(handle_managed_buffer_t handle) {
       utils::assert_and_get_data<
           internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT>>(handle, _buffers);
   for (auto handle_buffer : managed_buffer.handle_buffers) {
-    _context->destroy_buffer(handle_buffer);
+    if (handle_buffer != core::null_handle) {
+      _context->destroy_buffer(handle_buffer);
+    }
   }
   _buffers.erase(handle);
 }
@@ -265,7 +271,9 @@ void base_t::free_descriptor_set(gfx::handle_managed_descriptor_set_t handle) {
           handle, _descriptor_sets);
   for (auto handle_descriptor_set :
        managed_descriptor_set.handle_descriptor_sets) {
-    _context->free_descriptor_set(handle_descriptor_set);
+    if (handle_descriptor_set != core::null_handle) {
+      _context->free_descriptor_set(handle_descriptor_set);
+    }
   }
   _descriptor_sets.erase(handle);
 }
