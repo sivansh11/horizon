@@ -756,6 +756,9 @@ void context_t::destroy_swapchain(handle_swapchain_t handle) {
   for (auto handle_image_view : swapchain.handle_image_views) {
     destroy_image_view(handle_image_view);
   }
+  for (auto handle_image : swapchain.handle_images) {
+    _images.erase(handle_image);
+  }
   vkDestroySwapchainKHR(_vkb_device, swapchain.vk_swapchain, nullptr);
   vkDestroySurfaceKHR(_vkb_instance, swapchain.vk_surface, nullptr);
   _swapchains.erase(handle);
