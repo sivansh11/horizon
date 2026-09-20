@@ -1290,20 +1290,6 @@ handle_descriptor_set_t context_t::allocate_descriptor_set(
   vk_descriptor_set_allocate_info.pSetLayouts =
       &descriptor_set_layout.vk_descriptor_set_layout;
 
-  uint32_t descriptor_count = std::min(
-      size_t(1),
-      descriptor_set_layout.config.vk_descriptor_set_layout_bindings.size());
-
-  VkDescriptorSetVariableDescriptorCountAllocateInfo
-      vk_descriptor_set_variable_descriptor_count_allocate_info{
-          VK_STRUCTURE_TYPE_DESCRIPTOR_SET_VARIABLE_DESCRIPTOR_COUNT_ALLOCATE_INFO};
-  vk_descriptor_set_variable_descriptor_count_allocate_info.descriptorSetCount =
-      1;
-  vk_descriptor_set_variable_descriptor_count_allocate_info.pDescriptorCounts =
-      &descriptor_count;
-  vk_descriptor_set_allocate_info.pNext =
-      &vk_descriptor_set_variable_descriptor_count_allocate_info;
-
   VkResult vk_result =
       vkAllocateDescriptorSets(_vkb_device, &vk_descriptor_set_allocate_info,
                                &descriptor_set.vk_descriptor_set);
