@@ -199,12 +199,15 @@ struct update_managed_descriptor_set_t {
         &managed_descriptor_set = utils::assert_and_get_data<
             internal::managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>>(
             handle, base._descriptor_sets);
-    internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT> &managed_buffer =
-        utils::assert_and_get_data<internal::buffer_t>(handle, base._buffers);
     if (managed_descriptor_set.update_policy ==
         resource_update_policy_t::e_sparse) {
-      check(managed_buffer.update_policy == resource_update_policy_t::e_sparse,
-            "A sparse descriptor must only point to a sparse buffer!");
+      internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT> &managed_buffer =
+          utils::assert_and_get_data<
+              internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT>>(
+              info.handle, base._buffers);
+      check(
+          managed_buffer.update_policy == resource_update_policy_t::e_sparse,
+          "A sparse descriptor must only point to a sparse buffer!");
     }
 
     managed_descriptor_info_t managed_descriptor_info{};
@@ -232,7 +235,7 @@ struct update_managed_descriptor_set_t {
   void commit() {
     horizon_profile();
     internal::managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>
-        managed_descriptor_set = utils::assert_and_get_data<
+        &managed_descriptor_set = utils::assert_and_get_data<
             internal::managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>>(
             handle, base._descriptor_sets);
     if (managed_descriptor_set.update_policy ==
@@ -254,10 +257,11 @@ struct update_managed_descriptor_set_t {
         } else if (info.type == managed_descriptor_info_type_t::e_image) {
           image_descriptor_info_t gfx_info{};
           gfx_info = info.as.image_info;
-          update_descriptor_set.push_buffer_write(info.binding, gfx_info,
-                                                  info.array_element);
+          update_descriptor_set.push_image_write(info.binding, gfx_info,
+                                                 info.array_element);
         }
       }
+      update_descriptor_set.commit();
     } else if (managed_descriptor_set.update_policy ==
                resource_update_policy_t::e_every_frame) {
       // single image
