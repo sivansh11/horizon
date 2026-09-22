@@ -69,6 +69,13 @@ base_t::~base_t() {
       }
     }
   }
+  for (auto &[handle, timer] : _timers) {
+    for (auto handle_timer : timer.handle_timers) {
+      if (handle_timer != core::null_handle) {
+        _context->destroy_timer(handle_timer);
+      }
+    }
+  }
   for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
     _context->free_commandbuffer(_commandbuffers[i]);
     _context->destroy_fence(_in_flight_fences[i]);
@@ -451,7 +458,9 @@ void base_t::destroy_timer(handle_managed_timer_t handle) {
       utils::assert_and_get_data<
           internal::managed_timer_t<MAX_FRAMES_IN_FLIGHT>>(handle, _timers);
   for (auto handle_timer : managed_timer.handle_timers) {
-    _context->destroy_timer(handle_timer);
+    if (handle_timer != core::null_handle) {
+      _context->destroy_timer(handle_timer);
+    }
   }
   _timers.erase(handle);
 }
