@@ -20,7 +20,7 @@ namespace gfx {
 base_t::base_t(core::ref<core::window_t> window, core::ref<context_t> context)
     : _window(window), _context(context) {
   horizon_profile();
-  _swapchain    = _context->create_swapchain(*_window);
+  _swapchain = _context->create_swapchain(*_window);
   _create_present_semaphores();
   _command_pool = _context->create_command_pool({});
   for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
@@ -89,7 +89,7 @@ void base_t::begin() {
   }
   handle_commandbuffer_t cbuf            = _commandbuffers[_current_frame];
   handle_fence_t         in_flight_fence = _in_flight_fences[_current_frame];
-  handle_semaphore_t image_available_semaphore =
+  handle_semaphore_t     image_available_semaphore =
       _image_available_semaphores[_current_frame];
   _context->wait_fence(in_flight_fence);
   auto swapchain_image = _context->get_swapchain_next_image_index(
@@ -114,8 +114,8 @@ void base_t::end() {
   _context->end_commandbuffer(cbuf);
   _context->submit_commandbuffer(
       cbuf, {image_available_semaphore},
-      {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT},
-      {present_semaphore}, in_flight_fence);
+      {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT}, {present_semaphore},
+      in_flight_fence);
   if (!_context->present_swapchain(_swapchain, _next_image,
                                    {present_semaphore})) {
     _resize = true;
@@ -141,8 +141,7 @@ void base_t::_create_present_semaphores() {
   for (size_t i = 0; i < swapchain_images.size(); i++) {
     config_semaphore_t config_semaphore{};
     config_semaphore.debug_name = "present_semaphore_" + std::to_string(i);
-    _present_semaphores.push_back(
-        _context->create_semaphore(config_semaphore));
+    _present_semaphores.push_back(_context->create_semaphore(config_semaphore));
   }
 }
 

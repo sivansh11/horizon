@@ -203,11 +203,10 @@ struct update_managed_descriptor_set_t {
         resource_update_policy_t::e_sparse) {
       internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT> &managed_buffer =
           utils::assert_and_get_data<
-              internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT>>(
-              info.handle, base._buffers);
-      check(
-          managed_buffer.update_policy == resource_update_policy_t::e_sparse,
-          "A sparse descriptor must only point to a sparse buffer!");
+              internal::managed_buffer_t<MAX_FRAMES_IN_FLIGHT>>(info.handle,
+                                                                base._buffers);
+      check(managed_buffer.update_policy == resource_update_policy_t::e_sparse,
+            "A sparse descriptor must only point to a sparse buffer!");
     }
 
     managed_descriptor_info_t managed_descriptor_info{};

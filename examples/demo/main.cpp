@@ -1,9 +1,11 @@
-#include "model/model.hpp"
 #include <algorithm>
 #include <cstring>
+
+#include "model/model.hpp"
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan_core.h>
 
+#include "camera.hpp"
 #include "horizon/core/components.hpp"
 #include "horizon/core/core.hpp"
 #include "horizon/core/window.hpp"
@@ -12,8 +14,6 @@
 #include "horizon/gfx/helper.hpp"
 #include "horizon/gfx/rendergraph.hpp"
 #include "horizon/gfx/types.hpp"
-
-#include "camera.hpp"
 
 struct mesh_t {
   gfx::handle_buffer_t vertices;
@@ -26,33 +26,33 @@ struct mesh_t {
 };
 
 struct viewport_t {
-  gfx::handle_image_t image;
+  gfx::handle_image_t      image;
   gfx::handle_image_view_t image_view;
-  gfx::handle_image_t depth;
+  gfx::handle_image_t      depth;
   gfx::handle_image_view_t depth_view;
 };
 
-viewport_t create_viewport(core::ref<gfx::base_t> base, //
-                           uint32_t width,              //
-                           uint32_t height) {
+viewport_t create_viewport(core::ref<gfx::base_t> base,   //
+                           uint32_t               width,  //
+                           uint32_t               height) {
   gfx::config_image_t ci{};
-  ci.vk_width = width;
-  ci.vk_height = height;
-  ci.vk_depth = 1;
-  ci.vk_type = VK_IMAGE_TYPE_2D;
-  ci.vk_format = VK_FORMAT_R8G8B8A8_UNORM;
-  ci.vk_usage = VK_IMAGE_USAGE_SAMPLED_BIT | //
-                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+  ci.vk_width                    = width;
+  ci.vk_height                   = height;
+  ci.vk_depth                    = 1;
+  ci.vk_type                     = VK_IMAGE_TYPE_2D;
+  ci.vk_format                   = VK_FORMAT_R8G8B8A8_UNORM;
+  ci.vk_usage                    = VK_IMAGE_USAGE_SAMPLED_BIT |  //
+                                   VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
   ci.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-  ci.debug_name = "image";
+  ci.debug_name                  = "image";
   // TODO: create base->create_image
   gfx::handle_image_t image = base->_context->create_image(ci);
   // TODO: create base->create_image_view
   gfx::handle_image_view_t image_view = base->_context->create_image_view(
       {.handle_image = image, .debug_name = "image_view"});
 
-  ci.vk_format = VK_FORMAT_D32_SFLOAT;
-  ci.vk_usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+  ci.vk_format  = VK_FORMAT_D32_SFLOAT;
+  ci.vk_usage   = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
   ci.debug_name = "depth";
   // TODO: create base->create_image
   gfx::handle_image_t depth = base->_context->create_image(ci);
@@ -77,30 +77,30 @@ void destroy_viewport(core::ref<gfx::base_t> base, const viewport_t &viewport) {
 }
 
 gfx::handle_image_t create_image_from_color(core::ref<gfx::base_t> base,
-                                            math::vec4 color) {
+                                            math::vec4             color) {
   gfx::config_buffer_t cb{};
-  cb.vk_size = 4;
+  cb.vk_size               = 4;
   cb.vk_buffer_usage_flags = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
   cb.vma_allocation_create_flags =
       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
   // TODO: start using base create_buffer
   gfx::handle_buffer_t staging = base->_context->create_buffer(cb);
-  uint32_t pixel = uint8_t(color.x * 255.f) |       //
-                   uint8_t(color.y * 255.f) << 8 |  //
-                   uint8_t(color.z * 255.f) << 16 | //
-                   uint8_t(color.w * 255.f) << 24;
+  uint32_t             pixel   = uint8_t(color.x * 255.f) |        //
+                                 uint8_t(color.y * 255.f) << 8 |   //
+                                 uint8_t(color.z * 255.f) << 16 |  //
+                                 uint8_t(color.w * 255.f) << 24;
   // TODO: use base->map_buffer
   std::memcpy(base->_context->map_buffer(staging), &pixel, sizeof(pixel));
 
   gfx::config_image_t ci{};
-  ci.vk_width = 1;
+  ci.vk_width  = 1;
   ci.vk_height = 1;
-  ci.vk_depth = 1;
-  ci.vk_type = VK_IMAGE_TYPE_2D;
+  ci.vk_depth  = 1;
+  ci.vk_type   = VK_IMAGE_TYPE_2D;
   ci.vk_format = VK_FORMAT_R8G8B8A8_UNORM;
-  ci.vk_usage = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
+  ci.vk_usage  = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT;
   ci.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-  ci.debug_name = "default";
+  ci.debug_name                  = "default";
   // TODO: add base->create_image
   gfx::handle_image_t image = base->_context->create_image(ci);
 
@@ -109,10 +109,10 @@ gfx::handle_image_t create_image_from_color(core::ref<gfx::base_t> base,
       *base->_context, base->_command_pool);
   // TODO: add base variant of cmd_transition_image_layout
   gfx::helper::cmd_transition_image_layout(
-      *base->_context,           //
-      cmd,                       //
-      image,                     //
-      VK_IMAGE_LAYOUT_UNDEFINED, //
+      *base->_context,            //
+      cmd,                        //
+      image,                      //
+      VK_IMAGE_LAYOUT_UNDEFINED,  //
       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
   // TODO: add base->cmd_copy_buffer_to_image
   // TODO: add custom VkBufferImageCopy with defaults
@@ -128,10 +128,10 @@ gfx::handle_image_t create_image_from_color(core::ref<gfx::base_t> base,
       });
   // TODO: add base variant of cmd_transition_image_layout
   gfx::helper::cmd_transition_image_layout(
-      *base->_context,                      //
-      cmd,                                  //
-      image,                                //
-      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, //
+      *base->_context,                       //
+      cmd,                                   //
+      image,                                 //
+      VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,  //
       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
   // TODO: add end_single_use_command_buffer variant using base
   gfx::helper::end_single_use_command_buffer(*base->_context, cmd);
@@ -139,10 +139,10 @@ gfx::handle_image_t create_image_from_color(core::ref<gfx::base_t> base,
 }
 
 struct push_constant_t {
-  core::camera_t *camera;
-  model::vertex_t *vertices;
-  uint32_t *indices;
-  gfx::handle_bindless_image_t b_diffuse;
+  core::camera_t                *camera;
+  model::vertex_t               *vertices;
+  uint32_t                      *indices;
+  gfx::handle_bindless_image_t   b_diffuse;
   gfx::handle_bindless_sampler_t b_sampler;
 };
 static_assert(sizeof(push_constant_t) <= 128,
@@ -152,23 +152,23 @@ int main(int argc, char **argv) {
   core::ref<core::window_t> window =
       core::make_ref<core::window_t>("demo", 640, 420);
   core::ref<gfx::context_t> context = core::make_ref<gfx::context_t>(true);
-  core::ref<gfx::base_t> base = core::make_ref<gfx::base_t>(window, context);
+  core::ref<gfx::base_t>    base = core::make_ref<gfx::base_t>(window, context);
 
   gfx::helper::imgui_init(
-      *window,          //
-      *context,         //
-      base->_swapchain, //
+      *window,           //
+      *context,          //
+      base->_swapchain,  //
       context
           ->get_image(context->get_swapchain(base->_swapchain).handle_images[0])
           .config.vk_format);
 
   // TODO: add base->create_sampler
-  gfx::handle_sampler_t sampler = base->_context->create_sampler({});
+  gfx::handle_sampler_t          sampler   = base->_context->create_sampler({});
   gfx::handle_bindless_sampler_t b_sampler = base->new_bindless_sampler();
   base->set_bindless_sampler(b_sampler, sampler);
 
   gfx::config_descriptor_set_layout_t cdsl{};
-  cdsl.add_layout_binding(0, //
+  cdsl.add_layout_binding(0,  //
                           VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                           VK_SHADER_STAGE_FRAGMENT_BIT);
   cdsl.use_bindless = false;
@@ -182,16 +182,16 @@ int main(int argc, char **argv) {
       base->_context->allocate_descriptor_set(
           {.handle_descriptor_set_layout = imgui_dsl});
 
-  uint32_t image_width = 5;
-  uint32_t image_height = 5;
-  viewport_t viewport = create_viewport(base, image_width, image_height);
+  uint32_t   image_width  = 5;
+  uint32_t   image_height = 5;
+  viewport_t viewport     = create_viewport(base, image_width, image_height);
 
   // TODO: add a helper to update_descriptor_set for imgui
   context->update_descriptor_set(imgui_ds)
       .push_image_write(
-          0, {.handle_sampler = sampler,
+          0, {.handle_sampler    = sampler,
               .handle_image_view = viewport.image_view,
-              .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL})
+              .vk_image_layout   = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL})
       .commit();
 
   // TODO: add if check argc
@@ -199,30 +199,31 @@ int main(int argc, char **argv) {
 
   std::vector<mesh_t> meshes;
   for (auto &raw_mesh : raw_model.meshes) {
-    mesh_t &mesh = meshes.emplace_back();
+    mesh_t &mesh      = meshes.emplace_back();
     mesh.vertex_count = raw_mesh.vertices.size();
-    mesh.index_count = raw_mesh.indices.size();
+    mesh.index_count  = raw_mesh.indices.size();
 
     gfx::config_buffer_t cb{};
     cb.vk_size = raw_mesh.vertices.size() * sizeof(raw_mesh.vertices[0]);
-    cb.vk_buffer_usage_flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
+    cb.vk_buffer_usage_flags       = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
     cb.vma_allocation_create_flags = VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
-    cb.debug_name = "vertex buffer";
+    cb.debug_name                  = "vertex buffer";
     // TODO: add helper create_buffer_staged using base instead of context
     mesh.vertices =
+        gfx::helper::create_buffer_staged(*base->_context,           //
+                                          base->_command_pool,       //
+                                          cb,                        //
+                                          raw_mesh.vertices.data(),  //
+                                          cb.vk_size);
+    cb.vk_size    = raw_mesh.indices.size() * sizeof(raw_mesh.indices[0]);
+    cb.debug_name = "index buffer";
+    // TODO: add helper create_buffer_staged using base instead of context
+    mesh.indices =
         gfx::helper::create_buffer_staged(*base->_context,          //
                                           base->_command_pool,      //
                                           cb,                       //
-                                          raw_mesh.vertices.data(), //
+                                          raw_mesh.indices.data(),  //
                                           cb.vk_size);
-    cb.vk_size = raw_mesh.indices.size() * sizeof(raw_mesh.indices[0]);
-    cb.debug_name = "index buffer";
-    // TODO: add helper create_buffer_staged using base instead of context
-    mesh.indices = gfx::helper::create_buffer_staged(*base->_context,         //
-                                                     base->_command_pool,     //
-                                                     cb,                      //
-                                                     raw_mesh.indices.data(), //
-                                                     cb.vk_size);
 
     auto it = std::find_if(raw_mesh.material_description.texture_infos.begin(),
                            raw_mesh.material_description.texture_infos.end(),
@@ -234,16 +235,16 @@ int main(int argc, char **argv) {
     if (it != raw_mesh.material_description.texture_infos.end()) {
       // TODO: add base version of helper load_image_from_path_instant
       gfx::handle_image_t image =
-          gfx::helper::load_image_from_path_instant(*base->_context,     //
-                                                    base->_command_pool, //
-                                                    it->file_path,       //
+          gfx::helper::load_image_from_path_instant(*base->_context,      //
+                                                    base->_command_pool,  //
+                                                    it->file_path,        //
                                                     VK_FORMAT_R8G8B8A8_SRGB);
       // TODO: add base->create_image_view
       gfx::handle_image_view_t image_view =
           base->_context->create_image_view({.handle_image = image});
       gfx::handle_bindless_image_t bindless_image = base->new_bindless_image();
-      base->set_bindless_image(bindless_image, //
-                               image_view,     //
+      base->set_bindless_image(bindless_image,  //
+                               image_view,      //
                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
       mesh.diffuse = bindless_image.val;
     } else {
@@ -262,8 +263,8 @@ int main(int argc, char **argv) {
       gfx::handle_image_view_t image_view =
           base->_context->create_image_view({.handle_image = image});
       gfx::handle_bindless_image_t bindless_image = base->new_bindless_image();
-      base->set_bindless_image(bindless_image, //
-                               image_view,     //
+      base->set_bindless_image(bindless_image,  //
+                               image_view,      //
                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
       mesh.diffuse = bindless_image.val;
     }
@@ -287,13 +288,13 @@ int main(int argc, char **argv) {
       base->_context->get_image(viewport.depth).config.vk_format,
       VkPipelineDepthStencilStateCreateInfo{
           .sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
-          .depthTestEnable = VK_TRUE,
-          .depthWriteEnable = VK_TRUE,
-          .depthCompareOp = VK_COMPARE_OP_LESS,
+          .depthTestEnable   = VK_TRUE,
+          .depthWriteEnable  = VK_TRUE,
+          .depthCompareOp    = VK_COMPARE_OP_LESS,
           .stencilTestEnable = VK_FALSE,
       });
   // TODO: add helper variant with base
-  cp.add_shader(gfx::helper::create_slang_shader( //
+  cp.add_shader(gfx::helper::create_slang_shader(  //
       *base->_context, "./examples/demo/shaders/diffuse.slang",
       gfx::shader_type_t::e_vertex));
   // TODO: add helper variant with base
@@ -304,7 +305,7 @@ int main(int argc, char **argv) {
   gfx::handle_pipeline_t p = base->_context->create_graphics_pipeline(cp);
 
   gfx::config_buffer_t cb{};
-  cb.vk_size = sizeof(core::camera_t);
+  cb.vk_size               = sizeof(core::camera_t);
   cb.vk_buffer_usage_flags = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT;
   cb.vma_allocation_create_flags =
       VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
@@ -312,23 +313,21 @@ int main(int argc, char **argv) {
   gfx::handle_managed_buffer_t camera_buffer =
       base->create_buffer(gfx::resource_update_policy_t::e_every_frame, cb);
 
-  bool resize_image = false;
+  bool                resize_image = false;
   core::frame_timer_t frame_timer{60.f};
-  editor_camera_t camera{*window};
+  editor_camera_t     camera{*window};
 
   horizon_info("entering main while loop");
   while (!window->should_close()) {
     core::window_t::poll_events();
-    if (window->get_key_pressed(core::key_t::e_escape))
-      break;
-    if (window->get_key_pressed(core::key_t::e_q))
-      break;
+    if (window->get_key_pressed(core::key_t::e_escape)) break;
+    if (window->get_key_pressed(core::key_t::e_q)) break;
 
     core::timer::duration_t dt = frame_timer.update();
     // TODO: if should update, set mouse position to center of screen
     camera.update(dt.count(), image_width, image_height);
-    std::memcpy(base->map_buffer(camera_buffer),        //
-                &static_cast<core::camera_t &>(camera), //
+    std::memcpy(base->map_buffer(camera_buffer),         //
+                &static_cast<core::camera_t &>(camera),  //
                 sizeof(core::camera_t));
 
     base->begin();
@@ -346,11 +345,11 @@ int main(int argc, char **argv) {
               VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
           depth_attachment.clear_value.depthStencil.depth = 1;
           // TODO: add base->cmd_begin_rendering
-          base->_context->cmd_begin_rendering(cmd,                //
-                                              {image_attachment}, //
-                                              depth_attachment,   //
+          base->_context->cmd_begin_rendering(cmd,                 //
+                                              {image_attachment},  //
+                                              depth_attachment,    //
                                               {{},
-                                               {image_width, //
+                                               {image_width,  //
                                                 image_height}});
           auto [vk_viewport, vk_scissor] =
               gfx::helper::fill_viewport_and_scissor_structs(image_width,
@@ -362,8 +361,8 @@ int main(int argc, char **argv) {
           base->_context->cmd_bind_descriptor_sets(
               cmd, p, 0, {base->_bindless_descriptor_set});
           // TODO: add base->cmd_set_viewport_and_scissor
-          base->_context->cmd_set_viewport_and_scissor(cmd,         //
-                                                       vk_viewport, //
+          base->_context->cmd_set_viewport_and_scissor(cmd,          //
+                                                       vk_viewport,  //
                                                        vk_scissor);
           for (auto &mesh : meshes) {
             push_constant_t pc{};
@@ -380,11 +379,11 @@ int main(int argc, char **argv) {
             pc.b_diffuse = mesh.diffuse;
             pc.b_sampler = b_sampler;
             // TODO: add base->cmd_push_constants
-            base->_context->cmd_push_constants(cmd,                     //
-                                               p,                       //
-                                               VK_SHADER_STAGE_ALL,     //
-                                               0,                       //
-                                               sizeof(push_constant_t), //
+            base->_context->cmd_push_constants(cmd,                      //
+                                               p,                        //
+                                               VK_SHADER_STAGE_ALL,      //
+                                               0,                        //
+                                               sizeof(push_constant_t),  //
                                                &pc);
             base->cmd_draw(cmd, mesh.index_count, 1, 0, 0);
           }
@@ -401,28 +400,28 @@ int main(int argc, char **argv) {
         .add_pass([&](gfx::handle_commandbuffer_t cmd) {
           auto [width, height] = window->dimensions();
           VkRect2D render_area{{}, {(uint32_t)width, (uint32_t)height}};
-          auto attachment = base->swapchain_rendering_attachment(
-              {0, 0, 0, 0},                             //
-              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, //
-              VK_ATTACHMENT_LOAD_OP_CLEAR,              //
+          auto     attachment = base->swapchain_rendering_attachment(
+              {0, 0, 0, 0},                              //
+              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,  //
+              VK_ATTACHMENT_LOAD_OP_CLEAR,               //
               VK_ATTACHMENT_STORE_OP_STORE);
-          base->cmd_begin_rendering(cmd,          //
-                                    {attachment}, //
-                                    std::nullopt, //
+          base->cmd_begin_rendering(cmd,           //
+                                    {attachment},  //
+                                    std::nullopt,  //
                                     render_area);
 
           gfx::helper::imgui_newframe();
           ImGuiDockNodeFlags dockspaceFlags =
               ImGuiDockNodeFlags_None & ~ImGuiDockNodeFlags_PassthruCentralNode;
           ImGuiWindowFlags windowFlags =
-              ImGuiWindowFlags_NoDocking |             //
-              ImGuiWindowFlags_NoTitleBar |            //
-              ImGuiWindowFlags_NoCollapse |            //
-              ImGuiWindowFlags_NoResize |              //
-              ImGuiWindowFlags_NoMove |                //
-              ImGuiWindowFlags_NoBringToFrontOnFocus | //
-              ImGuiWindowFlags_NoNavFocus |            //
-              ImGuiWindowFlags_NoBackground |          //
+              ImGuiWindowFlags_NoDocking |              //
+              ImGuiWindowFlags_NoTitleBar |             //
+              ImGuiWindowFlags_NoCollapse |             //
+              ImGuiWindowFlags_NoResize |               //
+              ImGuiWindowFlags_NoMove |                 //
+              ImGuiWindowFlags_NoBringToFrontOnFocus |  //
+              ImGuiWindowFlags_NoNavFocus |             //
+              ImGuiWindowFlags_NoBackground |           //
               ImGuiWindowFlags_NoDecoration;
 
           bool dockSpace = true;
@@ -464,7 +463,7 @@ int main(int argc, char **argv) {
           // ImVec2 window_position = ImGui::GetWindowPos();
           auto vp = ImGui::GetWindowSize();
           if (image_width != vp.x || image_height != vp.y) {
-            image_width = vp.x;
+            image_width  = vp.x;
             image_height = vp.y;
             resize_image = true;
           }
@@ -508,7 +507,7 @@ int main(int argc, char **argv) {
       viewport = create_viewport(base, image_width, image_height);
       context->update_descriptor_set(imgui_ds)
           .push_image_write(
-              0, {.handle_sampler = sampler,
+              0, {.handle_sampler    = sampler,
                   .handle_image_view = viewport.image_view,
                   .vk_image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL})
           .commit();
