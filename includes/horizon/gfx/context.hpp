@@ -583,7 +583,7 @@ class context_t {
   void cmd_bind_vertex_buffers(
       handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding,
       const std::vector<handle_buffer_t> &handle_buffers,
-      std::vector<VkDeviceSize>           vk_offsets);
+      const std::vector<VkDeviceSize>    &vk_offsets);
   void cmd_bind_index_buffer(handle_commandbuffer_t handle_commandbuffer,
                              handle_buffer_t        handle_buffer,
                              VkDeviceSize vk_offset, VkIndexType vk_index_type);
