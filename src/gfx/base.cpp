@@ -81,6 +81,11 @@ base_t::~base_t() {
   _context->destroy_command_pool(_command_pool);
 }
 
+void base_t::wait_idle() {
+  horizon_profile();
+  _context->wait_idle();
+}
+
 void base_t::begin() {
   horizon_profile();
   if (_resize) {
@@ -240,6 +245,73 @@ VkDeviceAddress base_t::get_buffer_device_address(
   return _context->get_buffer_device_address(buffer(handle));
 }
 
+handle_buffer_t base_t::create_buffer(const config_buffer_t &config) {
+  horizon_profile();
+  return _context->create_buffer(config);
+}
+
+void base_t::destroy_buffer(handle_buffer_t handle) {
+  horizon_profile();
+  _context->destroy_buffer(handle);
+}
+
+void *base_t::map_buffer(handle_buffer_t handle) {
+  horizon_profile();
+  return _context->map_buffer(handle);
+}
+
+VkDeviceAddress base_t::get_buffer_device_address(handle_buffer_t handle) {
+  horizon_profile();
+  return _context->get_buffer_device_address(handle);
+}
+
+handle_sampler_t base_t::create_sampler(const config_sampler_t &config) {
+  horizon_profile();
+  return _context->create_sampler(config);
+}
+void base_t::destroy_sampler(handle_sampler_t handle) {
+  horizon_profile();
+  _context->destroy_sampler(handle);
+}
+
+handle_image_t base_t::create_image(const config_image_t &config) {
+  horizon_profile();
+  return _context->create_image(config);
+}
+
+void base_t::destroy_image(handle_image_t handle) {
+  horizon_profile();
+  _context->destroy_image(handle);
+}
+
+void *base_t::map_image(handle_image_t handle) {
+  horizon_profile();
+  return _context->map_image(handle);
+}
+
+handle_image_view_t base_t::create_image_view(
+    const config_image_view_t &config) {
+  horizon_profile();
+  return _context->create_image_view(config);
+}
+
+void base_t::destroy_image_view(handle_image_view_t handle) {
+  horizon_profile();
+  _context->destroy_image_view(handle);
+}
+
+handle_descriptor_set_layout_t base_t::create_descriptor_set_layout(
+    const config_descriptor_set_layout_t &config) {
+  horizon_profile();
+  return _context->create_descriptor_set_layout(config);
+}
+
+void base_t::destroy_descriptor_set_layout(
+    handle_descriptor_set_layout_t handle) {
+  horizon_profile();
+  _context->destroy_descriptor_set_layout(handle);
+}
+
 handle_managed_descriptor_set_t base_t::allocate_descriptor_set(
     resource_update_policy_t       update_policy,
     const config_descriptor_set_t &config) {
@@ -298,6 +370,61 @@ update_managed_descriptor_set_t<base_t::MAX_FRAMES_IN_FLIGHT>
 base_t::update_managed_descriptor_set(handle_managed_descriptor_set_t handle) {
   horizon_profile();
   return {*this, handle};
+}
+
+handle_descriptor_set_t base_t::allocate_descriptor_set(
+    const config_descriptor_set_t &config) {
+  horizon_profile();
+  return _context->allocate_descriptor_set(config);
+}
+
+void base_t::free_descriptor_set(handle_descriptor_set_t handle) {
+  horizon_profile();
+  _context->free_descriptor_set(handle);
+}
+
+update_descriptor_set_t base_t::update_descriptor_set(
+    handle_descriptor_set_t handle) {
+  horizon_profile();
+  return {*_context, handle};
+}
+
+handle_pipeline_layout_t base_t::create_pipeline_layout(
+    const config_pipeline_layout_t &config) {
+  horizon_profile();
+  return _context->create_pipeline_layout(config);
+}
+
+void base_t::destroy_pipeline_layout(handle_pipeline_layout_t handle) {
+  horizon_profile();
+  _context->destroy_pipeline_layout(handle);
+}
+
+handle_shader_t base_t::create_shader(const config_shader_t &config) {
+  horizon_profile();
+  return _context->create_shader(config);
+}
+
+void base_t::destroy_shader(handle_shader_t handle) {
+  horizon_profile();
+  _context->destroy_shader(handle);
+}
+
+handle_pipeline_t base_t::create_compute_pipeline(
+    const config_pipeline_t &config) {
+  horizon_profile();
+  return _context->create_compute_pipeline(config);
+}
+
+handle_pipeline_t base_t::create_graphics_pipeline(
+    const config_pipeline_t &config) {
+  horizon_profile();
+  return _context->create_graphics_pipeline(config);
+}
+
+void base_t::destroy_pipeline(handle_pipeline_t handle) {
+  horizon_profile();
+  _context->destroy_pipeline(handle);
 }
 
 handle_managed_timer_t base_t::create_timer(
@@ -665,43 +792,179 @@ void base_t::render_rendergraph(const rendergraph_t   &rendergraph,
   }
 }
 
+void base_t::cmd_bind_pipeline(handle_commandbuffer_t handle_commandbuffer,
+                               handle_pipeline_t      handle_pipeline) {
+  horizon_profile();
+  _context->cmd_bind_pipeline(handle_commandbuffer, handle_pipeline);
+}
 void base_t::cmd_bind_descriptor_sets(
     handle_commandbuffer_t handle_commandbuffer,
     handle_pipeline_t handle_pipeline, uint32_t vk_first_set,
     const std::vector<handle_descriptor_set_t> &handle_descriptor_sets) {
+  horizon_profile();
   _context->cmd_bind_descriptor_sets(handle_commandbuffer, handle_pipeline,
                                      vk_first_set, handle_descriptor_sets);
 }
-
-void base_t::cmd_bind_graphics_pipeline(
-    handle_commandbuffer_t handle_commandbuffer,
-    handle_pipeline_t handle_pipeline, uint32_t width, uint32_t height) {
-  _context->cmd_bind_pipeline(handle_commandbuffer, handle_pipeline);
-  auto [viewport, scissor] =
-      gfx::helper::fill_viewport_and_scissor_structs(width, height);
-  _context->cmd_set_viewport_and_scissor(handle_commandbuffer, viewport,
-                                         scissor);
+void base_t::cmd_push_constants(handle_commandbuffer_t handle_commandbuffer,
+                                handle_pipeline_t      handle_pipeline,
+                                VkShaderStageFlags     vk_shader_stages,
+                                uint32_t vk_offset, uint32_t vk_size,
+                                const void *vk_data) {
+  horizon_profile();
+  _context->cmd_push_constants(handle_commandbuffer, handle_pipeline,
+                               vk_shader_stages, vk_offset, vk_size, vk_data);
 }
-
+void base_t::cmd_dispatch(handle_commandbuffer_t handle_commandbuffer,
+                          uint32_t vk_group_count_x, uint32_t vk_group_count_y,
+                          uint32_t vk_group_count_z) {
+  horizon_profile();
+  _context->cmd_dispatch(handle_commandbuffer, vk_group_count_x,
+                         vk_group_count_y, vk_group_count_z);
+}
+void base_t::cmd_dispatch_indirect(handle_commandbuffer_t handle_commandbuffer,
+                                   handle_buffer_t        handle_buffer,
+                                   uint32_t               offset) {
+  horizon_profile();
+  _context->cmd_dispatch_indirect(handle_commandbuffer, handle_buffer, offset);
+}
+void base_t::cmd_set_viewport_and_scissor(
+    handle_commandbuffer_t handle_commandbuffer, VkViewport vk_viewport,
+    VkRect2D vk_scissor) {
+  horizon_profile();
+  _context->cmd_set_viewport_and_scissor(handle_commandbuffer, vk_viewport,
+                                         vk_scissor);
+}
 void base_t::cmd_begin_rendering(
     handle_commandbuffer_t                       handle_commandbuffer,
     const std::vector<rendering_attachment_t>   &color_rendering_attachments,
     const std::optional<rendering_attachment_t> &depth_rendering_attachment,
     const VkRect2D &vk_render_area, uint32_t vk_layer_count) {
+  horizon_profile();
   _context->cmd_begin_rendering(
       handle_commandbuffer, color_rendering_attachments,
       depth_rendering_attachment, vk_render_area, vk_layer_count);
 }
-
 void base_t::cmd_end_rendering(handle_commandbuffer_t handle_commandbuffer) {
+  horizon_profile();
   _context->cmd_end_rendering(handle_commandbuffer);
 }
-
 void base_t::cmd_draw(handle_commandbuffer_t handle_commandbuffer,
                       uint32_t vk_vertex_count, uint32_t vk_instance_count,
                       uint32_t vk_first_vertex, uint32_t vk_first_instance) {
+  horizon_profile();
   _context->cmd_draw(handle_commandbuffer, vk_vertex_count, vk_instance_count,
                      vk_first_vertex, vk_first_instance);
+}
+void base_t::cmd_draw_indexed(handle_commandbuffer_t handle_commandbuffer,
+                              uint32_t               vk_index_count,
+                              uint32_t               vk_instance_count,
+                              uint32_t vk_first_index, int32_t vk_vertex_offset,
+                              uint32_t vk_first_instance) {
+  horizon_profile();
+  _context->cmd_draw_indexed(handle_commandbuffer, vk_index_count,
+                             vk_instance_count, vk_first_index,
+                             vk_vertex_offset, vk_first_instance);
+}
+void base_t::cmd_blit_image(handle_commandbuffer_t handle_commandbuffer,
+                            handle_image_t         src_image_handle,
+                            VkImageLayout          vk_src_image_layout,
+                            handle_image_t         dst_image_handle,
+                            VkImageLayout          vk_dst_image_layout,
+                            const std::vector<VkImageBlit> &vk_image_blits,
+                            VkFilter                        vk_filter) {
+  horizon_profile();
+  _context->cmd_blit_image(handle_commandbuffer, src_image_handle,
+                           vk_src_image_layout, dst_image_handle,
+                           vk_dst_image_layout, vk_image_blits, vk_filter);
+}
+void base_t::cmd_pipeline_barrier(
+    handle_commandbuffer_t                    handle_commandbuffer,
+    VkPipelineStageFlags                      vk_src_pipeline_stage_flags,
+    VkPipelineStageFlags                      vk_dst_pipeline_stage_flags,
+    VkDependencyFlags                         vk_dependency_flags,
+    const std::vector<VkMemoryBarrier>       &vk_memory_barriers,
+    const std::vector<VkBufferMemoryBarrier> &vk_buffer_memory_barriers,
+    const std::vector<VkImageMemoryBarrier>  &vk_image_memory_barriers) {
+  horizon_profile();
+  _context->cmd_pipeline_barrier(
+      handle_commandbuffer, vk_src_pipeline_stage_flags,
+      vk_dst_pipeline_stage_flags, vk_dependency_flags, vk_memory_barriers,
+      vk_buffer_memory_barriers, vk_image_memory_barriers);
+}
+void base_t::cmd_image_memory_barrier(
+    handle_commandbuffer_t handle_commandbuffer, handle_image_t handle_image,
+    VkImageLayout vk_old_image_layout, VkImageLayout vk_new_image_layout,
+    VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask,
+    VkPipelineStageFlags          vk_src_pipeline_stage,
+    VkPipelineStageFlags          vk_dst_pipeline_stage,
+    const image_resource_range_t &image_resource_range) {
+  horizon_profile();
+  _context->cmd_image_memory_barrier(
+      handle_commandbuffer, handle_image, vk_old_image_layout,
+      vk_new_image_layout, vk_src_access_mask, vk_dst_access_mask,
+      vk_src_pipeline_stage, vk_dst_pipeline_stage, image_resource_range);
+}
+void base_t::cmd_buffer_memory_barrier(
+    handle_commandbuffer_t handle_commandbuffer, handle_buffer_t handle_buffer,
+    VkAccessFlags vk_src_access_mask, VkAccessFlags vk_dst_access_mask,
+    VkPipelineStageFlags           vk_src_pipeline_stage,
+    VkPipelineStageFlags           vk_dst_pipeline_stage,
+    const buffer_resource_range_t &buffer_resource_range) {
+  horizon_profile();
+  _context->cmd_buffer_memory_barrier(
+      handle_commandbuffer, handle_buffer, vk_src_access_mask,
+      vk_dst_access_mask, vk_src_pipeline_stage, vk_dst_pipeline_stage,
+      buffer_resource_range);
+}
+// maybe expose multiple sub regions
+void base_t::cmd_copy_buffer(handle_commandbuffer_t    handle_commandbuffer,
+                             handle_buffer_t           src_handle,
+                             handle_buffer_t           dst_handle,
+                             const buffer_copy_info_t &buffer_copy_info) {
+  horizon_profile();
+  _context->cmd_copy_buffer(handle_commandbuffer, src_handle, dst_handle,
+                            buffer_copy_info);
+}
+// maybe expose multiple sub regions
+void base_t::cmd_copy_buffer_to_image(
+    handle_commandbuffer_t handle_commandbuffer, handle_buffer_t src_buffer,
+    handle_image_t dst_image, VkImageLayout vk_dst_image_layout,
+    const VkBufferImageCopy &vk_buffer_image_copy) {
+  horizon_profile();
+  _context->cmd_copy_buffer_to_image(handle_commandbuffer, src_buffer,
+                                     dst_image, vk_dst_image_layout,
+                                     vk_buffer_image_copy);
+}
+void base_t::cmd_bind_vertex_buffers(
+    handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding,
+    const std::vector<handle_buffer_t> &handle_buffers,
+    const std::vector<VkDeviceSize>    &vk_offsets) {
+  horizon_profile();
+  _context->cmd_bind_vertex_buffers(handle_commandbuffer, first_binding,
+                                    handle_buffers, vk_offsets);
+}
+void base_t::cmd_bind_index_buffer(handle_commandbuffer_t handle_commandbuffer,
+                                   handle_buffer_t        handle_buffer,
+                                   VkDeviceSize           vk_offset,
+                                   VkIndexType            vk_index_type) {
+  horizon_profile();
+  _context->cmd_bind_index_buffer(handle_commandbuffer, handle_buffer,
+                                  vk_offset, vk_index_type);
+}
+// maybe expose the reset query pool and write time step functions
+void base_t::cmd_begin_timer(handle_commandbuffer_t  handle_commandbuffer,
+                             handle_timer_t          handle,
+                             VkPipelineStageFlagBits vk_pipeline_stage_flags) {
+  horizon_profile();
+  _context->cmd_begin_timer(handle_commandbuffer, handle,
+                            vk_pipeline_stage_flags);
+}
+void base_t::cmd_end_timer(handle_commandbuffer_t  handle_commandbuffer,
+                           handle_timer_t          handle,
+                           VkPipelineStageFlagBits vk_pipeline_stage_flags) {
+  horizon_profile();
+  _context->cmd_end_timer(handle_commandbuffer, handle,
+                          vk_pipeline_stage_flags);
 }
 
 }  // namespace gfx

@@ -94,7 +94,10 @@ int main() {
           rendering_attachment.store_op    = VK_ATTACHMENT_STORE_OP_STORE;
           base->cmd_begin_rendering(cmd, {rendering_attachment}, std::nullopt,
                                     vk_rect2d);
-          base->cmd_bind_graphics_pipeline(cmd, p, width, height);
+          auto [viewport, scissor] =
+              gfx::helper::fill_viewport_and_scissor_structs(width, height);
+          base->cmd_set_viewport_and_scissor(cmd, viewport, scissor);
+          base->cmd_bind_pipeline(cmd, p);
           base->cmd_bind_descriptor_sets(cmd, p, 0, {ds});
           base->cmd_draw(cmd, 6, 1, 0, 0);
           base->cmd_end_rendering(cmd);
@@ -110,7 +113,8 @@ int main() {
     //   auto     attachment = base->swapchain_rendering_attachment(
     //       {0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
     //       VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
-    //   base->cmd_begin_rendering(cmd, {attachment}, std::nullopt, render_area);
+    //   base->cmd_begin_rendering(cmd, {attachment}, std::nullopt,
+    //   render_area);
     //
     //   gfx::helper::imgui_newframe();
     //   ImGui::Begin("test");

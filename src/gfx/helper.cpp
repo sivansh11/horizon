@@ -55,6 +55,16 @@ void end_single_use_command_buffer(context_t             &context,
   context.free_commandbuffer(handle);
 }
 
+handle_commandbuffer_t begin_single_use_commandbuffer(base_t &base) {
+  horizon_profile();
+  return begin_single_use_commandbuffer(*base._context, base._command_pool);
+}
+void end_single_use_command_buffer(base_t                &base,
+                                   handle_commandbuffer_t handle) {
+  horizon_profile();
+  end_single_use_command_buffer(*base._context, handle);
+}
+
 VkImageAspectFlags image_aspect_from_format(VkFormat vk_format) {
   horizon_profile();
   static std::set<VkFormat> depth_formats = {
@@ -312,6 +322,29 @@ void cmd_generate_image_mip_maps(context_t             &context,
                                {vk_image_memory_barrier});
 }
 
+void cmd_transition_image_layout(base_t                &base,
+                                 handle_commandbuffer_t handle_commandbuffer,
+                                 handle_image_t         handle,
+                                 VkImageLayout          vk_old_image_layout,
+                                 VkImageLayout          vk_new_image_layout,
+                                 uint32_t               base_mip_level,
+                                 uint32_t               level_count) {
+  return cmd_transition_image_layout(
+      *base._context, handle_commandbuffer, handle, vk_old_image_layout,
+      vk_new_image_layout, base_mip_level, level_count);
+}
+void cmd_generate_image_mip_maps(base_t                &base,
+                                 handle_commandbuffer_t handle_commandbuffer,
+                                 handle_image_t         handle_image,
+                                 VkImageLayout          vk_image_layout_old,
+                                 VkImageLayout          vk_image_layout_new,
+                                 VkFilter               vk_filter) {
+  horizon_profile();
+  cmd_generate_image_mip_maps(*base._context, handle_commandbuffer,
+                              handle_image, vk_image_layout_old,
+                              vk_image_layout_new, vk_filter);
+}
+
 handle_image_t load_image_from_path_instant(
     context_t &context, handle_command_pool_t handle_command_pool,
     const std::filesystem::path &path, VkFormat vk_format) {
@@ -383,6 +416,14 @@ handle_image_t load_image_from_path_instant(
   return image;
 }
 
+handle_image_t load_image_from_path_instant(base_t                      &base,
+                                            const std::filesystem::path &path,
+                                            VkFormat vk_format) {
+  horizon_profile();
+  return load_image_from_path_instant(*base._context, base._command_pool, path,
+                                      vk_format);
+}
+
 handle_buffer_t create_buffer_staged(context_t            &context,
                                      handle_command_pool_t handle_command_pool,
                                      config_buffer_t config, const void *data,
@@ -413,6 +454,24 @@ handle_buffer_t create_buffer_staged(context_t            &context,
   context.destroy_buffer(staging_buffer);
 
   return buffer;
+}
+
+handle_buffer_t create_buffer_staged(base_t &base, config_buffer_t config,
+                                     const void *data, size_t size) {
+  horizon_profile();
+  return create_buffer_staged(*base._context, base._command_pool, config, data,
+                              size);
+}
+
+VkFormat image_format(context_t &context, handle_image_t handle) {
+  horizon_profile();
+  internal::image_t &image = context.get_image(handle);
+  return image.config.vk_format;
+}
+
+VkFormat image_format(base_t &base, handle_image_t handle) {
+  horizon_profile();
+  return image_format(*base._context, handle);
 }
 
 #ifdef HORIZON_INCLUDE_IMGUI
@@ -502,6 +561,22 @@ void imgui_endframe(context_t                  &context,
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                   context.get_commandbuffer(commandbuffer));
 }
+
+handle_descriptor_set_layout_t create_imgui_descriptor_set_layout(
+    context_t &context) {
+  horizon_profile();
+  gfx::config_descriptor_set_layout_t cdsl{};
+  cdsl.add_layout_binding(0,  //
+                          VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                          VK_SHADER_STAGE_FRAGMENT_BIT);
+  cdsl.use_bindless = false;
+  return context.create_descriptor_set_layout(cdsl);
+}
+handle_descriptor_set_layout_t create_imgui_descriptor_set_layout(
+    base_t &base) {
+  horizon_profile();
+  return create_imgui_descriptor_set_layout(*base._context);
+}
 #endif
 
 gfx::handle_shader_t create_slang_shader(context_t                   &context,
@@ -515,6 +590,13 @@ gfx::handle_shader_t create_slang_shader(context_t                   &context,
   cs.type         = type;
   cs.language     = shader_language_t::e_slang;
   return context.create_shader(cs);
+}
+
+gfx::handle_shader_t create_slang_shader(base_t                      &base,
+                                         const std::filesystem::path &file_path,
+                                         shader_type_t                type) {
+  horizon_profile();
+  return create_slang_shader(*base._context, file_path, type);
 }
 
 }  // namespace helper
