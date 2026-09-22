@@ -315,6 +315,7 @@ void cmd_generate_image_mip_maps(context_t             &context,
 handle_image_t load_image_from_path_instant(
     context_t &context, handle_command_pool_t handle_command_pool,
     const std::filesystem::path &path, VkFormat vk_format) {
+  horizon_profile();
   int width, height, channels;
   stbi_set_flip_vertically_on_load(true);
   stbi_uc *pixels = stbi_load(path.string().c_str(), &width, &height, &channels,
@@ -386,6 +387,7 @@ handle_buffer_t create_buffer_staged(context_t            &context,
                                      handle_command_pool_t handle_command_pool,
                                      config_buffer_t config, const void *data,
                                      size_t size) {
+  horizon_profile();
   horizon_assert(size <= config.vk_size, "copying more than allocated");
 
   config.vk_buffer_usage_flags |= VK_BUFFER_USAGE_TRANSFER_DST_BIT;
@@ -415,6 +417,7 @@ handle_buffer_t create_buffer_staged(context_t            &context,
 
 #ifdef HORIZON_INCLUDE_IMGUI
 static void checkVkResult(VkResult error) {
+  horizon_profile();
   if (error == 0) return;
   horizon_error("imgui error: {}", uint64_t(error));
   if (error < 0) abort();
@@ -479,12 +482,14 @@ void imgui_init(core::window_t &window, context_t &context,
 }
 
 void imgui_shutdown() {
+  horizon_profile();
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
 }
 
 void imgui_newframe() {
+  horizon_profile();
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
   ImGui::NewFrame();
@@ -492,6 +497,7 @@ void imgui_newframe() {
 
 void imgui_endframe(context_t                  &context,
                     gfx::handle_commandbuffer_t commandbuffer) {
+  horizon_profile();
   ImGui::Render();
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                   context.get_commandbuffer(commandbuffer));
@@ -501,6 +507,7 @@ void imgui_endframe(context_t                  &context,
 gfx::handle_shader_t create_slang_shader(context_t                   &context,
                                          const std::filesystem::path &file_path,
                                          shader_type_t                type) {
+  horizon_profile();
   config_shader_t cs{};
   cs.code_or_path = file_path.string();
   cs.is_code      = false;
