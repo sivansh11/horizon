@@ -167,14 +167,8 @@ void base_t::_destroy_present_semaphores() {
 
 void base_t::begin_swapchain_renderpass() {
   horizon_profile();
-  handle_commandbuffer_t cbuf = _commandbuffers[_current_frame];
-  _context->cmd_image_memory_barrier(
-      cbuf, _context->get_swapchain_images(_swapchain)[_next_image],
-      VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, 0,
-      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT);
-  auto rendering_attachment = swapchain_rendering_attachment(
+  handle_commandbuffer_t cbuf                 = _commandbuffers[_current_frame];
+  auto                   rendering_attachment = swapchain_rendering_attachment(
       {0, 0, 0, 0}, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
       VK_ATTACHMENT_LOAD_OP_CLEAR, VK_ATTACHMENT_STORE_OP_STORE);
   auto [width, height] = _window->dimensions();
@@ -188,12 +182,6 @@ void base_t::end_swapchain_renderpass() {
   horizon_profile();
   handle_commandbuffer_t cbuf = _commandbuffers[_current_frame];
   _context->cmd_end_rendering(cbuf);
-  _context->cmd_image_memory_barrier(
-      cbuf, _context->get_swapchain_images(_swapchain)[_next_image],
-      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-      VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT, 0,
-      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-      VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 }
 
 handle_managed_buffer_t base_t::create_buffer(
