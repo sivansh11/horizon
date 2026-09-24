@@ -81,10 +81,12 @@ VkFormat image_format(base_t &base, handle_image_t handle);
 // TODO: take target image format
 void imgui_init(core::window_t &window, context_t &context,
                 handle_swapchain_t handle_swapchain, VkFormat vk_color_format);
+void imgui_init(base_t &base, VkFormat vk_color_format);
 void imgui_shutdown();
 void imgui_newframe();
 void imgui_endframe(context_t                  &context,
                     gfx::handle_commandbuffer_t commandbuffer);
+void imgui_endframe(base_t &base, gfx::handle_commandbuffer_t commandbuffer);
 handle_descriptor_set_layout_t create_imgui_descriptor_set_layout(
     context_t &context);
 handle_descriptor_set_layout_t create_imgui_descriptor_set_layout(base_t &base);

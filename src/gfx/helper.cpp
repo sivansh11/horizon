@@ -540,6 +540,11 @@ void imgui_init(core::window_t &window, context_t &context,
   // ImGui_ImplVulkan_CreateFontsTexture();
 }
 
+void imgui_init(base_t &base, VkFormat vk_color_format) {
+  horizon_profile();
+  imgui_init(*base._window, *base._context, base._swapchain, vk_color_format);
+}
+
 void imgui_shutdown() {
   horizon_profile();
   ImGui_ImplVulkan_Shutdown();
@@ -560,6 +565,11 @@ void imgui_endframe(context_t                  &context,
   ImGui::Render();
   ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(),
                                   context.get_commandbuffer(commandbuffer));
+}
+
+void imgui_endframe(base_t &base, gfx::handle_commandbuffer_t commandbuffer) {
+  horizon_profile();
+  imgui_endframe(*base._context, commandbuffer);
 }
 
 handle_descriptor_set_layout_t create_imgui_descriptor_set_layout(
