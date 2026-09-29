@@ -362,7 +362,7 @@ handle_descriptor_set_t base_t::descriptor_set(
 }
 
 update_managed_descriptor_set_t<base_t::MAX_FRAMES_IN_FLIGHT>
-base_t::update_managed_descriptor_set(handle_managed_descriptor_set_t handle) {
+base_t::update_descriptor_set(handle_managed_descriptor_set_t handle) {
   horizon_profile();
   return {*this, handle};
 }

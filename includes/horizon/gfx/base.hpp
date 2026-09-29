@@ -128,8 +128,8 @@ struct base_t {
   void free_descriptor_set(handle_managed_descriptor_set_t handle);
   handle_descriptor_set_t descriptor_set(
       handle_managed_descriptor_set_t handle);
-  update_managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT>
-  update_managed_descriptor_set(handle_managed_descriptor_set_t handle);
+  update_managed_descriptor_set_t<MAX_FRAMES_IN_FLIGHT> update_descriptor_set(
+      handle_managed_descriptor_set_t handle);
   handle_descriptor_set_t allocate_descriptor_set(
       const config_descriptor_set_t &config);
   void                    free_descriptor_set(handle_descriptor_set_t handle);
