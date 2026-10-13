@@ -505,8 +505,9 @@ void context_t::create_device() {
       VkPhysicalDeviceDynamicRenderingFeaturesKHR>(
       vk_physical_device_dynamic_rendering_features);
   VkPhysicalDeviceFeatures vk_physical_device_features{
-      .fillModeNonSolid = VK_TRUE,
-      .shaderInt64      = VK_TRUE,
+      .fillModeNonSolid         = VK_TRUE,
+      .fragmentStoresAndAtomics = VK_TRUE,
+      .shaderInt64              = VK_TRUE,
   };
   vkb_physical_device_selector.set_required_features(
       vk_physical_device_features);
