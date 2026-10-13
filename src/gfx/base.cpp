@@ -932,6 +932,16 @@ void base_t::cmd_copy_buffer_to_image(
                                      dst_image, vk_dst_image_layout,
                                      vk_buffer_image_copy);
 }
+// maybe expose multiple sub regions
+void base_t::cmd_copy_image_to_buffer(
+    handle_commandbuffer_t handle_commandbuffer, handle_image_t src_image,
+    handle_buffer_t dst_buffer, VkImageLayout vk_src_image_layout,
+    const VkBufferImageCopy &vk_buffer_image_copy) {
+  horizon_profile();
+  _context->cmd_copy_image_to_buffer(handle_commandbuffer, src_image,
+                                     dst_buffer, vk_src_image_layout,
+                                     vk_buffer_image_copy);
+}
 void base_t::cmd_bind_vertex_buffers(
     handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding,
     const std::vector<handle_buffer_t> &handle_buffers,

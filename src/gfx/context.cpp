@@ -2517,6 +2517,24 @@ void context_t::cmd_copy_buffer_to_image(
                          vk_dst_image_layout, 1, &vk_buffer_image_copy);
 }
 
+void context_t::cmd_copy_image_to_buffer(
+    handle_commandbuffer_t handle_commandbuffer,
+    handle_image_t src_handle_image, handle_buffer_t dst_handle_buffer,
+    VkImageLayout            vk_src_image_layout,
+    const VkBufferImageCopy &vk_buffer_image_copy) {
+  horizon_profile();
+  internal::commandbuffer_t &commandbuffer =
+      utils::assert_and_get_data<internal::commandbuffer_t>(
+          handle_commandbuffer, _commandbuffers);
+  internal::image_t &src_image =
+      utils::assert_and_get_data<internal::image_t>(src_handle_image, _images);
+  internal::buffer_t &dst_buffer =
+      utils::assert_and_get_data<internal::buffer_t>(dst_handle_buffer,
+                                                     _buffers);
+  vkCmdCopyImageToBuffer(commandbuffer, src_image, vk_src_image_layout,
+                         dst_buffer, 1, &vk_buffer_image_copy);
+}
+
 void context_t::cmd_bind_vertex_buffers(
     handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding,
     const std::vector<handle_buffer_t> &handle_buffers,

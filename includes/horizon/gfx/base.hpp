@@ -246,6 +246,12 @@ struct base_t {
                                 handle_image_t           dst_image,
                                 VkImageLayout            vk_dst_image_layout,
                                 const VkBufferImageCopy &vk_buffer_image_copy);
+  // maybe expose multiple sub regions
+  void cmd_copy_image_to_buffer(handle_commandbuffer_t   handle_commandbuffer,
+                                handle_image_t           src_image,
+                                handle_buffer_t          dst_buffer,
+                                VkImageLayout            vk_src_image_layout,
+                                const VkBufferImageCopy &vk_buffer_image_copy);
   void cmd_bind_vertex_buffers(
       handle_commandbuffer_t handle_commandbuffer, uint32_t first_binding,
       const std::vector<handle_buffer_t> &handle_buffers,
